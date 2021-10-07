@@ -1,0 +1,37 @@
+{
+    "CommandsAliases": {
+        "help":"help",
+
+        "status":"status",
+
+        "changeprefix":"changePrefix",
+        "prefix":"changePrefix"
+    },
+
+    "Commands": {
+        "status": {
+            "functionName": "getBotStatus",
+            "syntax": "Insert Syntax Here",
+            "description": "Insert Description Here",
+            "argumentsCount": 0,
+            "mustHaveArguments" : false
+        },
+
+        "help": {
+            "functionName": "getBotStatus",
+            "syntax": "Insert Syntax Here",
+            "description": "Insert Description Here",
+            "argumentsCount": 1,
+            "mustHaveArguments" : false
+        },
+
+        "prefix": {
+            "functionName": "setServerPrefix",
+            "syntax": "`<prefix | changeprefix> <new prefix>`",
+            "description": "Changes the prefix for this bot.",
+            "argumentsCount": 1,
+            "mustHaveArguments" : true
+        }
+    }
+
+}
