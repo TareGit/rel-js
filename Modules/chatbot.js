@@ -12,10 +12,9 @@ class ChatBot {
         this.sessionId = sessionId;
         this.bot = bot;
         this.lastContext;
-
     }
 
-    processIntents(message) {
+    async processIntents(message) {
         try {
 
             const messageContent = message.content;
@@ -52,6 +51,7 @@ class ChatBot {
                 return message.reply(response.queryResult.fulfillmentText);
             });
         } catch (error) {
+            console.log(error);
         }
 
     }
@@ -67,27 +67,62 @@ module.exports.ChatBotManager = class ChatBotManager {
 
     }
 
-    processIntents(message) {
+    createTimerForInstance(self, ID) {
+        let data = this.childInstances;
+        return setTimeout(function () {
+            const Id = ID;
+            try {
+                data.delete(ID);
+                console.log("Deleted Instance For ID : " + Id);
+            } catch (error) {
+                console.log(error);
+            }
+
+        }, 1.2e+6);
+    }
+
+    async processIntents(message) {
+
+        let Id = 0;
 
         if (message.guild) {
 
-            if (this.childInstances.has(message.guild.id)) {
-                return this.childInstances.get(message.guild.id).processIntents(message);
+            Id = message.guild.id;
+        }
+        else {
+            Id = message.author.id;
+        }
+
+        if (this.childInstances.has(Id)) {
+
+            try {
+                
+                clearTimeout(this.childInstances.get(Id)[1]);
+
+                this.childInstances.get(Id)[1] = this.createTimerForInstance(Id);
+
+                console.log("Updated Chat bot instance for ID : " + Id);
+
+            } catch (error) {
+                console.log(error);
             }
-            else {
-                this.childInstances.set(message.guild.id, new ChatBot(this.Project_ID, this.bot, message.guild.id));
-                return this.childInstances.get(message.guild.id).processIntents(message);
-            }
+
+            return await this.childInstances.get(Id)[0].processIntents(message);
+
         }
         else {
 
-            if (this.childInstances.has(message.author.id)) {
-                return this.childInstances.get(message.author.id).processIntents(message);
+            try {
+                this.childInstances.set(Id,
+                    [new ChatBot(this.Project_ID, this.bot, Id), this.createTimerForInstance(Id)]
+                );
+            } catch (error) {
+                console.log(error);
             }
-            else {
-                this.childInstances.set(message.author.id, new ChatBot(this.Project_ID, this.bot, message.author.id));
-                return this.childInstances.get(message.author.id).processIntents(message);
-            }
+
+            console.log("Created New Chat bot instance for ID : " + Id);
+
+            return await this.childInstances.get(Id)[0].processIntents(message);
         }
     }
 }

@@ -1,34 +1,91 @@
 {
-    "CommandsAliases": {
-        "help":"help",
-
-        "status":"status",
-
-        "changeprefix":"changePrefix",
-        "prefix":"changePrefix"
-    },
-
     "Commands": {
         "status": {
+            "aliases":[],
             "functionName": "getBotStatus",
-            "syntax": "Insert Syntax Here",
-            "description": "Insert Description Here",
+            "category": "Main",
+            "syntax": "<status>",
+            "description": "Get general information on the bot.",
             "argumentsCount": 0,
             "mustHaveArguments" : false
         },
 
         "help": {
-            "functionName": "getBotStatus",
-            "syntax": "Insert Syntax Here",
-            "description": "Insert Description Here",
+            "aliases":[],
+            "functionName": "help",
+            "category": "Main",
+            "syntax": "<help> <specific command>",
+            "description": "Get help using the bot.",
             "argumentsCount": 1,
             "mustHaveArguments" : false
         },
 
         "prefix": {
+            "aliases":["changeprefix","setprefix"],
             "functionName": "setServerPrefix",
+            "category": "Music",
             "syntax": "`<prefix | changeprefix> <new prefix>`",
             "description": "Changes the prefix for this bot.",
+            "argumentsCount": 1,
+            "mustHaveArguments" : true
+        },
+
+        "play": {
+            "aliases":["p"],
+            "functionName": "play",
+            "category": "Music",
+            "syntax": "`<play | p> <song title | spotify track url | youtube url>`",
+            "description": "Plays the given Link/Song",
+            "argumentsCount": 1,
+            "mustHaveArguments" : true
+        },
+
+        "pause": {
+            "aliases":[],
+            "functionName": "pause",
+            "category": "Music",
+            "syntax": "`<pause>`",
+            "description": "Pauses the current Song.",
+            "argumentsCount": 0,
+            "mustHaveArguments" : false
+        },
+
+        "resume": {
+            "aliases":[],
+            "functionName": "resume",
+            "category": "Music",
+            "syntax": "`<resume>`",
+            "description": "Resumes the current song",
+            "argumentsCount": 0,
+            "mustHaveArguments" : false
+        },
+
+        "skip": {
+            "aliases":[],
+            "functionName": "skip",
+            "category": "Music",
+            "syntax": "`<skip>`",
+            "description": "Skip's the current song",
+            "argumentsCount": 0,
+            "mustHaveArguments" : false
+        },
+
+        "stop": {
+            "aliases":["disconnect"],
+            "functionName": "disconnect",
+            "category": "Music",
+            "syntax": "`<stop | disconnect>`",
+            "description": "Stops the current song and disconnects the bot",
+            "argumentsCount": 0,
+            "mustHaveArguments" : false
+        },
+
+        "volume": {
+            "aliases":["setvolume"],
+            "functionName": "setVolume",
+            "category": "Music",
+            "syntax": "`<volume | setvolume> <new volume 1-100>`",
+            "description": "Changes the volume of the current song",
             "argumentsCount": 1,
             "mustHaveArguments" : true
         }
