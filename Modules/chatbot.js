@@ -45,11 +45,20 @@ class ChatBot {
                 };
             }
 
-            return sessionClient.detectIntent(request).then(responses => {
-                const response = responses[0];
+            let responses = null;
+            try {
+                responses = await sessionClient.detectIntent(request);
+            } catch (error) {
+                console.log(error);
+            }
+
+            if(responses)
+            {
+                const response = responses[0]
                 this.lastContext = response.queryResult.outputContexts;
                 return message.reply(response.queryResult.fulfillmentText);
-            });
+            }
+
         } catch (error) {
             console.log(error);
         }
@@ -73,7 +82,6 @@ module.exports.ChatBotManager = class ChatBotManager {
             const Id = ID;
             try {
                 data.delete(ID);
-                console.log("Deleted Instance For ID : " + Id);
             } catch (error) {
                 console.log(error);
             }
@@ -101,8 +109,6 @@ module.exports.ChatBotManager = class ChatBotManager {
 
                 this.childInstances.get(Id)[1] = this.createTimerForInstance(Id);
 
-                console.log("Updated Chat bot instance for ID : " + Id);
-
             } catch (error) {
                 console.log(error);
             }
@@ -119,9 +125,6 @@ module.exports.ChatBotManager = class ChatBotManager {
             } catch (error) {
                 console.log(error);
             }
-
-            console.log("Created New Chat bot instance for ID : " + Id);
-
             return await this.childInstances.get(Id)[0].processIntents(message);
         }
     }
