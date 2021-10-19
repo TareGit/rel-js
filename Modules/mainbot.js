@@ -51,7 +51,7 @@ module.exports.mainBot = class mainBot {
 
             syntax = `\`${syntax}\``;
 
-                helpEmbed.addField(key, `${config['Commands'][key]['description']} + \n Syntax: ${syntax} \n`, false);
+            helpEmbed.addField(key, `${config['Commands'][key]['description']} + \n Syntax: ${syntax} \n`, false);
         });
         helpEmbed.setTimestamp()
 
@@ -81,6 +81,35 @@ module.exports.mainBot = class mainBot {
         Embed.addField(`RAM Usage`, `${parseInt((memory.freeMemMb / memory.totalMemMb) * 100)}%`, false);
 
         await command.reply({ embeds: [Embed] });
+
+    }
+
+    async delete(command) {
+
+        const ctx = command.ctx;
+        const ammount = command.isInteraction ? ctx.options.getInteger('ammount') : parseInt(command.getArgs()[0]);
+        if (!ctx.guild) return await ctx.reply("you need to be in a server to use this command");
+        if (ammount == 0 || ammount == NaN || ammount > 100 || ammount < 1) return await ctx.reply("Ammount must be a value between 1 and 100");
+
+        try {
+            const deletedMsgs = await ctx.channel.bulkDelete(ammount);
+        } catch (error) {
+            console.log(error);
+        }
+        
+
+        const Embed = new MessageEmbed();
+        Embed.setColor('#00FF00');
+        Embed.setTitle('Delete');
+        Embed.setURL('https://oyintare.dev/');
+        Embed.setDescription(`Deleted ${deletedMsgs.size} messages `);
+
+        const message = await ctx.channel.send({ embeds: [Embed] });
+        if (message) {
+            setTimeout(() => message.delete(), 2500);
+        }
+
+        return;
 
     }
 

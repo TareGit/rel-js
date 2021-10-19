@@ -18,6 +18,19 @@
                 }
             }
         },
+        "delete": {
+            "aliases": [],
+            "functionName": "delete",
+            "category": "Main",
+            "description": "Deletes messages in a channel",
+            "arguments": {
+                "ammount": {
+                    "description": "The ammount of messages to delete, 100 max.",
+                    "type": "int",
+                    "required": true
+                }
+            }
+        },
         "play": {
             "functionName": "play",
             "category": "Music",

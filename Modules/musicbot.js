@@ -4,7 +4,7 @@ const spotify = require('spotify-url-info');
 const { MessageEmbed, MessageActionRow, MessageButton } = require('discord.js');
 
 let botClient = undefined;
-
+const messageDeleteDelay = 2500;
 module.exports.musicManager = class musicManager {
 
     constructor(bot) {
@@ -25,16 +25,16 @@ module.exports.musicManager = class musicManager {
                     await this.skip(dummyObject);
                     break;
 
-                case 'pause':
-                    await this.pause(dummyObject);
-                    break;
-
-                case 'play':
-
+                case 'toggle':
+                    await this.pauseToggle(dummyObject);
                     break;
 
                 case 'stop':
+                    await this.pause(dummyObject);
+                    break;
 
+                case 'queue':
+                    await this.showQueue(dummyObject);
                     break;
             }
 
@@ -61,7 +61,10 @@ module.exports.musicManager = class musicManager {
         Embed.setTitle('Music | Notice');
         Embed.setURL('https://oyintare.dev/');
         Embed.setDescription(message);
-        await command.reply({ embeds: [Embed] });
+        const awaitedmessage = await command.reply({ embeds: [Embed] });
+        if (awaitedmessage) {
+            setTimeout(() => awaitedmessage.delete(), messageDeleteDelay);
+        }
     }
 
     async deletePlayer(Id, Queues) {
@@ -92,7 +95,6 @@ module.exports.musicManager = class musicManager {
 
                 if (messageRef) {
                     await messageRef.delete();
-                    console.log('Deleted lasy');
                 }
 
                 Queue.nowPlayingMessage.channel = undefined;
@@ -135,20 +137,24 @@ module.exports.musicManager = class musicManager {
             Embed.setURL('https://oyintare.dev/');
             Embed.setDescription(`**Now Playing** \`${song.title}\` \n**Requested By** ${song.requester} \n **Volume** : **${parseInt(Queue.volume * 100)}%**`);
             const nowButtons = new MessageActionRow()
-                .addComponents(
-                    new MessageButton()
-                        .setCustomId('music-skip')
-                        .setLabel('Skip')
-                        .setStyle('PRIMARY'),
-                    new MessageButton()
-                        .setCustomId('music-pause')
-                        .setLabel('Pause')
-                        .setStyle('PRIMARY'),
-                    new MessageButton()
-                        .setCustomId('music-stop')
-                        .setLabel('Stop')
-                        .setStyle('PRIMARY')
-                );
+            .addComponents(
+                new MessageButton()
+                    .setCustomId('music-skip')
+                    .setLabel('Skip')
+                    .setStyle('PRIMARY'),
+                new MessageButton()
+                    .setCustomId('music-toggle')
+                    .setLabel(`Pause/Resume`)
+                    .setStyle(`SUCCESS`),
+                new MessageButton()
+                    .setCustomId('music-stop')
+                    .setLabel('Stop')
+                    .setStyle('DANGER'),
+                new MessageButton()
+                    .setCustomId('music-queue')
+                    .setLabel('Queue')
+                    .setStyle('SECONDARY'),
+            );
 
             if (Queue.nowPlayingMessage.channel != undefined) {
                 let messageRef = undefined;
@@ -160,7 +166,6 @@ module.exports.musicManager = class musicManager {
 
                 if (messageRef) {
                     await messageRef.delete();
-                    console.log('Deleted lasy');
                 }
 
                 Queue.nowPlayingMessage.channel = undefined;
@@ -321,10 +326,41 @@ module.exports.musicManager = class musicManager {
             Embed.setTitle('Music | Queue');
             Embed.setURL('https://oyintare.dev/');
             Embed.setDescription(`${newSong.title} ** Added to Queue** \n**Requested By** ${newSong.requester}`)
-            await command.reply({ embeds: [Embed] });
+            const message = await command.reply({ embeds: [Embed] });
+            if (message) {
+                setTimeout(() => message.delete(), messageDeleteDelay);
+            }
         }
     }
 
+
+    async pauseToggle(command) {
+        const ctx = command.ctx;
+        if (!ctx.guild || !ctx.member.voice.channel) return await this.notice(command, "You need to be in a voice channel to use this command");
+        const voiceChannel = ctx.member.voice.channel;
+        const guildId = ctx.guild.id;
+
+        let Queue = this.Queues.get(guildId);
+
+        if (!Queue) {
+            return
+        }
+
+        if(Queue.player.state.status == Voice.AudioPlayerStatus.Idle | Queue.player.state.status == Voice.AudioPlayerStatus.Buffering)
+        {
+            return await this.notice(command, "Nothing is playing");
+        }
+
+        if (Queue.player.state.status == Voice.AudioPlayerStatus.Paused) {
+            await this.resume(command);
+        }
+        else {
+            console.log("Pausing");
+            await this.pause(command);
+        }
+
+
+    }
 
     async pause(command) {
 
@@ -339,17 +375,18 @@ module.exports.musicManager = class musicManager {
             return
         }
 
-
-
         if (Queue.player.pause()) {
             const Embed = new MessageEmbed();
             Embed.setColor('#00FF00');
             Embed.setTitle('Music | Paused');
             Embed.setURL('https://oyintare.dev/');
-            Embed.setDescription(`\`${ctx.member}\` paused the music`);
-            await command.reply({ embeds: [Embed] });
-        }
+            Embed.setDescription(`${ctx.member} paused the music`);
+            const message = await command.reply({ embeds: [Embed] });
+            if (message) {
+                setTimeout(() => message.delete(), messageDeleteDelay);
+            }
 
+        }
 
     }
 
@@ -373,7 +410,10 @@ module.exports.musicManager = class musicManager {
         Embed.setTitle('Music | Skip');
         Embed.setURL('https://oyintare.dev/');
         Embed.setDescription(`${ctx.member} skipped the song`);
-        await command.reply({ embeds: [Embed] });
+        const message = await command.reply({ embeds: [Embed] });
+        if (message) {
+            setTimeout(() => message.delete(), messageDeleteDelay);
+        }
     }
 
     async resume(command) {
@@ -395,7 +435,10 @@ module.exports.musicManager = class musicManager {
             Embed.setTitle('Music | Resumed');
             Embed.setURL('https://oyintare.dev/');
             Embed.setDescription(`${ctx.member} resumed the music`);
-            await command.reply({ embeds: [Embed] });
+            const message = await command.reply({ embeds: [Embed] });
+            if (message) {
+                setTimeout(() => message.delete(), messageDeleteDelay);
+            }
         }
 
 
@@ -474,7 +517,47 @@ module.exports.musicManager = class musicManager {
         Embed.setTitle('Music | Volume');
         Embed.setURL('https://oyintare.dev/');
         Embed.setDescription(`Volume changed to  **${parseInt(Queue.volume * 100)}%**`);
-        await command.reply({ embeds: [Embed] });
+        const message = await command.reply({ embeds: [Embed] });
+        if (message) {
+            setTimeout(() => message.delete(), messageDeleteDelay);
+        }
+    }
+
+    async modifyVolume(command, modifier) {
+
+        const ctx = command.ctx;
+        if (!ctx.guild || !ctx.member.voice.channel) return await this.notice(command, "You need to be in a voice channel to use this command");
+        const voiceChannel = ctx.member.voice.channel;
+        const guildId = ctx.guild.id;
+
+        let Queue = this.Queues.get(guildId);
+
+        if (!Queue) {
+            await this.notice(command, "There's no Queue");
+            return
+        }
+
+        let volInt = NaN;
+
+        const clamp = (num, min, max) => Math.min(Math.max(num, min), max);
+
+        let vol = clamp((Queue.volume * 100) + modifier, 1, 100);
+
+        Queue.volume = vol / 100;
+        if (Queue.currentResource) {
+            Queue.currentResource.volume.setVolume(Queue.volume);
+        }
+
+        const Embed = new MessageEmbed();
+        Embed.setColor('#00FF00');
+        Embed.setTitle('Music | Volume');
+        Embed.setURL('https://oyintare.dev/');
+        Embed.setDescription(`Volume changed to  **${parseInt(Queue.volume * 100)}%**`);
+        const message = await command.reply({ embeds: [Embed] });
+        if (message) {
+            setTimeout(() => message.delete(), messageDeleteDelay);
+        }
+
     }
 
     async showQueue(command) {
@@ -503,6 +586,7 @@ module.exports.musicManager = class musicManager {
         }
 
         await command.reply({ embeds: [Embed] });
+        
     }
 
     async showNowPlaying(command) {
@@ -526,13 +610,17 @@ module.exports.musicManager = class musicManager {
                     .setLabel('Skip')
                     .setStyle('PRIMARY'),
                 new MessageButton()
-                    .setCustomId('music-pause')
-                    .setLabel('Pause')
-                    .setStyle('PRIMARY'),
+                    .setCustomId('music-toggle')
+                    .setLabel(`Pause/Resume`)
+                    .setStyle(`SUCCESS`),
                 new MessageButton()
                     .setCustomId('music-stop')
                     .setLabel('Stop')
-                    .setStyle('PRIMARY')
+                    .setStyle('DANGER'),
+                new MessageButton()
+                    .setCustomId('music-queue')
+                    .setLabel('Queue')
+                    .setStyle('SECONDARY'),
             );
 
         const Embed = new MessageEmbed();
@@ -551,7 +639,6 @@ module.exports.musicManager = class musicManager {
 
             if (messageRef) {
                 await messageRef.delete();
-                console.log('Deleted last');
             }
 
             Queue.nowPlayingMessage.channel = undefined;
