@@ -1,7 +1,7 @@
 const play = require('play-dl')
 const Voice = require('@discordjs/voice');
 const spotify = require('spotify-url-info');
-const { MessageEmbed, MessageActionRow, MessageButton } = require('discord.js');
+const { MessageEmbed, MessageActionRow, MessageButton, ReactionUserManager } = require('discord.js');
 
 let botClient = undefined;
 const messageDeleteDelay = 2500;
@@ -15,26 +15,31 @@ module.exports.musicManager = class musicManager {
             let dummyObject = new Object();
             dummyObject.ctx = interaction;
             dummyObject.reply = async function (reply) {
-                return await interaction.editReply(reply);
+                if(interaction.deferred)
+                {
+                    return await interaction.editReply(reply);
+                }
+
+                return await interaction.reply(reply);
             };
 
             const action = interaction.customId.split('-')[1];
 
             switch (action) {
                 case 'skip':
-                    await this.skip(dummyObject);
+                    this.skip(dummyObject);
                     break;
 
                 case 'toggle':
-                    await this.pauseToggle(dummyObject);
+                    this.pauseToggle(dummyObject);
                     break;
 
                 case 'stop':
-                    await this.pause(dummyObject);
+                    this.disconnect(dummyObject);
                     break;
 
                 case 'queue':
-                    await this.showQueue(dummyObject);
+                    this.showQueue(dummyObject);
                     break;
             }
 
@@ -46,10 +51,8 @@ module.exports.musicManager = class musicManager {
                 return;
             }
 
-            interaction.deferReply().then(result => {
-                this.asyncInteractionCreate(interaction).then(result => {
+            this.asyncInteractionCreate(interaction).then(result => {
 
-                });
             });
 
         });
@@ -61,9 +64,13 @@ module.exports.musicManager = class musicManager {
         Embed.setTitle('Music | Notice');
         Embed.setURL('https://oyintare.dev/');
         Embed.setDescription(message);
-        const awaitedmessage = await command.reply({ embeds: [Embed] });
-        if (awaitedmessage) {
-            setTimeout(() => awaitedmessage.delete(), messageDeleteDelay);
+
+        try {
+            command.reply({ embeds: [Embed] }).then(function (message) {
+                if (message) setTimeout(() => message.delete(), messageDeleteDelay);
+            });
+        } catch (error) {
+            console.log(error);
         }
     }
 
@@ -84,59 +91,92 @@ module.exports.musicManager = class musicManager {
     async playSongInternal(Queue) {
         clearTimeout(Queue.timeout);
         Queue.currentResource = undefined;
+
         if (Queue.songs.length == 0) {
+
+            // delete the now playing message
             if (Queue.nowPlayingMessage.channel != undefined) {
                 let messageRef = undefined;
                 try {
+
                     messageRef = await Queue.nowPlayingMessage.channel.messages.fetch(Queue.nowPlayingMessage.messageId);
                 } catch (error) {
+
                     console.log('error');
                 }
 
-                if (messageRef) {
-                    await messageRef.delete();
-                }
+                if (messageRef) await messageRef.delete();
 
                 Queue.nowPlayingMessage.channel = undefined;
                 Queue.nowPlayingMessage.messageId = undefined;
             }
+
             this.refreshTimeout(Queue);
+
+            // prepare for next startup
+            Queue.isGettingReadyToPlay = false;
+
             return;
         }
 
-        if (Queue.timeout != undefined) {
-
-            Queue.timeout = undefined;
-        }
+        // clear the previous timeout
+        if (Queue.timeout != undefined) Queue.timeout = undefined;
 
         const song = Queue.songs[0];
 
         let stream = null;
 
+        const playSongError = async function () {
+            console.log(error);
+            const Embed = new MessageEmbed();
+            Embed.setColor('#0099ff');
+            Embed.setTitle('Music | Notice');
+            Embed.setURL('https://oyintare.dev/');
+            Embed.setDescription("There was an error While your song");
+            Queue.songs.shift();
+            this.playSongInternal(Queue);
+
+            try {
+                Queue.channel.send({ embeds: [Embed] }).then(function (message) {
+                    if (message) setTimeout(() => message.delete(), messageDeleteDelay);
+                });
+            } catch (error) {
+                console.log(error);
+            }
+        }
+
+        let resource = undefined;
         try {
+
             stream = await play.stream(song.url);
-            let resource = Voice.createAudioResource(stream.stream, {
+            resource = Voice.createAudioResource(stream.stream, {
                 inputType: stream.type,
                 inlineVolume: true
             })
+        } catch (error) {
+            return playSongError();
+        }
 
-            resource.song = song;
+        if(resource == undefined) return playSongError();
 
-            Queue.currentResource = resource;
+        resource.song = song;
+        Queue.currentResource = resource;
+        resource.volume.setVolume(Queue.volume);
 
-            resource.volume.setVolume(Queue.volume);
-
+        try {
             Queue.player.play(resource, { seek: 0, volume: Queue.volume });
+        } catch (error) {
+            return playSongError();
+        }
+        Queue.songs.shift();
 
-            Queue.songs.shift();
 
-
-            const Embed = new MessageEmbed();
-            Embed.setColor('#00FF00');
-            Embed.setTitle('Music | Now Playing');
-            Embed.setURL('https://oyintare.dev/');
-            Embed.setDescription(`**Now Playing** \`${song.title}\` \n**Requested By** ${song.requester} \n **Volume** : **${parseInt(Queue.volume * 100)}%**`);
-            const nowButtons = new MessageActionRow()
+        const Embed = new MessageEmbed();
+        Embed.setColor('#00FF00');
+        Embed.setTitle('Music | Now Playing');
+        Embed.setURL('https://oyintare.dev/');
+        Embed.setDescription(`**Now Playing** \`${song.title}\` \n**Requested By** ${song.requester} \n **Volume** : **${parseInt(Queue.volume * 100)}%**`);
+        const nowButtons = new MessageActionRow()
             .addComponents(
                 new MessageButton()
                     .setCustomId('music-skip')
@@ -156,45 +196,43 @@ module.exports.musicManager = class musicManager {
                     .setStyle('SECONDARY'),
             );
 
-            if (Queue.nowPlayingMessage.channel != undefined) {
-                let messageRef = undefined;
-                try {
-                    messageRef = await Queue.nowPlayingMessage.channel.messages.fetch(Queue.nowPlayingMessage.messageId);
-                } catch (error) {
-                    console.log('error');
-                }
 
-                if (messageRef) {
-                    await messageRef.delete();
-                }
 
-                Queue.nowPlayingMessage.channel = undefined;
-                Queue.nowPlayingMessage.messageId = undefined;
+        if (Queue.nowPlayingMessage.channel != undefined) {
+            let messageRef = undefined;
+            try {
+                messageRef = await Queue.nowPlayingMessage.channel.messages.fetch(Queue.nowPlayingMessage.messageId);
+            } catch (error) {
+                console.log(error);
             }
+
+            if (messageRef) {
+                await messageRef.delete();
+            }
+
+            Queue.nowPlayingMessage.channel = undefined;
+            Queue.nowPlayingMessage.messageId = undefined;
+        }
+
+        try {
             const newNowPlaying = await Queue.channel.send({ embeds: [Embed], components: [nowButtons] });
             Queue.nowPlayingMessage.channel = newNowPlaying.channel;
             Queue.nowPlayingMessage.messageId = newNowPlaying.id;
         } catch (error) {
             console.log(error);
-            const Embed = new MessageEmbed();
-            Embed.setColor('#0099ff');
-            Embed.setTitle('Music | Notice');
-            Embed.setURL('https://oyintare.dev/');
-            Embed.setDescription("There was an error While your song");
-            Queue.songs.shift();
-            this.playSongInternal(Queue);
-
-            return await Queue.channel.send({ embeds: [Embed] });
         }
     }
 
     async play(command) {
 
         const ctx = command.ctx;
+
         const url = command.isInteraction ? ctx.options.getString('url') : command.contentOnly;
-        if (!ctx.guild || !ctx.member.voice.channel) return await this.notice(command, "You need to be in a voice channel to use this command");
-        if (url.length == 0) return await this.notice(ctx, "You didn't say what you wanted to play");
-        const voiceChannel = ctx.member.voice.channel;
+
+        if (!ctx.guild || !ctx.member.voice.channel) return this.notice(command, "You need to be in a voice channel to use this command");
+
+        if (url.length == 0) return this.notice(ctx, "You didn't say what you wanted to play");
+
         const guildId = ctx.guild.id;
 
         let newSong = {};
@@ -202,8 +240,7 @@ module.exports.musicManager = class musicManager {
         let check = await play.validate(url);
 
         let details = null;
-
-        console.log(url);
+        
         // Fetch song data
         try {
             if (check == 'yt_video') {
@@ -226,13 +263,14 @@ module.exports.musicManager = class musicManager {
                 details = search[0];
             }
         } catch (error) {
-            return await this.notice(command, "There was an error processing your song");
+            return this.notice(command, `There was an error processing your song ${url}`);
+            console.log(error);
         }
 
         // In case of spotify playlists/albumns
         if (details == null) {
             try {
-                return await this.notice(command, "Only spotify tracks are currently supported");
+                return this.notice(command, "Only spotify tracks are currently supported");
             } catch (error) {
 
             }
@@ -260,7 +298,8 @@ module.exports.musicManager = class musicManager {
                 nowPlayingMessage: {
                     channel: undefined,
                     messageId: undefined,
-                }
+                },
+                isGettingReadyToPlay: false
             }
 
             try {
@@ -271,9 +310,9 @@ module.exports.musicManager = class musicManager {
                     }
                 })
 
+                // handle when the queue goes back to idle
                 Queue.player.on(Voice.AudioPlayerStatus.Idle, () => {
                     this.playSongInternal(Queue);
-
                 });
 
                 const connection = Voice.joinVoiceChannel({
@@ -282,7 +321,7 @@ module.exports.musicManager = class musicManager {
                     adapterCreator: ctx.guild.voiceAdapterCreator
                 });
 
-
+                // handle disconnects
                 connection.on(Voice.VoiceConnectionStatus.Disconnected, async (oldState, newState) => {
                     try {
                         await Promise.race([
@@ -302,61 +341,66 @@ module.exports.musicManager = class musicManager {
                 });
 
                 connection.subscribe(Queue.player);
+                this.Queues.set(guildId, Queue);
             } catch (error) {
                 console.log(error);
-                this.Queues.delete(guildId, this.Queues);
-                return notice(ctx, "You need to be in a voice channel to use this command");
+                return notice(ctx, "There was an error creating the queue");
             }
-
-            this.Queues.set(guildId, Queue);
         }
 
         // add the song to the queue
         Queue.songs.push(newSong);
 
-        if (Queue.currentResource == undefined) {
+        if (Queue.player.state.status == Voice.AudioPlayerStatus.Idle  && !Queue.isGettingReadyToPlay) {
             // start the queue up
-            await command.reply(`Preparing to play ${newSong.title}`);
+            Queue.isGettingReadyToPlay = true;
             await this.playSongInternal(Queue);
-        }
-        else {
-            // notify that its been added
+
+        } else {
+            // notify that its been added because the queue is active
             const Embed = new MessageEmbed();
             Embed.setColor('#0099ff');
             Embed.setTitle('Music | Queue');
             Embed.setURL('https://oyintare.dev/');
             Embed.setDescription(`${newSong.title} ** Added to Queue** \n**Requested By** ${newSong.requester}`)
-            const message = await command.reply({ embeds: [Embed] });
-            if (message) {
-                setTimeout(() => message.delete(), messageDeleteDelay);
+            
+            try {
+                command.reply({ embeds: [Embed] }).then(function (message) {
+                    if (message) setTimeout(() => message.delete(), messageDeleteDelay);
+                });
+            } catch (error) {
+                console.log(error);
             }
+
+
         }
     }
 
 
     async pauseToggle(command) {
         const ctx = command.ctx;
-        if (!ctx.guild || !ctx.member.voice.channel) return await this.notice(command, "You need to be in a voice channel to use this command");
-        const voiceChannel = ctx.member.voice.channel;
+
+        if (!ctx.guild || !ctx.member.voice.channel) return this.notice(command, "You need to be in a voice channel to use this command");
+
         const guildId = ctx.guild.id;
 
         let Queue = this.Queues.get(guildId);
 
-        if (!Queue) {
-            return
-        }
+        if (!Queue) return;
 
-        if(Queue.player.state.status == Voice.AudioPlayerStatus.Idle | Queue.player.state.status == Voice.AudioPlayerStatus.Buffering)
-        {
-            return await this.notice(command, "Nothing is playing");
-        }
+
+        if (Queue.player.state.status == Voice.AudioPlayerStatus.Idle
+            | Queue.player.state.status == Voice.AudioPlayerStatus.Buffering) return this.notice(command, "Nothing is playing");
+
 
         if (Queue.player.state.status == Voice.AudioPlayerStatus.Paused) {
-            await this.resume(command);
+
+            this.resume(command);
         }
         else {
-            console.log("Pausing");
-            await this.pause(command);
+
+            this.pause(command);
+
         }
 
 
@@ -365,27 +409,31 @@ module.exports.musicManager = class musicManager {
     async pause(command) {
 
         const ctx = command.ctx;
-        if (!ctx.guild || !ctx.member.voice.channel) return await this.notice(command, "You need to be in a voice channel to use this command");
-        const voiceChannel = ctx.member.voice.channel;
+
+        if (!ctx.guild || !ctx.member.voice.channel) return this.notice(command, "You need to be in a voice channel to use this command");
+
         const guildId = ctx.guild.id;
 
         let Queue = this.Queues.get(guildId);
 
-        if (!Queue) {
-            return
-        }
+        if (!Queue) return;
+
 
         if (Queue.player.pause()) {
+
             const Embed = new MessageEmbed();
             Embed.setColor('#00FF00');
             Embed.setTitle('Music | Paused');
             Embed.setURL('https://oyintare.dev/');
             Embed.setDescription(`${ctx.member} paused the music`);
-            const message = await command.reply({ embeds: [Embed] });
-            if (message) {
-                setTimeout(() => message.delete(), messageDeleteDelay);
-            }
 
+            try {
+                command.reply({ embeds: [Embed] }).then(function (message) {
+                    if (message) setTimeout(() => message.delete(), messageDeleteDelay);
+                });
+            } catch (error) {
+                console.log(error);
+            }
         }
 
     }
@@ -393,15 +441,14 @@ module.exports.musicManager = class musicManager {
     async skip(command) {
 
         const ctx = command.ctx;
+
         if (!ctx.guild || !ctx.member.voice.channel) return await this.notice(commmand, "You need to be in a voice channel to use this command");
-        const voiceChannel = ctx.member.voice.channel;
+
         const guildId = ctx.guild.id;
 
         let Queue = this.Queues.get(guildId);
 
-        if (!Queue) {
-            return
-        }
+        if (!Queue) return;
 
         Queue.player.stop();
 
@@ -410,35 +457,44 @@ module.exports.musicManager = class musicManager {
         Embed.setTitle('Music | Skip');
         Embed.setURL('https://oyintare.dev/');
         Embed.setDescription(`${ctx.member} skipped the song`);
-        const message = await command.reply({ embeds: [Embed] });
-        if (message) {
-            setTimeout(() => message.delete(), messageDeleteDelay);
+
+        try {
+            command.reply({ embeds: [Embed] }).then(function (message) {
+                if (message) setTimeout(() => message.delete(), messageDeleteDelay);
+            });
+        } catch (error) {
+            console.log(error);
         }
     }
 
     async resume(command) {
 
         const ctx = command.ctx;
-        if (!ctx.guild || !ctx.member.voice.channel) return await this.notice(command, "You need to be in a voice channel to use this command");
-        const voiceChannel = ctx.member.voice.channel;
+
+        if (!ctx.guild || !ctx.member.voice.channel) return this.notice(command, "You need to be in a voice channel to use this command");
+
         const guildId = ctx.guild.id;
 
         let Queue = this.Queues.get(guildId);
 
-        if (!Queue) {
-            return
-        }
+        if (!Queue) return
 
         if (Queue.player.unpause()) {
+
             const Embed = new MessageEmbed();
             Embed.setColor('#00FF00');
             Embed.setTitle('Music | Resumed');
             Embed.setURL('https://oyintare.dev/');
             Embed.setDescription(`${ctx.member} resumed the music`);
-            const message = await command.reply({ embeds: [Embed] });
-            if (message) {
-                setTimeout(() => message.delete(), messageDeleteDelay);
+
+            try {
+                command.reply({ embeds: [Embed] }).then(function (message) {
+                    if (message) setTimeout(() => message.delete(), messageDeleteDelay);
+                });
+            } catch (error) {
+                console.log(error);
             }
+
         }
 
 
@@ -446,23 +502,18 @@ module.exports.musicManager = class musicManager {
 
     async disconnect(command) {
         const ctx = command.ctx;
-        if (!ctx.guild || !ctx.member.voice.channel) return await this.notice(command, "You need to be in a voice channel to use this command");
-        const voiceChannel = ctx.member.voice.channel;
+
+        if (!ctx.guild || !ctx.member.voice.channel) return this.notice(command, "You need to be in a voice channel to use this command");
+
         const guildId = ctx.guild.id;
 
         let Queue = this.Queues.get(guildId);
 
-        if (!Queue) {
-            await this.notice(command, "There's no Queue");
-            return
-        }
+        if (!Queue) return this.notice(command, "Im not even playing anything");
 
-        try {
+        if (Queue.timeout) {
             clearTimeout(Queue.timeout);
             this.deletePlayer(Queue.Id, this.Queues);
-
-        } catch (error) {
-
         }
 
         const Embed = new MessageEmbed();
@@ -470,22 +521,28 @@ module.exports.musicManager = class musicManager {
         Embed.setTitle('Music | Disconnect');
         Embed.setURL('https://oyintare.dev/');
         Embed.setDescription(`${ctx.member} disconnected me.`);
-        await command.reply({ embeds: [Embed] });
+
+        try {
+            command.reply({ embeds: [Embed] }).then(function (message) {
+                if (message) setTimeout(() => message.delete(), messageDeleteDelay);
+            });
+        } catch (error) {
+            console.log(error);
+        }
     }
 
     async setVolume(command) {
 
         const ctx = command.ctx;
-        if (!ctx.guild || !ctx.member.voice.channel) return await this.notice(command, "You need to be in a voice channel to use this command");
-        const voiceChannel = ctx.member.voice.channel;
+
+        if (!ctx.guild || !ctx.member.voice.channel) return this.notice(command, "You need to be in a voice channel to use this command");
+
         const guildId = ctx.guild.id;
 
         let Queue = this.Queues.get(guildId);
 
-        if (!Queue) {
-            await this.notice(command, "There's no Queue");
-            return
-        }
+        if (!Queue) return this.notice(command, "There's no Queue");
+
         let volInt = NaN;
 
         if (!command.isInteraction) {
@@ -499,8 +556,6 @@ module.exports.musicManager = class musicManager {
 
         }
 
-        console.log(volInt);
-
         let vol = command.isInteraction ? command.ctx.options.getInteger('volume') : volInt;
 
         if (vol < 1 || vol > 100) {
@@ -508,98 +563,56 @@ module.exports.musicManager = class musicManager {
         }
 
         Queue.volume = vol / 100;
-        if (Queue.currentResource) {
-            Queue.currentResource.volume.setVolume(Queue.volume);
-        }
+        if (Queue.currentResource) Queue.currentResource.volume.setVolume(Queue.volume);
+
 
         const Embed = new MessageEmbed();
         Embed.setColor('#00FF00');
         Embed.setTitle('Music | Volume');
         Embed.setURL('https://oyintare.dev/');
         Embed.setDescription(`Volume changed to  **${parseInt(Queue.volume * 100)}%**`);
-        const message = await command.reply({ embeds: [Embed] });
-        if (message) {
-            setTimeout(() => message.delete(), messageDeleteDelay);
+
+        try {
+            command.reply({ embeds: [Embed] }).then(function (message) {
+                if (message) setTimeout(() => message.delete(), messageDeleteDelay);
+            });
+        } catch (error) {
+            console.log(error);
         }
-    }
-
-    async modifyVolume(command, modifier) {
-
-        const ctx = command.ctx;
-        if (!ctx.guild || !ctx.member.voice.channel) return await this.notice(command, "You need to be in a voice channel to use this command");
-        const voiceChannel = ctx.member.voice.channel;
-        const guildId = ctx.guild.id;
-
-        let Queue = this.Queues.get(guildId);
-
-        if (!Queue) {
-            await this.notice(command, "There's no Queue");
-            return
-        }
-
-        let volInt = NaN;
-
-        const clamp = (num, min, max) => Math.min(Math.max(num, min), max);
-
-        let vol = clamp((Queue.volume * 100) + modifier, 1, 100);
-
-        Queue.volume = vol / 100;
-        if (Queue.currentResource) {
-            Queue.currentResource.volume.setVolume(Queue.volume);
-        }
-
-        const Embed = new MessageEmbed();
-        Embed.setColor('#00FF00');
-        Embed.setTitle('Music | Volume');
-        Embed.setURL('https://oyintare.dev/');
-        Embed.setDescription(`Volume changed to  **${parseInt(Queue.volume * 100)}%**`);
-        const message = await command.reply({ embeds: [Embed] });
-        if (message) {
-            setTimeout(() => message.delete(), messageDeleteDelay);
-        }
-
     }
 
     async showQueue(command) {
         const ctx = command.ctx;
-        if (!ctx.guild || !ctx.member.voice.channel) return await this.notice(command, "You need to be in a voice channel to use this command");
-        const voiceChannel = ctx.member.voice.channel;
+        if (!ctx.guild || !ctx.member.voice.channel) return this.notice(command, "You need to be in a voice channel to use this command");
+
         const guildId = ctx.guild.id;
 
         let Queue = this.Queues.get(guildId);
 
-        if (!Queue) {
-            await this.notice(command, "There's no Queue");
-            return
-        }
+        if (!Queue) return this.notice(command, "There's no Queue");
 
         const Embed = new MessageEmbed();
         Embed.setColor('#00FF00');
         Embed.setTitle(`Music | ${Queue.songs.length} in Queue`);
         Embed.setURL('https://oyintare.dev/');
 
-        let count = 0;
-
         for (let i = 0; i < Queue.songs.length; i++) {
             let currentSong = Queue.songs[i];
             Embed.addField(`${i}) \`${currentSong.title}\``, `**Requested by** ${currentSong.requester} \n`, false);
         }
 
-        await command.reply({ embeds: [Embed] });
-        
+        command.reply({ embeds: [Embed] });
     }
 
     async showNowPlaying(command) {
         const ctx = command.ctx;
-        if (!ctx.guild || !ctx.member.voice.channel) return await this.notice(command, "You need to be in a voice channel to use this command");
-        const voiceChannel = ctx.member.voice.channel;
+        if (!ctx.guild || !ctx.member.voice.channel) return this.notice(command, "You need to be in a voice channel to use this command");
+
         const guildId = ctx.guild.id;
 
         let Queue = this.Queues.get(guildId);
 
-        if (!Queue || !Queue.currentResource) {
-            return await this.notice(command, "Nothing's playing");
-        }
+        if (!Queue || !Queue.currentResource) return this.notice(command, "Nothing's playing");
 
         let song = Queue.currentResource.song;
 
@@ -628,9 +641,10 @@ module.exports.musicManager = class musicManager {
         Embed.setTitle('Music | Now Playing');
         Embed.setURL('https://oyintare.dev/');
         Embed.setDescription(`**Now Playing** \`${song.title}\` \n**Requested By** ${song.requester} \n **Volume** : **${parseInt(Queue.volume * 100)}%**`);
+
         if (Queue.nowPlayingMessage.channel != undefined) {
             let messageRef = undefined;
-            console.log('startingDeletion');
+
             try {
                 messageRef = await Queue.nowPlayingMessage.channel.messages.fetch(Queue.nowPlayingMessage.messageId);
             } catch (error) {
@@ -644,9 +658,15 @@ module.exports.musicManager = class musicManager {
             Queue.nowPlayingMessage.channel = undefined;
             Queue.nowPlayingMessage.messageId = undefined;
         }
-        const newNowPlaying = await command.reply({ embeds: [Embed], components: [nowButtons] });
-        Queue.nowPlayingMessage.channel = newNowPlaying.channel;
-        Queue.nowPlayingMessage.messageId = newNowPlaying.id;
+
+        try {
+            const newNowPlaying = await command.reply({ embeds: [Embed], components: [nowButtons] });
+            Queue.nowPlayingMessage.channel = newNowPlaying.channel;
+            Queue.nowPlayingMessage.messageId = newNowPlaying.id;
+        } catch (error) {
+            console.log(error);
+        }
+
     }
 
 }

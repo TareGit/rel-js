@@ -61,10 +61,6 @@ module.exports.mainBot = class mainBot {
 
     async getBotStatus(command) {
 
-        const fields = new Array();
-
-        const config = this.getConfig();
-
         const Embed = new MessageEmbed();
         Embed.setColor('#00FF00');
         Embed.setTitle('Status');
@@ -74,13 +70,30 @@ module.exports.mainBot = class mainBot {
 
         let cpu = await osu.cpu.usage();
 
-        Embed.addField(`Version`, `1.0`, false);
+        function pad(s){
+            return (s < 10 ? '0' : '') + s;
+          }
+
+        const seconds = process.uptime();
+
+        const secondsUp = parseInt(Math.floor(seconds % 60));
+
+        const minutsUp = parseInt(Math.floor(seconds % (60*60) / 60));
+
+        const hoursUp = parseInt(Math.floor(seconds / (60*60)));
+
+        Embed.addField(`Version`, `1.5`, false);
         Embed.addField(`Language`, `Node JS`, false);
-        Embed.addField(`UP Time`, `${parseInt(osu.os.uptime() / 1000)} seconds`, false);
+        Embed.addField(`UP Time`, ` ${pad(hoursUp)}Hrs ${pad(minutsUp)}Min ${pad(secondsUp)}Secs`, false);
         Embed.addField(`CPU Usage`, `${parseInt(cpu)}%`, false);
         Embed.addField(`RAM Usage`, `${parseInt((memory.freeMemMb / memory.totalMemMb) * 100)}%`, false);
 
-        await command.reply({ embeds: [Embed] });
+        try {
+            command.reply({ embeds: [Embed] });
+        } catch (error) {
+            console.log(error);
+        }
+        
 
     }
 
@@ -88,27 +101,19 @@ module.exports.mainBot = class mainBot {
 
         const ctx = command.ctx;
         const ammount = command.isInteraction ? ctx.options.getInteger('ammount') : parseInt(command.getArgs()[0]);
-        if (!ctx.guild) return await ctx.reply("you need to be in a server to use this command");
-        if (ammount == 0 || ammount == NaN || ammount > 100 || ammount < 1) return await ctx.reply("Ammount must be a value between 1 and 100");
+
+        if (!ctx.guild) return ctx.reply("you need to be in a server to use this command");
+
+        if (ammount == 0 || ammount == NaN || ammount > 100 || ammount < 1) return ctx.reply("Ammount must be a value between 1 and 100");
+
+        let deletedMsgs = null;
 
         try {
-            const deletedMsgs = await ctx.channel.bulkDelete(ammount);
+            deletedMsgs = await ctx.channel.bulkDelete(ammount);
         } catch (error) {
             console.log(error);
         }
         
-
-        const Embed = new MessageEmbed();
-        Embed.setColor('#00FF00');
-        Embed.setTitle('Delete');
-        Embed.setURL('https://oyintare.dev/');
-        Embed.setDescription(`Deleted ${deletedMsgs.size} messages `);
-
-        const message = await ctx.channel.send({ embeds: [Embed] });
-        if (message) {
-            setTimeout(() => message.delete(), 2500);
-        }
-
         return;
 
     }

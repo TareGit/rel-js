@@ -1,3 +1,9 @@
+const deleteCommands = true;
+const sendGlobalCommands = false;
+
+
+
+
 const fs = require('fs');
 require('dotenv').config();
 
@@ -26,6 +32,7 @@ function getCommandBuilder(type) {
     }
 
 }
+
 Object.keys(commandsInConfig).forEach(function (key, index) {
     console.log(key);
 
@@ -59,12 +66,9 @@ Object.keys(commandsInConfig).forEach(function (key, index) {
 });
 
 
-const commands = commandsList.map(command => command.toJSON());
+const commands = deleteCommands ? []  :  commandsList.map(command => command.toJSON());
 
 const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_BOT_TOKEN);
-
-
-const sendGlobalCommands = true;
 
 
 
@@ -83,7 +87,7 @@ else {
     Object.keys(settings['servers']).forEach(function (key, index) {
         try {
             rest.put(Routes.applicationGuildCommands('804165876362117141', key), { body: commands })
-                .then(() => console.log('Successfully Guild commands.'))
+                .then(() => console.log('Successfully registered Guild commands.'))
         } catch (error) {
             console.log('Error registering Guild commands for' + key);
         }

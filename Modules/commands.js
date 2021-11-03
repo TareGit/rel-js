@@ -40,7 +40,15 @@ class command {
     {
         if(this.isInteraction)
         {
-            return await this.ctx.editReply(reply);
+            if(this.ctx.deferred)
+            {
+                return await this.ctx.editReply(reply);
+            }
+            else
+            {
+                return await this.ctx.reply(reply);
+            }
+            
         }
         else
         {
@@ -60,12 +68,16 @@ module.exports.commandParser = class commandParser {
         this.updateSettings = updateSettings;
     }
 
+    /*
+    Parse a possible message command
+    */
     async parseMessageCommand(message) {
 
         const content = message.content;
         const settings = this.getSettings();
         let prefix = '?';
 
+        //  need to change to remove custom prefixes
         if (message.channel.type != "DM") {
 
             const hasLoggedServer = settings['servers'][message.guild.id.toString()];
@@ -106,17 +118,21 @@ module.exports.commandParser = class commandParser {
         return new command(message, config['Commands'][actualCommand],actualCommand, false,contentWithoutprefix.slice(actualAlias.length + 1));
     }
 
+    /*
+    Parse an interaction command
+    */
     async parseInteractionCommand(interaction) {
 
         const config = this.getConfig();
 
         let commandConfig = undefined;
 
+        // fetch the config
         try {
             commandConfig = config['Commands'][interaction.commandName];
-
         } catch (error) {
             console.log(error);
+            // something went wrong fetching the config
             return undefined;
         }
 

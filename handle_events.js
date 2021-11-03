@@ -44,14 +44,6 @@ musicBot = new musicBotModule.musicManager(bot);
     
 }
 
-let isDoneWithPreviousMessage = true;
-let messageQueue = [];
-
-let isDoneWithPreviousInteraction = true;
-let interactionQueue = [];
-
-
-
 const asyncMessageCreate = async (message) => {
 
 
@@ -95,14 +87,6 @@ const asyncMessageCreate = async (message) => {
         }
 
     }
-
-    if (messageQueue.length != 0) {
-        const nextMessage = messageQueue[0];
-        messageQueue.shift();
-        console.log(`Starting new message ,${messageQueue.length} in Queuee`);
-        return await asyncMessageCreate(nextMessage);
-    }
-    return;
 }
 
 const asyncInteractionCreate = async (interaction) => {
@@ -129,27 +113,43 @@ const asyncInteractionCreate = async (interaction) => {
         }
 
     }
+}
 
-    if (interactionQueue.length != 0) {
-        const nextInteraction = interactionQueue[0];
-        interactionQueue.shift();
-        return await asyncInteractionCreate(nextInteraction);
+const asyncGuildMemberUpdate = async (bot,oldMember, newMember) => {
+    if(newMember.id == bot.user.id)
+    {
+        if(newMember.displayName.toLowerCase() != 'rel')
+        {
+            const fetchedLogs = await newMember.guild.fetchAuditLogs({
+                limit: 1,
+                type: 'MEMBER_UPDATE',
+            });
+
+            newMember.setNickname('REL');
+
+            // Since there's only 1 audit log entry in this collection, grab the first one
+            const memberUpdateLog = fetchedLogs.entries.first();
+        
+            // Perform a coherence check to make sure that there's *something*
+            if (!memberUpdateLog) return console.log(`${newMember.user.tag} left the guild, most likely of their own will.`);
+        
+            // Now grab the user object of the person who kicked the member
+            // Also grab the target of this action to double-check things
+            const { executor, target } = memberUpdateLog;
+        
+            // Update the output with a bit more information
+            // Also run a check to make sure that the log returned was for the same kicked member
+            if (target.id === newMember.id) {
+                executor.send(`Why change my name wtho ?`);
+            }
+        }
+
     }
-
-    return 
 }
 
 module.exports.messageCreate = function (message) {
-    if (isDoneWithPreviousMessage) {
-        isDoneWithPreviousMessage = false;
-        asyncMessageCreate(message).then(result => {
-            isDoneWithPreviousMessage = true;
-            console.log(`DONE WITH ALL MESSSAGES`);
-        });
-    }
-    else {
-        messageQueue.push(message);
-    }
+    asyncMessageCreate(message).then(result => {
+    });
 
 }
 
@@ -158,16 +158,11 @@ module.exports.interactionCreate = function (interaction) {
         return;
     }
 
-    interaction.deferReply().then(result => {
-        if (isDoneWithPreviousInteraction && interactionQueue.length == 0) {
-            isDoneWithPreviousInteraction = false;
-            asyncInteractionCreate(interaction).then(result => {
-                isDoneWithPreviousInteraction = true;
-            });
-        }
-        else {
-            interactionQueue.push(message);
-        }
+    asyncInteractionCreate(interaction).then(result => {
     });
 
+}
+
+module.exports.guildMemberUpdate = function (bot,oldMember, newMember) {
+   asyncGuildMemberUpdate(bot,oldMember,newMember);
 }
