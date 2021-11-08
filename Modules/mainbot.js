@@ -38,7 +38,7 @@ module.exports.mainBot = class mainBot {
         const helpEmbed = new MessageEmbed();
         helpEmbed.setColor('#0099ff');
         helpEmbed.setTitle('Help For Commands\n');
-        helpEmbed.setURL('https://oyintare.dev/');
+        helpEmbed.setURL('https://www.oyintare.dev/');
 
         Object.keys(config['Commands']).forEach(function (key, index) {
 
@@ -64,7 +64,7 @@ module.exports.mainBot = class mainBot {
         const Embed = new MessageEmbed();
         Embed.setColor('#00FF00');
         Embed.setTitle('Status');
-        Embed.setURL('https://oyintare.dev/');
+        Embed.setURL('https://www.oyintare.dev/');
 
         let memory = await osu.mem.free();
 
@@ -100,7 +100,7 @@ module.exports.mainBot = class mainBot {
     async delete(command) {
 
         const ctx = command.ctx;
-        const ammount = command.isInteraction ? ctx.options.getInteger('ammount') : parseInt(command.getArgs()[0]);
+        const ammount = command.type == "COMMAND" ? ctx.options.getInteger('ammount') : parseInt(command.getArgs()[0]);
 
         if (!ctx.guild) return ctx.reply("you need to be in a server to use this command");
 

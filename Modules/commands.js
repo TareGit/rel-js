@@ -3,12 +3,13 @@ const fs = require('fs');
 
 
 class command {
-    constructor(ctx,commandInfo,cmdKey,isInteraction,contentOnly = "") {
+    constructor(ctx,commandInfo,cmdKey,type,contentOnly = "") {
         this.ctx = ctx;
         this.cmdKey = cmdKey
         this.commandInfo = commandInfo;
         this.contentOnly = contentOnly;
-        this.isInteraction = isInteraction;
+        this.type = type;
+        this.deferred = false;
     }
 
     getFunctionName() {
@@ -36,11 +37,22 @@ class command {
         return this.contentOnly.split(/\s+/);
     }
 
+    async deferReply()
+    {
+        if(this.type != "MESSAGE")
+        {
+            this.deferred = true;
+            console.log("DEFERRED")
+            return await this.ctx.deferReply();
+        }
+        console.log("F IN CHAT")
+    }
+
     async reply(reply)
     {
-        if(this.isInteraction)
+        if(this.type != "MESSAGE")
         {
-            if(this.ctx.deferred)
+            if(this.deferred)
             {
                 return await this.ctx.editReply(reply);
             }
@@ -75,7 +87,7 @@ module.exports.commandParser = class commandParser {
 
         const content = message.content;
         const settings = this.getSettings();
-        let prefix = '?';
+        let prefix = 'rel';
 
         //  need to change to remove custom prefixes
         if (message.channel.type != "DM") {
@@ -115,7 +127,7 @@ module.exports.commandParser = class commandParser {
         }
         
 
-        return new command(message, config['Commands'][actualCommand],actualCommand, false,contentWithoutprefix.slice(actualAlias.length + 1));
+        return new command(message, config['Commands'][actualCommand],actualCommand, 'MESSAGE',contentWithoutprefix.slice(actualAlias.length + 1));
     }
 
     /*
@@ -130,14 +142,30 @@ module.exports.commandParser = class commandParser {
         // fetch the config
         try {
             commandConfig = config['Commands'][interaction.commandName];
+            if(commandConfig == undefined)
+            {
+                const commandRoute = config['Routes'][interaction.commandName];
+
+                if(commandRoute != undefined)
+                {
+                    commandConfig = config['Commands'][commandRoute];
+                }
+
+                if(commandConfig == undefined)
+                {
+                    return undefined;
+                }
+            }
         } catch (error) {
             console.log(error);
             // something went wrong fetching the config
             return undefined;
         }
 
+        if(interaction.isContextMenu()) return new command(interaction, commandConfig,interaction.commandName,'CONTEXT_MENU');
 
-        return new command(interaction, commandConfig,interaction.commandName,true);
+        return new command(interaction, commandConfig,interaction.commandName,'COMMAND');
+        
     }
 
 }

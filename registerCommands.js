@@ -1,8 +1,5 @@
-const deleteCommands = true;
-const sendGlobalCommands = false;
-
-
-
+const deleteCommands =  false;
+const sendGlobalCommands = true;
 
 const fs = require('fs');
 require('dotenv').config();
@@ -14,7 +11,7 @@ const settings = JSON.parse(fs.readFileSync(settingsPath));
 const config = JSON.parse(fs.readFileSync(configPath));
 
 
-const { SlashCommandBuilder, SlashCommandStringOption, SlashCommandIntegerOption } = require('@discordjs/builders');
+const { SlashCommandBuilder, SlashCommandStringOption, SlashCommandIntegerOption, ContextMenuCommandBuilder, } = require('@discordjs/builders');
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
 
@@ -62,11 +59,21 @@ Object.keys(commandsInConfig).forEach(function (key, index) {
 
     });
 
+    if (commandInConfig.ContextMenu.Name != undefined) {
+        const contextMenu = new ContextMenuCommandBuilder()
+        .setName(commandInConfig.ContextMenu.Name)
+        .setType(commandInConfig.ContextMenu.Type) // 2 for USER, 3 for MESSAGE
+        .setDefaultPermission(true)
+
+        commandsList.push(contextMenu);
+        console.log(`context command added`);
+    }
+
     commandsList.push(command);
 });
 
 
-const commands = deleteCommands ? []  :  commandsList.map(command => command.toJSON());
+const commands = deleteCommands ? [] : commandsList.map(command => command.toJSON());
 
 const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_BOT_TOKEN);
 
@@ -77,7 +84,7 @@ if (sendGlobalCommands) {
         rest.put(
             Routes.applicationCommands('804165876362117141'),
             { body: commands },
-        ).then(() => console.log('Successfully Global commands.'));
+        ).then(() => console.log('Successfully Registered Global commands.'));
     } catch (error) {
         console.log('Error registering Global commands for');
         console.log(error);

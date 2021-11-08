@@ -1,22 +1,114 @@
-const play = require('play-dl')
+const play = require('play-dl');
 const Voice = require('@discordjs/voice');
-const spotify = require('spotify-url-info');
+const async = require('async')
+const pify = require('pify')
 const { MessageEmbed, MessageActionRow, MessageButton, ReactionUserManager } = require('discord.js');
 
-let botClient = undefined;
-const messageDeleteDelay = 2500;
+// time before a message is deleted
+const messageDeleteDelay = 5000;
+
+// function to create a song class (for the sake of consistency and sanity)
+const createSong = function (songTitle, songRequester, songThumbnailURL, songURL, songGroupURL = "") {
+    return {
+        title: songTitle,
+        requester: songRequester,
+        thumbnail: songThumbnailURL,
+        url: songURL,
+        groupURL: songGroupURL
+    }
+}
+
+const createNowPlayingMessage = async function (Queue, command) {
+    const song = Queue.currentResource.song;
+    const Embed = new MessageEmbed();
+
+    Embed.setColor('#00FF00');
+    Embed.setTitle(`**${song.title}**`);
+    Embed.setURL(`${song.url}`);
+    Embed.setThumbnail(`${song.thumbnail}`);
+    Embed.setDescription(`**Volume** : **${parseInt(Queue.volume * 100)}%**`);
+    Embed.setFooter(`${song.requester.displayName}`, song.requester.displayAvatarURL({ format: 'png', size: 32 }));
+    const nowButtons = new MessageActionRow()
+        .addComponents(
+            new MessageButton()
+                .setCustomId('music-skip')
+                .setLabel('Skip')
+                .setStyle('PRIMARY'),
+            new MessageButton()
+                .setCustomId('music-toggle')
+                .setLabel(`Pause/Resume`)
+                .setStyle(`SUCCESS`),
+            new MessageButton()
+                .setCustomId('music-stop')
+                .setLabel('Stop')
+                .setStyle('DANGER'),
+            new MessageButton()
+                .setCustomId('music-queue')
+                .setLabel('Queue')
+                .setStyle('SECONDARY'),
+        );
+
+    // Invalidate the current now playing message
+    if (Queue.nowPlayingMessage.channel != undefined) {
+        let messageRef = undefined;
+
+        try {
+            messageRef = await Queue.nowPlayingMessage.channel.messages.fetch(Queue.nowPlayingMessage.messageId);
+        } catch (error) {
+            console.log(error);
+        }
+
+        if (messageRef) {
+            if (messageRef.editable) {
+                const buttonComponents = messageRef.components[0].components;
+                const buttonsToSendBack = new MessageActionRow();
+
+                for (let i = 0; i < buttonComponents.length; i++) {
+                    buttonsToSendBack.addComponents(
+                        new MessageButton().setCustomId(`${buttonComponents[i].customId}`)
+                            .setLabel(`${buttonComponents[i].label}`)
+                            .setStyle(`${buttonComponents[i].style}`)
+                            .setDisabled(true));
+
+                }
+
+                await messageRef.edit({ embeds: messageRef.embeds, components: [buttonsToSendBack] });
+            }
+
+        }
+
+        Queue.nowPlayingMessage.channel = undefined;
+        Queue.nowPlayingMessage.messageId = undefined;
+    }
+
+    try {
+        const newNowPlaying = await Queue.channel.send({ embeds: [Embed], components: [nowButtons] });
+        Queue.nowPlayingMessage.channel = newNowPlaying.channel;
+        Queue.nowPlayingMessage.messageId = newNowPlaying.id;
+    } catch (error) {
+        console.log(`\n\n Send Message Error \n\n${error}`);
+    }
+}
+
+/*
+MUSIC BOT CLASS -- HANDLES QUEUES AND SAVED PLAYLISTS (ONE CLASS INSTANCE AT ANY GIVEN TIME)
+*/
 module.exports.musicManager = class musicManager {
 
-    constructor(bot) {
+    /*
+    CONSTRUCTOR
+    */
+    constructor(bot, getSettings, updateSettings) {
         this.bot = bot;
+        this.getSettings = getSettings;
+        this.updateSettings = updateSettings;
         this.Queues = new Map();
         this.asyncInteractionCreate = async (interaction) => {
 
             let dummyObject = new Object();
             dummyObject.ctx = interaction;
             dummyObject.reply = async function (reply) {
-                if(interaction.deferred)
-                {
+                if (interaction.deferred) {
                     return await interaction.editReply(reply);
                 }
 
@@ -58,227 +150,42 @@ module.exports.musicManager = class musicManager {
         });
     }
 
+    /*
+    SEND NOTICES
+    */
     async notice(command, message) {
         const Embed = new MessageEmbed();
         Embed.setColor('#0099ff');
-        Embed.setTitle('Music | Notice');
-        Embed.setURL('https://oyintare.dev/');
+        Embed.setTitle('Notice');
+        Embed.setURL('https://www.oyintare.dev/');
         Embed.setDescription(message);
 
         try {
-            command.reply({ embeds: [Embed] }).then(function (message) {
+            if (command.type == "COMMAND" || command.type == "CONTEXT_MENU") {
+                command.ctx.reply({ embeds: [Embed] })
+            }
+            else {
+
+            }
+
+            command.ctx.channel.send({ embeds: [Embed] }).then(function (message) {
                 if (message) setTimeout(() => message.delete(), messageDeleteDelay);
             });
         } catch (error) {
-            console.log(error);
+            console.log(`\n\n Send | Delete Message Error \n\n${error}`);
         }
     }
 
-    async deletePlayer(Id, Queues) {
-        console.log(Id);
-        const Queue = Queues.get(Id);
-        if (Queue) {
-            Queue.player.stop();
-            Voice.getVoiceConnection(Queue.Id).destroy();
-            Queues.delete(Id);
-        }
-
-    }
-    async refreshTimeout(Queue) {
-        Queue.timeout = setTimeout(this.deletePlayer, 300000, Queue.Id, this.Queues);
-    }
-
-    async playSongInternal(Queue) {
-        clearTimeout(Queue.timeout);
-        Queue.currentResource = undefined;
-
-        if (Queue.songs.length == 0) {
-
-            // delete the now playing message
-            if (Queue.nowPlayingMessage.channel != undefined) {
-                let messageRef = undefined;
-                try {
-
-                    messageRef = await Queue.nowPlayingMessage.channel.messages.fetch(Queue.nowPlayingMessage.messageId);
-                } catch (error) {
-
-                    console.log('error');
-                }
-
-                if (messageRef) await messageRef.delete();
-
-                Queue.nowPlayingMessage.channel = undefined;
-                Queue.nowPlayingMessage.messageId = undefined;
-            }
-
-            this.refreshTimeout(Queue);
-
-            // prepare for next startup
-            Queue.isGettingReadyToPlay = false;
-
-            return;
-        }
-
-        // clear the previous timeout
-        if (Queue.timeout != undefined) Queue.timeout = undefined;
-
-        const song = Queue.songs[0];
-
-        let stream = null;
-
-        const playSongError = async function () {
-            console.log(error);
-            const Embed = new MessageEmbed();
-            Embed.setColor('#0099ff');
-            Embed.setTitle('Music | Notice');
-            Embed.setURL('https://oyintare.dev/');
-            Embed.setDescription("There was an error While your song");
-            Queue.songs.shift();
-            this.playSongInternal(Queue);
-
-            try {
-                Queue.channel.send({ embeds: [Embed] }).then(function (message) {
-                    if (message) setTimeout(() => message.delete(), messageDeleteDelay);
-                });
-            } catch (error) {
-                console.log(error);
-            }
-        }
-
-        let resource = undefined;
-        try {
-
-            stream = await play.stream(song.url);
-            resource = Voice.createAudioResource(stream.stream, {
-                inputType: stream.type,
-                inlineVolume: true
-            })
-        } catch (error) {
-            return playSongError();
-        }
-
-        if(resource == undefined) return playSongError();
-
-        resource.song = song;
-        Queue.currentResource = resource;
-        resource.volume.setVolume(Queue.volume);
-
-        try {
-            Queue.player.play(resource, { seek: 0, volume: Queue.volume });
-        } catch (error) {
-            return playSongError();
-        }
-        Queue.songs.shift();
-
-
-        const Embed = new MessageEmbed();
-        Embed.setColor('#00FF00');
-        Embed.setTitle('Music | Now Playing');
-        Embed.setURL('https://oyintare.dev/');
-        Embed.setDescription(`**Now Playing** \`${song.title}\` \n**Requested By** ${song.requester} \n **Volume** : **${parseInt(Queue.volume * 100)}%**`);
-        const nowButtons = new MessageActionRow()
-            .addComponents(
-                new MessageButton()
-                    .setCustomId('music-skip')
-                    .setLabel('Skip')
-                    .setStyle('PRIMARY'),
-                new MessageButton()
-                    .setCustomId('music-toggle')
-                    .setLabel(`Pause/Resume`)
-                    .setStyle(`SUCCESS`),
-                new MessageButton()
-                    .setCustomId('music-stop')
-                    .setLabel('Stop')
-                    .setStyle('DANGER'),
-                new MessageButton()
-                    .setCustomId('music-queue')
-                    .setLabel('Queue')
-                    .setStyle('SECONDARY'),
-            );
-
-
-
-        if (Queue.nowPlayingMessage.channel != undefined) {
-            let messageRef = undefined;
-            try {
-                messageRef = await Queue.nowPlayingMessage.channel.messages.fetch(Queue.nowPlayingMessage.messageId);
-            } catch (error) {
-                console.log(error);
-            }
-
-            if (messageRef) {
-                await messageRef.delete();
-            }
-
-            Queue.nowPlayingMessage.channel = undefined;
-            Queue.nowPlayingMessage.messageId = undefined;
-        }
-
-        try {
-            const newNowPlaying = await Queue.channel.send({ embeds: [Embed], components: [nowButtons] });
-            Queue.nowPlayingMessage.channel = newNowPlaying.channel;
-            Queue.nowPlayingMessage.messageId = newNowPlaying.id;
-        } catch (error) {
-            console.log(error);
-        }
-    }
-
-    async play(command) {
+    /*
+    join the channel the user is in and setup the Queue
+    */
+    async joinChannel(command) {
 
         const ctx = command.ctx;
 
-        const url = command.isInteraction ? ctx.options.getString('url') : command.contentOnly;
-
         if (!ctx.guild || !ctx.member.voice.channel) return this.notice(command, "You need to be in a voice channel to use this command");
 
-        if (url.length == 0) return this.notice(ctx, "You didn't say what you wanted to play");
-
         const guildId = ctx.guild.id;
-
-        let newSong = {};
-
-        let check = await play.validate(url);
-
-        let details = null;
-        
-        // Fetch song data
-        try {
-            if (check == 'yt_video') {
-                let info = await play.video_basic_info(url);
-                details = info.video_details;
-            }
-            else if (check === 'sp_track') {
-                let data = await spotify.getData(url);
-                let artists = "";
-                if (data.type == 'track') {
-                    data.artists.forEach(element => artists += ' ' + element.name);
-                }
-                let searchToMake = data.name + ' ' + artists + ' audio';
-                let search = await play.search(searchToMake, { limit: 1 });
-                details = search[0];
-
-            }
-            else if (check === "search") {
-                let search = await play.search(url, { limit: 1 });
-                details = search[0];
-            }
-        } catch (error) {
-            return this.notice(command, `There was an error processing your song ${url}`);
-            console.log(error);
-        }
-
-        // In case of spotify playlists/albumns
-        if (details == null) {
-            try {
-                return this.notice(command, "Only spotify tracks are currently supported");
-            } catch (error) {
-
-            }
-            return
-        }
-
-        // Use the data to make a new song
-        newSong = { title: details.title, url: details.url, requester: ctx.member };
 
         let Queue = this.Queues.get(guildId);
 
@@ -315,11 +222,20 @@ module.exports.musicManager = class musicManager {
                     this.playSongInternal(Queue);
                 });
 
+
+                Queue.player.on('error', (error) => {
+                    console.log(`===================== Error : Audio Player ===================== \n${error}`)
+                })
+
                 const connection = Voice.joinVoiceChannel({
                     channelId: ctx.member.voice.channel.id,
                     guildId: guildId,
                     adapterCreator: ctx.guild.voiceAdapterCreator
                 });
+
+                connection.on('error', (error) => {
+                    console.log(`===================== Error : Voice Connection ===================== \n${error}`)
+                })
 
                 // handle disconnects
                 connection.on(Voice.VoiceConnectionStatus.Disconnected, async (oldState, newState) => {
@@ -342,41 +258,390 @@ module.exports.musicManager = class musicManager {
 
                 connection.subscribe(Queue.player);
                 this.Queues.set(guildId, Queue);
+                return Queue;
             } catch (error) {
-                console.log(error);
-                return notice(ctx, "There was an error creating the queue");
+                console.log(`\n\n Create Queue Error \n\n${error}`);
+                notice(command, "There was an error creating the queue");
+                return undefined;
             }
         }
 
-        // add the song to the queue
-        Queue.songs.push(newSong);
+    }
 
-        if (Queue.player.state.status == Voice.AudioPlayerStatus.Idle  && !Queue.isGettingReadyToPlay) {
-            // start the queue up
-            Queue.isGettingReadyToPlay = true;
-            await this.playSongInternal(Queue);
+    /*
+    DELETE A QUEUE
+    */
+    async deleteQueue(Id, Queues) {
+        const Queue = Queues.get(Id);
+        if (Queue) {
 
-        } else {
-            // notify that its been added because the queue is active
+
+            // Invalidate the now playing message
+            if (Queue.nowPlayingMessage.channel != undefined) {
+                let messageRef = undefined;
+
+                try {
+                    messageRef = await Queue.nowPlayingMessage.channel.messages.fetch(Queue.nowPlayingMessage.messageId);
+                } catch (error) {
+                    console.log(error);
+                }
+
+                if (messageRef) {
+                    if (messageRef.editable) {
+                        const buttonComponents = messageRef.components[0].components;
+                        const buttonsToSendBack = new MessageActionRow();
+
+                        for (let i = 0; i < buttonComponents.length; i++) {
+                            buttonsToSendBack.addComponents(
+                                new MessageButton().setCustomId(`${buttonComponents[i].customId}`)
+                                    .setLabel(`${buttonComponents[i].label}`)
+                                    .setStyle(`${buttonComponents[i].style}`)
+                                    .setDisabled(true));
+
+                        }
+
+                        await messageRef.edit({ embeds: messageRef.embeds, components: [buttonsToSendBack] });
+                    }
+
+                }
+
+                Queue.nowPlayingMessage.channel = undefined;
+                Queue.nowPlayingMessage.messageId = undefined;
+            }
+
+            Queue.songs = []
+            Queue.currentResource = undefined;
+            Queue.player.stop();
+            Voice.getVoiceConnection(Queue.Id).disconnect();
+            Voice.getVoiceConnection(Queue.Id).destroy();
+            Queues.delete(Id);
+            return true;
+        }
+        return false;
+    }
+
+    /*
+    REFRESH A QUEUE TIMEOUT
+    */
+    async refreshTimeout(Queue) {
+        if (Queue.timeout) {
+            clearTimeout(Queue.timeout);
+            Queue.timeout = undefined;
+        }
+        Queue.timeout = setTimeout(this.deleteQueue, 300000, Queue.Id, this.Queues);
+    }
+
+    /*
+    INTERNAL METHOD TO PLAY A SONG
+    */
+    async playSongInternal(Queue) {
+
+        if (Queue.timeout) {
+            clearTimeout(Queue.timeout);
+            Queue.timeout = undefined;
+        }
+
+        Queue.currentResource = undefined;
+
+        if (Queue.songs.length == 0) {
+            // Invalidate the now playing message
+            if (Queue.nowPlayingMessage.channel != undefined) {
+                let messageRef = undefined;
+
+                try {
+                    messageRef = await Queue.nowPlayingMessage.channel.messages.fetch(Queue.nowPlayingMessage.messageId);
+                } catch (error) {
+                    console.log(error);
+                }
+
+                if (messageRef) {
+                    if (messageRef.editable) {
+                        const buttonComponents = messageRef.components[0].components;
+                        const buttonsToSendBack = new MessageActionRow();
+
+                        for (let i = 0; i < buttonComponents.length; i++) {
+                            buttonsToSendBack.addComponents(
+                                new MessageButton().setCustomId(`${buttonComponents[i].customId}`)
+                                    .setLabel(`${buttonComponents[i].label}`)
+                                    .setStyle(`${buttonComponents[i].style}`)
+                                    .setDisabled(true));
+
+                        }
+
+                        await messageRef.edit({ embeds: messageRef.embeds, components: [buttonsToSendBack] });
+                    }
+
+                }
+
+                Queue.nowPlayingMessage.channel = undefined;
+                Queue.nowPlayingMessage.messageId = undefined;
+            }
+
+            this.refreshTimeout(Queue);
+
+            // prepare for next startup
+            Queue.isGettingReadyToPlay = false;
+
+            return;
+        }
+
+        const song = Queue.songs[0];
+
+        let stream = null;
+
+        let resource = undefined;
+
+        try {
+
+            stream = await play.stream(song.url);
+
+            resource = Voice.createAudioResource(stream.stream, {
+                inputType: stream.type,
+                inlineVolume: true
+            })
+            console.log("Stream loaded");
+        } catch (error) {
+            console.log(`\n\n Load Song Error \n\n${error}`);
+
             const Embed = new MessageEmbed();
             Embed.setColor('#0099ff');
-            Embed.setTitle('Music | Queue');
-            Embed.setURL('https://oyintare.dev/');
-            Embed.setDescription(`${newSong.title} ** Added to Queue** \n**Requested By** ${newSong.requester}`)
-            
+            Embed.setTitle('Notice');
+            Embed.setURL('https://www.oyintare.dev/');
+            Embed.setDescription("An error occoured while trying to load your song");
+            Queue.songs.shift();
+            this.playSongInternal(Queue);
+
             try {
-                command.reply({ embeds: [Embed] }).then(function (message) {
+                Queue.channel.send({ embeds: [Embed] }).then(function (message) {
                     if (message) setTimeout(() => message.delete(), messageDeleteDelay);
                 });
             } catch (error) {
-                console.log(error);
+                console.log(`\n\n Send Message Error \n\n${error}`);
+            }
+
+            Queue.songs.shift();
+            this.playSongInternal(Queue);
+
+            return
+        }
+
+        resource.song = song;
+        Queue.currentResource = resource;
+        resource.volume.setVolume(Queue.volume);
+
+        try {
+            console.log("Attempting to play");
+            Queue.player.play(resource, { seek: 0, volume: Queue.volume });
+            Queue.songs.shift();
+
+        } catch (error) {
+
+            console.log(`\n\n Play Song Error \n\n${error}`);
+
+            const Embed = new MessageEmbed();
+            Embed.setColor('#0099ff');
+            Embed.setTitle('Notice');
+            Embed.setURL('https://www.oyintare.dev/');
+            Embed.setDescription("An error occoured while trying to play your song");
+            Queue.songs.shift();
+            this.playSongInternal(Queue);
+
+            try {
+
+                Queue.channel.send({ embeds: [Embed] }).then(function (message) {
+                    if (message) setTimeout(() => message.delete(), messageDeleteDelay);
+                });
+
+            } catch (error) {
+
+                console.log(`\n\n Send Message Error \n\n${error}`);
+
+            }
+
+            Queue.songs.shift();
+            this.playSongInternal(Queue);
+            return
+        }
+
+        console.log("Showing now playing message");
+        createNowPlayingMessage(Queue);
+
+    }
+
+    /*
+    PREPARE TO PLAY A SONG OR ADD IT TO THE QUEUE
+    */
+    async play(command) {
+
+        let url = "";
+
+        const ctx = command.ctx;
+
+        if (!ctx.guild || !ctx.member.voice.channel) return this.notice(command, "You need to be in a voice channel to use this command");
+
+        const guildId = ctx.guild.id;
+
+        await command.deferReply(); // defer because this might take a while
+
+        // handle different command types
+        switch (command.type) {
+            case 'MESSAGE':
+                url = command.contentOnly;
+                break;
+            case 'COMMAND':
+                url = ctx.options.getString('url');
+                break;
+            case 'CONTEXT_MENU':
+                const contextMessage = ctx.options.getMessage('message');
+                if (contextMessage.embeds[0] != undefined) {
+                    url = contextMessage.embeds[0].url;
+                }
+                else if (contextMessage.content != '') {
+                    const contentLow = contextMessage.content.toLowerCase();
+                    if (contentLow[0] == '.') {
+                        url = contextMessage.content.slice(5);
+                    }
+                    else {
+                        url = contextMessage.content;
+                    }
+                }
+                else {
+                    return ctx.reply({ content: 'I can\'t add that', ephemeral: true });
+                }
+                break;
+        }
+
+        if (url.length == 0) return this.notice(command, "You didn't say what you wanted to play");
+
+        let newSongs = [];
+
+        const check = await play.validate(url);
+
+        // Fetch song data
+        try {
+            // Simple yt video shit
+            if (check === "search") // handle just a regular search term
+            {
+
+                const search = await play.search(url, { limit: 1 });
+
+                const details = search[0];
+
+                if (details) newSongs.push(createSong(details.title, ctx.member, details.thumbnail.url, details.url));
+            }
+            else if (check == 'yt_video') {
+
+                const info = await play.video_basic_info(url);
+
+                const details = info.video_details;
+
+                if (details) newSongs.push(createSong(details.title, ctx.member, details.thumbnail.url, details.url));
+            }
+            else if (check == 'sp_track' || check == 'sp_album' || check == 'sp_playlist') // handle spotify
+            {
+
+                if (play.is_expired()) {
+                    await play.refreshToken();
+                }
+
+                // helper function to convert spotify links to youtube search terms (needs more special sauce)
+                let convertTrackToYTSearch = async function (trackData) {
+                    let artists = "";
+                    if (trackData.type == 'track') {
+                        trackData.artists.forEach(element => artists += ' ' + element.name);
+                    }
+                    const searchToMake = trackData.name + ' ' + artists + ' audio';
+                    const search = await play.search(searchToMake, { limit: 1 });
+                    return search[0];
+                }
+
+                // fetch the spofity data, could be a song, playlist or albumn
+                const dataGotten = await play.spotify(url);
+
+                // time for the serious shit
+                if (check == 'sp_track') // for just tracks
+                {
+                    const details = await convertTrackToYTSearch(dataGotten);
+
+                    if (details) newSongs.push(createSong(details.title, ctx.member, details.thumbnail.url, details.url)); // add if details checks out
+
+                }
+                else //  for albumns and playlists (same process)
+                {
+
+                    // iterate through all the albumn/playlist pages
+                    for (let i = 1; i <= dataGotten.total_pages; i++) {
+
+                        let currentData = dataGotten.page(i);// fetch the songs in this page
+
+                        // use pify to load all songs in parallel (not ordered cus of this but its better than waiting for each song to wait)
+                        // might implement some kind of sort later
+                        await pify(async.each)(currentData, async (songData) => {
+
+                            // use our special function to get the song data
+                            const result = await convertTrackToYTSearch(songData);
+
+                            if (result) newSongs.push(createSong(result.title, ctx.member, result.thumbnail.url, result.url));
+
+                        })
+
+                    }
+                }
+
+
             }
 
 
+        } catch (error) {
+            console.log(`\n\n Process Song Error \n\n${error}`);
+            return this.notice(command, `There was an error processing your song ${url}`);
+
+        }
+
+        let Queue = this.Queues.get(guildId);
+
+
+        // create the queue if it does not exist
+        if (!Queue) Queue = await this.joinChannel(command);
+
+        //incase its still invalid for some reason
+        if (!Queue) return this.notice(command, "Unknown Error while creating the Queue");
+
+        // add the songs to the queue
+        Queue.songs.push.apply(Queue.songs, newSongs);
+
+        if (!Queue.isGettingReadyToPlay) {
+            if (command.type != 'MESSAGE') command.reply('Preparing to play music');
+            // start the queue up
+            Queue.isGettingReadyToPlay = true;
+            this.playSongInternal(Queue);
+        } else {
+            // notify that its been added because the queue is active
+            const Embed = new MessageEmbed();
+            Embed.setColor('#00FF00');
+
+            Embed.setFooter(`Added to the Queue`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
+
+            if (newSongs.length > 1) {
+                Embed.setTitle(`${newSongs.length} Songs`);
+                Embed.setURL(`${url}`);
+            }
+            else {
+                Embed.setTitle(`${newSongs[0].title}`);
+                Embed.setURL(`${newSongs[0].url}`);
+            }
+
+            try {
+                command.reply({ embeds: [Embed] })
+            } catch (error) {
+                console.log(`\n\n Send Message Error \n\n${error}`);
+            }
         }
     }
 
-
+    /*
+    TOGGLE PAUSE/UNPAUSE
+    */
     async pauseToggle(command) {
         const ctx = command.ctx;
 
@@ -392,7 +657,6 @@ module.exports.musicManager = class musicManager {
         if (Queue.player.state.status == Voice.AudioPlayerStatus.Idle
             | Queue.player.state.status == Voice.AudioPlayerStatus.Buffering) return this.notice(command, "Nothing is playing");
 
-
         if (Queue.player.state.status == Voice.AudioPlayerStatus.Paused) {
 
             this.resume(command);
@@ -406,6 +670,9 @@ module.exports.musicManager = class musicManager {
 
     }
 
+    /*
+    PAUSE CURRENT SONG
+    */
     async pause(command) {
 
         const ctx = command.ctx;
@@ -423,50 +690,24 @@ module.exports.musicManager = class musicManager {
 
             const Embed = new MessageEmbed();
             Embed.setColor('#00FF00');
-            Embed.setTitle('Music | Paused');
-            Embed.setURL('https://oyintare.dev/');
-            Embed.setDescription(`${ctx.member} paused the music`);
+            Embed.setTitle('Paused');
+            Embed.setURL('https://www.oyintare.dev/');
+            Embed.setFooter(`${ctx.member.displayName}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
             try {
                 command.reply({ embeds: [Embed] }).then(function (message) {
                     if (message) setTimeout(() => message.delete(), messageDeleteDelay);
                 });
             } catch (error) {
-                console.log(error);
+                console.log(`\n\n Send | Delete Message Error \n\n${error}`);
             }
         }
 
     }
 
-    async skip(command) {
-
-        const ctx = command.ctx;
-
-        if (!ctx.guild || !ctx.member.voice.channel) return await this.notice(commmand, "You need to be in a voice channel to use this command");
-
-        const guildId = ctx.guild.id;
-
-        let Queue = this.Queues.get(guildId);
-
-        if (!Queue) return;
-
-        Queue.player.stop();
-
-        const Embed = new MessageEmbed();
-        Embed.setColor('#00FF00');
-        Embed.setTitle('Music | Skip');
-        Embed.setURL('https://oyintare.dev/');
-        Embed.setDescription(`${ctx.member} skipped the song`);
-
-        try {
-            command.reply({ embeds: [Embed] }).then(function (message) {
-                if (message) setTimeout(() => message.delete(), messageDeleteDelay);
-            });
-        } catch (error) {
-            console.log(error);
-        }
-    }
-
+    /*
+    RESUME CURRENT SONG
+    */
     async resume(command) {
 
         const ctx = command.ctx;
@@ -483,16 +724,16 @@ module.exports.musicManager = class musicManager {
 
             const Embed = new MessageEmbed();
             Embed.setColor('#00FF00');
-            Embed.setTitle('Music | Resumed');
-            Embed.setURL('https://oyintare.dev/');
-            Embed.setDescription(`${ctx.member} resumed the music`);
+            Embed.setTitle('UnPaused');
+            Embed.setURL('https://www.oyintare.dev/');
+            Embed.setFooter(`${ctx.member.displayName}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
             try {
                 command.reply({ embeds: [Embed] }).then(function (message) {
                     if (message) setTimeout(() => message.delete(), messageDeleteDelay);
                 });
             } catch (error) {
-                console.log(error);
+                console.log(`\n\n Send | Delete Message Error \n\n${error}`);
             }
 
         }
@@ -500,6 +741,42 @@ module.exports.musicManager = class musicManager {
 
     }
 
+    /*
+    SKIP CURRENT SONG
+    */
+    async skip(command) {
+
+        const ctx = command.ctx;
+
+        if (!ctx.guild || !ctx.member.voice.channel) return await this.notice(commmand, "You need to be in a voice channel to use this command");
+
+        const guildId = ctx.guild.id;
+
+        let Queue = this.Queues.get(guildId);
+
+        if (!Queue) return;
+
+
+        Queue.player.stop();
+
+        const Embed = new MessageEmbed();
+        Embed.setColor('#00FF00');
+        Embed.setTitle('Skipped');
+        Embed.setURL('https://www.oyintare.dev/');
+        Embed.setFooter(`${ctx.member.displayName}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
+
+        try {
+            command.reply({ embeds: [Embed] }).then(function (message) {
+                if (message) setTimeout(() => message.delete(), messageDeleteDelay);
+            });
+        } catch (error) {
+            console.log(`\n\n Send | Delete Message Error \n\n${error}`);
+        }
+    }
+
+    /*
+    DISCONNECT THE BOT
+    */
     async disconnect(command) {
         const ctx = command.ctx;
 
@@ -513,24 +790,47 @@ module.exports.musicManager = class musicManager {
 
         if (Queue.timeout) {
             clearTimeout(Queue.timeout);
-            this.deletePlayer(Queue.Id, this.Queues);
+            Queue.timeout = undefined;
         }
 
-        const Embed = new MessageEmbed();
-        Embed.setColor('#00FF00');
-        Embed.setTitle('Music | Disconnect');
-        Embed.setURL('https://oyintare.dev/');
-        Embed.setDescription(`${ctx.member} disconnected me.`);
+        const wasDisconnected = await this.deleteQueue(Queue.Id, this.Queues);
+        if (wasDisconnected) {
+            const Embed = new MessageEmbed();
+            Embed.setColor('#00FF00');
+            Embed.setTitle('Disconnected');
+            Embed.setURL('https://www.oyintare.dev/');
+            Embed.setFooter(`${ctx.member.displayName}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
-        try {
-            command.reply({ embeds: [Embed] }).then(function (message) {
-                if (message) setTimeout(() => message.delete(), messageDeleteDelay);
-            });
-        } catch (error) {
-            console.log(error);
+            try {
+                command.reply({ embeds: [Embed] }).then(function (message) {
+                    if (message) setTimeout(() => message.delete(), messageDeleteDelay);
+                });
+            } catch (error) {
+                console.log(`\n\n Send | Delete Message Error \n\n${error}`);
+            }
         }
+        else {
+            const Embed = new MessageEmbed();
+            Embed.setColor('#00FF00');
+            Embed.setTitle('Error While Disconnecting');
+            Embed.setURL('https://www.oyintare.dev/');
+            Embed.setFooter(`${ctx.member.displayName}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
+
+            try {
+                command.reply({ embeds: [Embed] }).then(function (message) {
+                    if (message) setTimeout(() => message.delete(), messageDeleteDelay);
+                });
+            } catch (error) {
+                console.log(`\n\n Send | Delete Message Error \n\n${error}`);
+            }
+        }
+
+
     }
 
+    /*
+    CHANGE THE VOLUME
+    */
     async setVolume(command) {
 
         const ctx = command.ctx;
@@ -545,42 +845,49 @@ module.exports.musicManager = class musicManager {
 
         let volInt = NaN;
 
-        if (!command.isInteraction) {
-            try {
-                volInt = parseInt(command.getArgs()[0]);
-            } catch (error) {
-                console.log(error);
-                volInt = NaN;
-                await this.notice(command, "Please pass in an integer between 1 and 100");
-            }
 
+        try {
+            switch (command.type) {
+                case 'MESSAGE':
+                    volInt = parseInt(command.getArgs()[0]);
+                    break;
+                case 'COMMAND':
+                    volInt = command.ctx.options.getInteger('volume')
+                    break;
+                case 'CONTEXT_MENU':
+                    break;
+            }
+        } catch (error) {
+            volInt = NaN;
+            await this.notice(command, "Please pass in an integer between 1 and 100");
         }
 
-        let vol = command.isInteraction ? command.ctx.options.getInteger('volume') : volInt;
-
-        if (vol < 1 || vol > 100) {
+        if (volInt < 1 || volInt > 100) {
             return await this.notice(command, "Volume needs to be between 1 and 100");
         }
 
-        Queue.volume = vol / 100;
+        Queue.volume = volInt / 100;
         if (Queue.currentResource) Queue.currentResource.volume.setVolume(Queue.volume);
 
 
         const Embed = new MessageEmbed();
         Embed.setColor('#00FF00');
-        Embed.setTitle('Music | Volume');
-        Embed.setURL('https://oyintare.dev/');
-        Embed.setDescription(`Volume changed to  **${parseInt(Queue.volume * 100)}%**`);
+        Embed.setTitle(`Changed the volume to **${parseInt(Queue.volume * 100)}%**`);
+        Embed.setURL('https://www.oyintare.dev/');
+        Embed.setFooter(`${ctx.member.displayName}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
         try {
             command.reply({ embeds: [Embed] }).then(function (message) {
                 if (message) setTimeout(() => message.delete(), messageDeleteDelay);
             });
         } catch (error) {
-            console.log(error);
+            console.log(`\n\n Send | Delete Message Error \n\n${error}`);
         }
     }
 
+    /*
+    DISPLAY THE QUEUE
+    */
     async showQueue(command) {
         const ctx = command.ctx;
         if (!ctx.guild || !ctx.member.voice.channel) return this.notice(command, "You need to be in a voice channel to use this command");
@@ -593,17 +900,25 @@ module.exports.musicManager = class musicManager {
 
         const Embed = new MessageEmbed();
         Embed.setColor('#00FF00');
-        Embed.setTitle(`Music | ${Queue.songs.length} in Queue`);
-        Embed.setURL('https://oyintare.dev/');
+        Embed.setTitle(`${Queue.songs.length} in Queue`);
+        Embed.setURL('https://www.oyintare.dev/');
 
-        for (let i = 0; i < Queue.songs.length; i++) {
+        const length = Queue.songs.length <= 20 ? Queue.songs.length : 20;
+        for (let i = 0; i < length; i++) {
             let currentSong = Queue.songs[i];
             Embed.addField(`${i}) \`${currentSong.title}\``, `**Requested by** ${currentSong.requester} \n`, false);
         }
 
-        command.reply({ embeds: [Embed] });
+        try {
+            command.reply({ embeds: [Embed] });
+        } catch (error) {
+            console.log(`\n\n Send Queue Message Error \n\n${error}`);
+        }
     }
 
+    /*
+    SHOW THE CURRENT SONG
+    */
     async showNowPlaying(command) {
         const ctx = command.ctx;
         if (!ctx.guild || !ctx.member.voice.channel) return this.notice(command, "You need to be in a voice channel to use this command");
@@ -614,59 +929,40 @@ module.exports.musicManager = class musicManager {
 
         if (!Queue || !Queue.currentResource) return this.notice(command, "Nothing's playing");
 
-        let song = Queue.currentResource.song;
+        createNowPlayingMessage(Queue);
+    }
 
-        const nowButtons = new MessageActionRow()
-            .addComponents(
-                new MessageButton()
-                    .setCustomId('music-skip')
-                    .setLabel('Skip')
-                    .setStyle('PRIMARY'),
-                new MessageButton()
-                    .setCustomId('music-toggle')
-                    .setLabel(`Pause/Resume`)
-                    .setStyle(`SUCCESS`),
-                new MessageButton()
-                    .setCustomId('music-stop')
-                    .setLabel('Stop')
-                    .setStyle('DANGER'),
-                new MessageButton()
-                    .setCustomId('music-queue')
-                    .setLabel('Queue')
-                    .setStyle('SECONDARY'),
-            );
+    /*
+    RREMOVE A SONG FROM THE QUEUE
+    */
+    async removeSong(command) {
 
-        const Embed = new MessageEmbed();
-        Embed.setColor('#00FF00');
-        Embed.setTitle('Music | Now Playing');
-        Embed.setURL('https://oyintare.dev/');
-        Embed.setDescription(`**Now Playing** \`${song.title}\` \n**Requested By** ${song.requester} \n **Volume** : **${parseInt(Queue.volume * 100)}%**`);
+    }
 
-        if (Queue.nowPlayingMessage.channel != undefined) {
-            let messageRef = undefined;
+    /*
+    SAVE THE CURRENT QUEUE
+    */
+    async saveQueue(command) {
 
-            try {
-                messageRef = await Queue.nowPlayingMessage.channel.messages.fetch(Queue.nowPlayingMessage.messageId);
-            } catch (error) {
-                console.log(error);
-            }
+        const settings = this.getSettings();
+        const ctx = command.ctx;
 
-            if (messageRef) {
-                await messageRef.delete();
-            }
+        if (!settings) this.notice(command, "Internal Error loading settings");
 
-            Queue.nowPlayingMessage.channel = undefined;
-            Queue.nowPlayingMessage.messageId = undefined;
-        }
+        if (!ctx.guild || !ctx.member.voice.channel) return this.notice(command, "You need to be in a voice channel to use this command");
 
-        try {
-            const newNowPlaying = await command.reply({ embeds: [Embed], components: [nowButtons] });
-            Queue.nowPlayingMessage.channel = newNowPlaying.channel;
-            Queue.nowPlayingMessage.messageId = newNowPlaying.id;
-        } catch (error) {
-            console.log(error);
-        }
+        const guildId = ctx.guild.id;
 
+        let Queue = this.Queues.get(guildId);
+
+        if (!Queue) return this.notice(command, "There's no Queue");
+    }
+
+    /*
+    LOAD A QUEUE
+    */
+    async loadQueue(command) {
+        const settings = this.getSettings();
     }
 
 }

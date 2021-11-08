@@ -4,12 +4,14 @@
             "functionName": "getBotStatus",
             "category": "Main",
             "description": "Get general information on the bot.",
+            "ContextMenu": {},
             "arguments": {}
         },
         "help": {
             "functionName": "help",
             "category": "Main",
             "description": "Get help using the bot.",
+            "ContextMenu": {},
             "arguments": {
                 "command": {
                     "description": "the specific command to get help for.",
@@ -23,6 +25,7 @@
             "functionName": "delete",
             "category": "Main",
             "description": "Deletes messages in a channel",
+            "ContextMenu": {},
             "arguments": {
                 "ammount": {
                     "description": "The ammount of messages to delete, 100 max.",
@@ -35,6 +38,10 @@
             "functionName": "play",
             "category": "Music",
             "description": "Plays the given Link/Song",
+            "ContextMenu": {
+                "Name": "Add to Queue",
+                "Type": 3
+            },
             "arguments": {
                 "url": {
                     "description": "The link to the song to play / The song to search for.",
@@ -47,12 +54,14 @@
             "functionName": "pause",
             "category": "Music",
             "description": "Pauses the current Song.",
+            "ContextMenu": {},
             "arguments": {}
         },
         "resume": {
             "functionName": "resume",
             "category": "Music",
             "description": "Resumes the current song",
+            "ContextMenu": {},
             "arguments": {}
         },
         "skip": {
@@ -60,12 +69,14 @@
             "functionName": "skip",
             "category": "Music",
             "description": "Skip's the current song",
+            "ContextMenu": {},
             "arguments": {}
         },
         "stop": {
             "functionName": "disconnect",
             "category": "Music",
             "description": "Stops the current song and disconnects the bot",
+            "ContextMenu": {},
             "arguments": {}
         },
         "volume": {
@@ -75,10 +86,27 @@
             "functionName": "setVolume",
             "category": "Music",
             "description": "Changes the volume of the current song",
+            "ContextMenu": {},
             "arguments": {
                 "volume": {
                     "description": "The new volume",
                     "type": "int",
+                    "required": true
+                }
+            }
+        },
+        "remove": {
+            "aliases": [
+                "setvolume"
+            ],
+            "functionName": "removeSong",
+            "category": "Music",
+            "description": "Remove's a song from the queue",
+            "ContextMenu": {},
+            "arguments": {
+                "volume": {
+                    "description": "The name or position of the song",
+                    "type": "string",
                     "required": true
                 }
             }
@@ -88,6 +116,7 @@
             "functionName": "showQueue",
             "category": "Music",
             "description": "Displays the current queue",
+            "ContextMenu": {},
             "arguments": {}
         },
         "now": {
@@ -95,7 +124,39 @@
             "functionName": "showNowPlaying",
             "category": "Music",
             "description": "Displays the current song",
+            "ContextMenu": {},
             "arguments": {}
+        },
+        "savequeue": {
+            "aliases": [],
+            "functionName": "saveQueue",
+            "category": "Music",
+            "description": "Saves the current Queue",
+            "ContextMenu": {},
+            "arguments": {
+                "name": {
+                    "description": "The name to save the queue as (no spaces pls).",
+                    "type": "string",
+                    "required": true
+                }
+            }
+        },
+        "loadqueue": {
+            "aliases": [],
+            "functionName": "loadQueue",
+            "category": "Music",
+            "description": "loads a saved Queue",
+            "ContextMenu": {},
+            "arguments": {
+                "name": {
+                    "description": "The name the queue is saved as(no spaces pls).",
+                    "type": "string",
+                    "required": true
+                }
+            }
         }
+    },
+    "Routes" :{
+        "Add to Queue" : "play"
     }
 }

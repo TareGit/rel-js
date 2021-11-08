@@ -40,7 +40,7 @@ chatBotManagerInstance = new chatbotModule.ChatBotManager(serviceAccountCredenti
 
 mainBot = new mainBotModule.mainBot(getConfig, getSettings, updateSettings);
 
-musicBot = new musicBotModule.musicManager(bot);
+musicBot = new musicBotModule.musicManager(bot, getSettings, updateSettings);
     
 }
 
@@ -120,28 +120,7 @@ const asyncGuildMemberUpdate = async (bot,oldMember, newMember) => {
     {
         if(newMember.displayName.toLowerCase() != 'rel')
         {
-            const fetchedLogs = await newMember.guild.fetchAuditLogs({
-                limit: 1,
-                type: 'MEMBER_UPDATE',
-            });
-
             newMember.setNickname('REL');
-
-            // Since there's only 1 audit log entry in this collection, grab the first one
-            const memberUpdateLog = fetchedLogs.entries.first();
-        
-            // Perform a coherence check to make sure that there's *something*
-            if (!memberUpdateLog) return console.log(`${newMember.user.tag} left the guild, most likely of their own will.`);
-        
-            // Now grab the user object of the person who kicked the member
-            // Also grab the target of this action to double-check things
-            const { executor, target } = memberUpdateLog;
-        
-            // Update the output with a bit more information
-            // Also run a check to make sure that the log returned was for the same kicked member
-            if (target.id === newMember.id) {
-                executor.send(`Why change my name wtho ?`);
-            }
         }
 
     }
@@ -154,7 +133,7 @@ module.exports.messageCreate = function (message) {
 }
 
 module.exports.interactionCreate = function (interaction) {
-    if (!interaction.isCommand()) {
+    if (!interaction.isCommand() && !interaction.isContextMenu()) {
         return;
     }
 
