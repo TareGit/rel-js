@@ -336,12 +336,16 @@ module.exports.musicManager = class musicManager {
     */
     async playSongInternal(Queue) {
 
+        
+
         if (Queue.timeout) {
             clearTimeout(Queue.timeout);
             Queue.timeout = undefined;
         }
 
         Queue.currentResource = undefined;
+
+        console.log(Queue.songs);
 
         if (Queue.songs.length == 0) {
             // Invalidate the now playing message
@@ -385,7 +389,12 @@ module.exports.musicManager = class musicManager {
             return;
         }
 
+        console.log('About to play song');
+
+        
         const song = Queue.songs[0];
+
+        console.log(song);
 
         let stream = null;
 
@@ -473,6 +482,9 @@ module.exports.musicManager = class musicManager {
     */
     async play(command) {
 
+        console.time('play-command');
+
+        console.time('Play-command-start');
         let url = "";
 
         const ctx = command.ctx;
@@ -481,9 +493,14 @@ module.exports.musicManager = class musicManager {
 
         const guildId = ctx.guild.id;
 
-        await command.deferReply(); // defer because this might take a while
+        console.timeEnd('Play-command-start');
 
+        console.time('defer-reply');
+        if (this.type != "MESSAGE") await command.deferReply(); // defer because this might take a while
+        console.timeEnd('defer-reply');
         // handle different command types
+
+        console.time('get-url');
         switch (command.type) {
             case 'MESSAGE':
                 url = command.contentOnly;
@@ -510,30 +527,30 @@ module.exports.musicManager = class musicManager {
                 }
                 break;
         }
+        console.timeEnd('get-url');
 
+        console.time('check-1');
         if (url.length == 0) return this.notice(command, "You didn't say what you wanted to play");
-
+        console.timeEnd('check-1');
         let newSongs = [];
 
+        console.time('get-url-type');
         const check = await play.validate(url);
+        console.timeEnd('get-url-type');
 
+        console.time('fetch-data');
         // Fetch song data
         try {
             // Simple yt video shit
             if (check === "search") // handle just a regular search term
             {
-
-                const search = await play.search(url, { limit: 1 });
-
-                const details = search[0];
+                const details = (await play.search(url, { limit: 1 }))[0];
 
                 if (details) newSongs.push(createSong(details.title, ctx.member, details.thumbnail.url, details.url));
             }
             else if (check == 'yt_video') {
 
-                const info = await play.video_basic_info(url);
-
-                const details = info.video_details;
+                const details = (await play.video_basic_info(url)).video_details;
 
                 if (details) newSongs.push(createSong(details.title, ctx.member, details.thumbnail.url, details.url));
             }
@@ -551,8 +568,8 @@ module.exports.musicManager = class musicManager {
                         trackData.artists.forEach(element => artists += ' ' + element.name);
                     }
                     const searchToMake = trackData.name + ' ' + artists + ' audio';
-                    const search = await play.search(searchToMake, { limit: 1 });
-                    return search[0];
+
+                    return (await play.search(searchToMake, { limit: 1 }))[0];
                 }
 
                 // fetch the spofity data, could be a song, playlist or albumn
@@ -598,18 +615,26 @@ module.exports.musicManager = class musicManager {
 
         }
 
+        console.timeEnd('fetch-data');
+
         let Queue = this.Queues.get(guildId);
 
 
         // create the queue if it does not exist
+        console.time('create-queue');
         if (!Queue) Queue = await this.joinChannel(command);
+        console.timeEnd('create-queue');
 
         //incase its still invalid for some reason
         if (!Queue) return this.notice(command, "Unknown Error while creating the Queue");
 
+        console.time('push-songs');
         // add the songs to the queue
         Queue.songs.push.apply(Queue.songs, newSongs);
 
+        console.timeEnd('push-songs');
+
+        console.timeEnd('play-command');
         if (!Queue.isGettingReadyToPlay) {
             if (command.type != 'MESSAGE') command.reply('Preparing to play music');
             // start the queue up

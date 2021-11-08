@@ -3,7 +3,7 @@ const fs = require('fs');
 
 
 class command {
-    constructor(ctx,commandInfo,cmdKey,type,contentOnly = "") {
+    constructor(ctx, commandInfo, cmdKey, type, contentOnly = "") {
         this.ctx = ctx;
         this.cmdKey = cmdKey
         this.commandInfo = commandInfo;
@@ -20,11 +20,11 @@ class command {
 
         let syntax = "";
         syntax += '<' + this.cmdKey + '>';
-        
+
         Object.keys(this.commandInfo.arguments).forEach(function (item, index) {
             syntax += ' <' + item + '>';
         });
-        
+
         syntax = '\`' + syntax + '\`';
         return syntax;
     }
@@ -37,33 +37,26 @@ class command {
         return this.contentOnly.split(/\s+/);
     }
 
-    async deferReply()
-    {
-        if(this.type != "MESSAGE")
-        {
-            this.deferred = true;
-            console.log("DEFERRED")
-            return await this.ctx.deferReply();
-        }
-        console.log("F IN CHAT")
+    async deferReply() {
+        if (this.type == "MESSAGE") return
+        
+        this.deferred = true;
+        console.log("DEFERRED")
+        return await this.ctx.deferReply();
+
     }
 
-    async reply(reply)
-    {
-        if(this.type != "MESSAGE")
-        {
-            if(this.deferred)
-            {
+    async reply(reply) {
+        if (this.type != "MESSAGE") {
+            if (this.deferred) {
                 return await this.ctx.editReply(reply);
             }
-            else
-            {
+            else {
                 return await this.ctx.reply(reply);
             }
-            
+
         }
-        else
-        {
+        else {
             return await this.ctx.reply(reply);
         }
     }
@@ -125,9 +118,9 @@ module.exports.commandParser = class commandParser {
             message.reply("\'" + actualAlias + "\' Is not a command");
             return undefined;
         }
-        
 
-        return new command(message, config['Commands'][actualCommand],actualCommand, 'MESSAGE',contentWithoutprefix.slice(actualAlias.length + 1));
+
+        return new command(message, config['Commands'][actualCommand], actualCommand, 'MESSAGE', contentWithoutprefix.slice(actualAlias.length + 1));
     }
 
     /*
@@ -142,17 +135,14 @@ module.exports.commandParser = class commandParser {
         // fetch the config
         try {
             commandConfig = config['Commands'][interaction.commandName];
-            if(commandConfig == undefined)
-            {
+            if (commandConfig == undefined) {
                 const commandRoute = config['Routes'][interaction.commandName];
 
-                if(commandRoute != undefined)
-                {
+                if (commandRoute != undefined) {
                     commandConfig = config['Commands'][commandRoute];
                 }
 
-                if(commandConfig == undefined)
-                {
+                if (commandConfig == undefined) {
                     return undefined;
                 }
             }
@@ -162,10 +152,10 @@ module.exports.commandParser = class commandParser {
             return undefined;
         }
 
-        if(interaction.isContextMenu()) return new command(interaction, commandConfig,interaction.commandName,'CONTEXT_MENU');
+        if (interaction.isContextMenu()) return new command(interaction, commandConfig, interaction.commandName, 'CONTEXT_MENU');
 
-        return new command(interaction, commandConfig,interaction.commandName,'COMMAND');
-        
+        return new command(interaction, commandConfig, interaction.commandName, 'COMMAND');
+
     }
 
 }
