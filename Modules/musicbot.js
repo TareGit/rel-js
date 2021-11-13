@@ -223,7 +223,7 @@ module.exports.musicManager = class musicManager {
                 });
 
 
-                Queue.player.on('error', (error) => {
+                Queue.player.on('debug', (error) => {
                     console.log(`===================== Error : Audio Player ===================== \n${error}`)
                 })
 
@@ -233,7 +233,7 @@ module.exports.musicManager = class musicManager {
                     adapterCreator: ctx.guild.voiceAdapterCreator
                 });
 
-                connection.on('error', (error) => {
+                connection.on('debug', (error) => {
                     console.log(`===================== Error : Voice Connection ===================== \n${error}`)
                 })
 
@@ -345,8 +345,6 @@ module.exports.musicManager = class musicManager {
 
         Queue.currentResource = undefined;
 
-        console.log(Queue.songs);
-
         if (Queue.songs.length == 0) {
             // Invalidate the now playing message
             if (Queue.nowPlayingMessage.channel != undefined) {
@@ -389,12 +387,7 @@ module.exports.musicManager = class musicManager {
             return;
         }
 
-        console.log('About to play song');
-
-        
         const song = Queue.songs[0];
-
-        console.log(song);
 
         let stream = null;
 
@@ -439,7 +432,7 @@ module.exports.musicManager = class musicManager {
         resource.volume.setVolume(Queue.volume);
 
         try {
-            console.log("Attempting to play");
+            
             Queue.player.play(resource, { seek: 0, volume: Queue.volume });
             Queue.songs.shift();
 
@@ -472,7 +465,6 @@ module.exports.musicManager = class musicManager {
             return
         }
 
-        console.log("Showing now playing message");
         createNowPlayingMessage(Queue);
 
     }
@@ -482,9 +474,7 @@ module.exports.musicManager = class musicManager {
     */
     async play(command) {
 
-        console.time('play-command');
 
-        console.time('Play-command-start');
         let url = "";
 
         const ctx = command.ctx;
@@ -493,14 +483,11 @@ module.exports.musicManager = class musicManager {
 
         const guildId = ctx.guild.id;
 
-        console.timeEnd('Play-command-start');
 
-        console.time('defer-reply');
         if (this.type != "MESSAGE") await command.deferReply(); // defer because this might take a while
-        console.timeEnd('defer-reply');
-        // handle different command types
 
-        console.time('get-url');
+
+        // handle different command types
         switch (command.type) {
             case 'MESSAGE':
                 url = command.contentOnly;
@@ -527,18 +514,16 @@ module.exports.musicManager = class musicManager {
                 }
                 break;
         }
-        console.timeEnd('get-url');
 
-        console.time('check-1');
         if (url.length == 0) return this.notice(command, "You didn't say what you wanted to play");
-        console.timeEnd('check-1');
+
         let newSongs = [];
 
-        console.time('get-url-type');
-        const check = await play.validate(url);
-        console.timeEnd('get-url-type');
 
-        console.time('fetch-data');
+        const check = await play.validate(url);
+
+
+
         // Fetch song data
         try {
             // Simple yt video shit
@@ -615,26 +600,23 @@ module.exports.musicManager = class musicManager {
 
         }
 
-        console.timeEnd('fetch-data');
 
         let Queue = this.Queues.get(guildId);
 
 
         // create the queue if it does not exist
-        console.time('create-queue');
+
         if (!Queue) Queue = await this.joinChannel(command);
-        console.timeEnd('create-queue');
+
 
         //incase its still invalid for some reason
         if (!Queue) return this.notice(command, "Unknown Error while creating the Queue");
 
-        console.time('push-songs');
+
         // add the songs to the queue
         Queue.songs.push.apply(Queue.songs, newSongs);
 
-        console.timeEnd('push-songs');
 
-        console.timeEnd('play-command');
         if (!Queue.isGettingReadyToPlay) {
             if (command.type != 'MESSAGE') command.reply('Preparing to play music');
             // start the queue up

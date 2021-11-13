@@ -1,4 +1,4 @@
-var process = require('process');
+const process = require('process');
 process.chdir(__dirname);
 console.log(__dirname);
 require('dotenv').config();
@@ -86,7 +86,7 @@ const httpsPort = 443
 app.use(express.json());
 
 app.get('/', (request, response) => {
-  response.send('Hello World!');
+  response.send('What are you lookin for ?');
 })
 
 app.post('/sendmessage', (request, response) => {

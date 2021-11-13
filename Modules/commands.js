@@ -16,8 +16,8 @@ class command {
         return this.commandInfo.functionName;
     }
 
-    getSyntax() {
-
+    getSyntax() 
+    {
         let syntax = "";
         syntax += '<' + this.cmdKey + '>';
 
