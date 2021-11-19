@@ -7,46 +7,7 @@ const { MessageEmbed, MessageActionRow, MessageButton, ReactionUserManager } = r
 // time before a message is deleted
 const messageDeleteDelay = 5000;
 
-// function to create a song class (for the sake of consistency and sanity)
-const createSong = function (songTitle, songRequester, songThumbnailURL, songURL, songGroupURL = "") {
-    return {
-        title: songTitle,
-        requester: songRequester,
-        thumbnail: songThumbnailURL,
-        url: songURL,
-        groupURL: songGroupURL
-    }
-}
 
-const createNowPlayingMessage = async function (Queue, command) {
-    const song = Queue.currentResource.song;
-    const Embed = new MessageEmbed();
-
-    Embed.setColor('#00FF00');
-    Embed.setTitle(`**${song.title}**`);
-    Embed.setURL(`${song.url}`);
-    Embed.setThumbnail(`${song.thumbnail}`);
-    Embed.setDescription(`**Volume** : **${parseInt(Queue.volume * 100)}%**`);
-    Embed.setFooter(`${song.requester.displayName}`, song.requester.displayAvatarURL({ format: 'png', size: 32 }));
-    const nowButtons = new MessageActionRow()
-        .addComponents(
-            new MessageButton()
-                .setCustomId('music-skip')
-                .setLabel('Skip')
-                .setStyle('PRIMARY'),
-            new MessageButton()
-                .setCustomId('music-toggle')
-                .setLabel(`Pause/Resume`)
-                .setStyle(`SUCCESS`),
-            new MessageButton()
-                .setCustomId('music-stop')
-                .setLabel('Stop')
-                .setStyle('DANGER'),
-            new MessageButton()
-                .setCustomId('music-queue')
-                .setLabel('Queue')
-                .setStyle('SECONDARY'),
-        );
 
     // Invalidate the current now playing message
     if (Queue.nowPlayingMessage.channel != undefined) {
@@ -479,7 +440,7 @@ module.exports.musicManager = class musicManager {
 
         const ctx = command.ctx;
 
-        if (!ctx.guild || !ctx.member.voice.channel) return this.notice(command, "You need to be in a voice channel to use this command");
+        
 
         const guildId = ctx.guild.id;
 

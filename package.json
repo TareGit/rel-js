@@ -24,6 +24,7 @@
     "ffmpeg-static": "^4.4.0",
     "http": "^0.0.1-security",
     "https": "^1.0.0",
+    "lavacord": "^1.1.9",
     "libsodium-wrappers": "^0.7.9",
     "node-os-utils": "^1.3.5",
     "opusscript": "^0.0.8",
