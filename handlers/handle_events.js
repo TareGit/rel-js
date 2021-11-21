@@ -64,12 +64,9 @@ async function asyncMessageCreate(message){
         }
     }
     else {
-        try {
-            commandToExecute.execute(bot, message, 'MESSAGE');
-        } catch (error) {
-            console.log(error);
-        }
-
+        commandToExecute.execute(bot, message, 'MESSAGE').catch((error) => {
+            console.log(error)
+        });
     }
 
 
@@ -85,11 +82,9 @@ async function asyncInteractionCreate(interaction){
         interaction.reply("Command not yet implemented");
     }
     else {
-        try {
-            commandToExecute.execute(bot, interaction, 'COMMAND');
-        } catch (error) {
-            console.log(error);
-        }
+        commandToExecute.execute(bot, interaction, 'COMMAND').catch((error) => {
+            console.log(error)
+        });
 
     }
 }
