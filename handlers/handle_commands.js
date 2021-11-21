@@ -5,7 +5,7 @@ module.exports.loadCommands = function (bot) {
 
     bIsReload = bot.commands != undefined;
 
-    const commandSubFolders = ['general','music'];
+    const commandSubFolders = fs.readdirSync(`${process.cwd()}/commands`);
 
     const commands = new Map();
 
@@ -33,7 +33,6 @@ module.exports.parseMessage = async (bot, message) => {
     const content = message.content;
     let prefix = '?';
 
-    console.log(message.content);
     if (!content.startsWith(prefix)) {
         return undefined
     }

@@ -84,6 +84,14 @@ app.post('/dev', (request, response) => {
 
         break;
 
+      case 'update color':
+
+        bot.primaryColor = request.body['color'];
+
+        response.send({ "result": `Set color to ${bot.primaryColor}` });
+
+        break;
+
       default:
         response.send({ "result": "Command does not exist!" });
         break;

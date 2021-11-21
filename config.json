@@ -1,3 +1,5 @@
 {
-    "queueTimeout" : 50000
+    "queueTimeout" : 300000,
+    "queueItemsPerPage" : 10,
+    "maxQueueFetchTime" : 5000
 }

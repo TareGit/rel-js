@@ -32,13 +32,22 @@ const bot = new Client(botIntents);
 bot.on('ready', () => {
     console.log('BOT ACTIVE');
 
-    // altert owner
+    commandsModule.loadCommands(bot);
+
+    // alert owner
     bot.users.fetch(process.env.CREATOR_ID).then((user) => {
         if (user) {
-            user.send('BITCH IM AWAKE');
+            user.send(`Loaded ${bot.commands.size} Commands`);
         }
     }).catch(console.error);
 
+
+    bot.primaryColor = '#00FF00';
+
+    const Queues = new Map();
+
+    bot.Queues = Queues;
+    
     // Fix name 
     /*bot.guilds.fetch().then((guilds) => {
         for (const guild of guilds) {
@@ -52,15 +61,11 @@ bot.on('ready', () => {
         }
     });*/
 
-    commandsModule.loadCommands(bot);
-
-    console.log(`Loaded ${bot.commands.size} Commands`);
-
 
     eventsModule.setup(bot);
     httpModule.setup(bot);
 });
  
-bot.login(process.env.DISCORD_BOT_TOKEN_ALPHA);
+bot.login(process.env.DISCORD_BOT_TOKEN);
 
 

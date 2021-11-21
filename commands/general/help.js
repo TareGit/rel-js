@@ -13,31 +13,34 @@ module.exports = {
             required: false
         }
     ],
-    async execute(bot, ctx, isInteraction) {
-        const fields = new Array();
+    async execute(bot, ctx) {
+        
+            const fields = new Array();
 
-        let prefix = '?';
+            let prefix = '?';
 
-        const helpEmbed = new MessageEmbed();
-        helpEmbed.setColor('#0099ff');
-        helpEmbed.setTitle('Help For Commands\n');
-        helpEmbed.setURL('https://www.oyintare.dev/');
+            const helpEmbed = new MessageEmbed();
+            helpEmbed.setColor(bot.primaryColor);
+            helpEmbed.setTitle('Help For Commands\n');
+            helpEmbed.setURL('https://www.oyintare.dev/');
 
-        bot.commands.forEach(function (value, key) {
-            let syntax = "";
-            syntax += `${prefix}${value.name} `;
+            bot.commands.forEach(function (value, key) {
+                let syntax = "";
+                syntax += `${prefix}${value.name} `;
 
-            value.options.forEach(function (option, index) {
-                syntax += ` <${option.name}> `;
-            });
+                value.options.forEach(function (option, index) {
+                    syntax += ` <${option.name}> `;
+                });
 
-            syntax = `\`${syntax}\``;
+                syntax = `\`${syntax}\``;
 
-            helpEmbed.addField(key, `${value.description} \n Syntax: ${syntax} \n`, false);
-        })
+                helpEmbed.addField(key, `${value.description} \n Syntax: ${syntax} \n`, false);
+            })
 
-        helpEmbed.setTimestamp()
+            helpEmbed.setTimestamp()
 
-        await ctx.reply({ embeds: [helpEmbed] });
+            await ctx.reply({ embeds: [helpEmbed] });
+        
+
     }
 }

@@ -1,15 +1,15 @@
 const { Queue } = require(`${process.cwd()}/handlers/handle_music_queue`);
 
 module.exports = {
-    name: 'volume',
+    name: 'loop',
     category: 'Music',
-    description: 'sets the music volume',
+    description: 'sets the loop state of the Queue',
     ContextMenu: {},
     options: [
         {
-            name: 'Ammount',
-            description: "The new volume value",
-            type: 4,
+            name: 'newLoopState',
+            description: '\'on\' to loop and \'off\' to not loop',
+            type: 3,
             required: false
         }
     ],
@@ -21,7 +21,7 @@ module.exports = {
 
             if (Queue == undefined) return ctx.reply("Theres no Queue");
 
-            Queue.setVolume(ctx);
+            Queue.setLooping(ctx);
         
 
     }
