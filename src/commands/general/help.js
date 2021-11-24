@@ -21,13 +21,13 @@ module.exports = {
             let prefix = '?';
 
             const helpEmbed = new MessageEmbed();
-            helpEmbed.setColor(ps.bot.primaryColor);
+            helpEmbed.setColor(ps.pColors.get((ctx.member !== null) ? ctx.member.guild.id : 'DM'));
             helpEmbed.setTitle('Help For Commands\n');
             helpEmbed.setURL('https://www.oyintare.dev/');
 
-            ps.bot.commands.forEach(function (value, key) {
+            ps.commands.forEach(function (value, key) {
                 let syntax = "";
-                syntax += `${prefix}${value.name} `;
+                syntax += `${ps.prefixes.get((ctx.member !== null) ? ctx.member.guild.id : 'DM')}${value.name} `;
 
                 value.options.forEach(function (option, index) {
                     syntax += ` <${option.name}> `;

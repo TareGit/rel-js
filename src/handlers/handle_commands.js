@@ -33,7 +33,7 @@ module.exports.loadCommands = function () {
 module.exports.parseMessage = async (message) => {
 
     const content = message.content;
-    let prefix = '?';
+    const prefix = ps.prefixes.get((message.member !== null) ? message.member.guild.id : 'DM');
 
     if (!content.startsWith(prefix)) {
         return undefined

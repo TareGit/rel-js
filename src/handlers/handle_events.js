@@ -9,14 +9,7 @@ const fs = require('fs');
 
 const serviceAccountCredentials = JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS));
 
-
-let chatBotManagerInstance = undefined;
-
-
-module.exports.setup = function setup() {
-
-
-    chatBotManagerInstance = new chatModule.ChatBotManager(serviceAccountCredentials['project_id']);
+const chatBotManagerInstance = new chatModule.ChatBotManager(serviceAccountCredentials['project_id']);
 
     ps.bot.on('messageCreate', (message) => {
 
@@ -41,7 +34,8 @@ module.exports.setup = function setup() {
     ps.bot.on('guildMemberUpdate', (oldMember, newMember) => {
         asyncGuildMemberUpdate(oldMember, newMember);
     });
-}
+
+    console.log('Events Module Online');
 
 async function asyncMessageCreate(message){
 

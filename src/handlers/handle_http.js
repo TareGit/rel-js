@@ -108,24 +108,20 @@ app.post('/dev', (request, response) => {
 
 
 
-module.exports.initialize = function () {
+app.listen(port, () => {
+  console.log(`REL HTTP Server listening at http://rel.oyintare.dev:${port}/`)
+})
 
 
-  app.listen(port, () => {
-    console.log(`REL HTTP Server listening at http://rel.oyintare.dev:${port}/`)
-  })
+if (process.platform == 'linux') {
+  // serve the API with signed certificate on 443 (SSL/HTTPS) port
+  const appHttps = https.createServer({
+    key: fs.readFileSync('/etc/letsencrypt/live/rel.oyintare.dev/privkey.pem'),
+    cert: fs.readFileSync('/etc/letsencrypt/live/rel.oyintare.dev/fullchain.pem'),
+  }, app);
 
-
-  if (process.platform == 'linux') {
-    // serve the API with signed certificate on 443 (SSL/HTTPS) port
-    const appHttps = https.createServer({
-      key: fs.readFileSync('/etc/letsencrypt/live/rel.oyintare.dev/privkey.pem'),
-      cert: fs.readFileSync('/etc/letsencrypt/live/rel.oyintare.dev/fullchain.pem'),
-    }, app);
-
-    appHttps.listen(httpsPort, () => {
-      console.log(`REL HTTPS Server listening at https://rel.oyintare.dev:${httpsPort}/`)
-    });
-  }
+  appHttps.listen(httpsPort, () => {
+    console.log(`REL HTTPS Server listening at https://rel.oyintare.dev:${httpsPort}/`)
+  });
 }
 

@@ -1,6 +1,9 @@
 const { MessageEmbed } = require('discord.js');
 const ps = require(`${process.cwd()}/passthrough`);
 const osu = require('node-os-utils')
+
+const {version} = ps.sync.require(`${process.cwd()}/config.json`);
+
 module.exports = {
     name: 'status',
     category: 'Main',
@@ -10,7 +13,7 @@ module.exports = {
     async execute(ctx) {
         
             const Embed = new MessageEmbed();
-            Embed.setColor(ps.bot.primaryColor);
+            Embed.setColor(ps.pColors.get((ctx.member !== null) ? ctx.member.guild.id : 'DM'));
             Embed.setTitle('Status');
             Embed.setURL('https://www.oyintare.dev/');
 
@@ -30,7 +33,7 @@ module.exports = {
 
             const hoursUp = parseInt(Math.floor(seconds / (60 * 60)));
 
-            Embed.addField(`Version`, `2.0`, false);
+            Embed.addField(`Version`, `${ps.version}`, false);
             Embed.addField(`Language`, `Node JS`, false);
             Embed.addField(`UP Time`, ` ${pad(hoursUp)}Hrs ${pad(minutsUp)}Min ${pad(secondsUp)}Secs`, false);
             Embed.addField(`Guilds Count `, ` ${ps.bot.guilds.cache.size}`, false);

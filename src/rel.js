@@ -13,12 +13,9 @@ require('dotenv').config();
 const { Client, Intents } = require('discord.js');
 const casandraDriver = require("cassandra-driver");
 
-
-
-const eventsModule = sync.require('./handlers/handle_events');
-const httpModule = sync.require('./handlers/handle_http');
+// can be loaded now as it is not dependent on the bot and does not need to be initialized
 const commandsModule = sync.require('./handlers/handle_commands');
-
+const { defaultPrefix, defaultPrimaryColor } = ps.sync.require(`${process.cwd()}/config.json`);
 
 
 
@@ -44,6 +41,7 @@ const botIntents = {
 const bot = new Client(botIntents);
 
 bot.on('ready', () => {
+    console.log('Bot Ready');
 
     const db = new casandraDriver.Client({
         cloud: {
@@ -56,30 +54,33 @@ bot.on('ready', () => {
       });
 
     db.connect().then(()=>{
-        console.log('Sucessfully Connected to Database');
-        ps.bot = bot;
-    
 
+        console.log('Sucessfully Connected to Database');
+
+        ps.bot = bot;
+        ps.pColors.set('DM',defaultPrimaryColor);
+        ps.prefixes.set('DM',defaultPrefix);
+
+        db.execute("USE main").then(() =>{
+            //db.execute("DROP TABLE IF EXISTS guilds") never un-comment
+            ps.db = db;
         commandsModule.loadCommands();
-    
-    
-        console.log('BOT ACTIVE');
-    
+        console.log(`Loaded ${ps.commands.size} Commands`);
+
         // alert owner
         bot.users.fetch(process.env.CREATOR_ID).then((user) => {
             if (user) {
                 user.send(`Loaded ${ps.commands.size} Commands`);
             }
         }).catch((error) => {console.log(`Error Notifying creator of commands Init \n${error}`);});
-    
-    
-        bot.primaryColor = '#00FF00';
-    
-        ps.queues = new Map();
-    
-        eventsModule.setup();
-    
-        httpModule.initialize();
+
+        // arent actually used here but we need to load them up
+        const eventsModule = sync.require('./handlers/handle_events');
+        const guildDataModule = sync.require('./handlers/handle_guild_data');
+        const httpModule = sync.require('./handlers/handle_http');
+
+        });
+
     }).catch((error)=> {console.log(`Error connecting to database \n${error}`);})
 
     
@@ -102,5 +103,7 @@ bot.on('ready', () => {
 });
  
 bot.login(process.env.DISCORD_BOT_TOKEN_ALPHA);
+
+sync.events.on("error", console.error);
 
 
