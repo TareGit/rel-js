@@ -11,6 +11,7 @@ ps.sync = sync;
 
 require('dotenv').config();
 const { Client, Intents } = require('discord.js');
+const casandraDriver = require("cassandra-driver");
 
 
 
@@ -44,29 +45,44 @@ const bot = new Client(botIntents);
 
 bot.on('ready', () => {
 
-    ps.bot = bot;
+    const db = new casandraDriver.Client({
+        cloud: {
+          secureConnectBundle: process.env.ASTRA_CONNECT_BUNDLE,
+        },
+        credentials: {
+          username: process.env.ASTRA_CLIENT_ID,
+          password: process.env.ASTRA_CLIENT_SECRETE,
+        },
+      });
+
+    db.connect().then(()=>{
+        console.log('Sucessfully Connected to Database');
+        ps.bot = bot;
     
 
-    commandsModule.loadCommands();
+        commandsModule.loadCommands();
+    
+    
+        console.log('BOT ACTIVE');
+    
+        // alert owner
+        bot.users.fetch(process.env.CREATOR_ID).then((user) => {
+            if (user) {
+                user.send(`Loaded ${ps.commands.size} Commands`);
+            }
+        }).catch((error) => {console.log(`Error Notifying creator of commands Init \n${error}`);});
+    
+    
+        bot.primaryColor = '#00FF00';
+    
+        ps.queues = new Map();
+    
+        eventsModule.setup();
+    
+        httpModule.initialize();
+    }).catch((error)=> {console.log(`Error connecting to database \n${error}`);})
 
-
-    console.log('BOT ACTIVE');
-
-    // alert owner
-    bot.users.fetch(process.env.CREATOR_ID).then((user) => {
-        if (user) {
-            user.send(`Loaded ${ps.commands.size} Commands`);
-        }
-    }).catch(console.error);
-
-
-    bot.primaryColor = '#00FF00';
-
-    ps.queues = new Map();
-
-    eventsModule.setup();
-
-    httpModule.initialize();
+    
     
     // Fix name 
     /*bot.guilds.fetch().then((guilds) => {

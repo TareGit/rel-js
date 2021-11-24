@@ -24,7 +24,7 @@ hs_err_pid*
 
 node_modules
 
-src/GoogleCredentials.json
+src/external_api
 
 # env files
 *.env
