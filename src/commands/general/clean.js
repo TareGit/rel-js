@@ -1,4 +1,5 @@
 const { MessageEmbed } = require('discord.js');
+const ps = require(`${process.cwd()}/passthrough`);
 
 module.exports = {
     name: 'clean',
@@ -13,7 +14,7 @@ module.exports = {
             required: true
         }
     ],
-    async execute(bot, ctx) {
+    async execute(ctx) {
 
         
             const ammount = ctx.cType == "COMMAND" ? ctx.options.getInteger('ammount') : parseInt(ctx.args[0]);

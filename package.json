@@ -2,11 +2,11 @@
   "name": "rel-js",
   "version": "1.5.0",
   "description": "A Discord Bot",
-  "main": "index.js",
+  "main": "./src/rel.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node ./rel.js",
-    "registerCommands": "node ./registerCommands.js"
+    "start": "node ./src/rel.js",
+    "registerCommands": "node ./clearegisterCommands.js"
   },
   "keywords": [],
   "author": "Oyintare",
@@ -21,6 +21,7 @@
     "dotenv": "^10.0.0",
     "express": "^4.17.1",
     "ffmpeg-static": "^4.4.0",
+    "heatsync": "^2.2.1",
     "http": "^0.0.1-security",
     "https": "^1.0.0",
     "libsodium-wrappers": "^0.7.9",

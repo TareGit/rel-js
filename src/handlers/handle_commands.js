@@ -1,13 +1,15 @@
+const ps = require(`${process.cwd()}/passthrough`);
+
 const { Interaction } = require('discord.js');
 const fs = require('fs');
 
-module.exports.loadCommands = function (bot) {
+module.exports.loadCommands = function () {
 
-    bIsReload = bot.commands != undefined;
+    bIsReload = ps.commands != undefined;
 
     const commandSubFolders = fs.readdirSync(`${process.cwd()}/commands`);
 
-    const commands = new Map();
+    ps.commands = new Map();
 
     commandSubFolders.forEach(function (subFolder, index) {
         const commandFiles = fs.readdirSync(`${process.cwd()}/commands/${subFolder}`).filter(file => file.endsWith('.js'));
@@ -19,16 +21,16 @@ module.exports.loadCommands = function (bot) {
             const command = require(`${process.cwd()}/commands/${subFolder}/${file}`);
     
             const fileName = file.slice(0, -3);// remove .js
-            commands.set(fileName,command);
-        }
 
+            ps.commands.set(fileName,command);
+        }
         
     });
 
-    bot.commands = commands;
-    
 }
-module.exports.parseMessage = async (bot, message) => {
+
+
+module.exports.parseMessage = async (message) => {
 
     const content = message.content;
     let prefix = '?';
@@ -43,7 +45,7 @@ module.exports.parseMessage = async (bot, message) => {
 
 
 
-    if (bot.commands.get(actualAlias) == undefined) {
+    if (ps.commands.get(actualAlias) == undefined) {
         message.reply("\'" + actualAlias + "\' Is not a command");
         return undefined;
     }
@@ -53,11 +55,11 @@ module.exports.parseMessage = async (bot, message) => {
     const argsNotSplit = content.slice(prefix.length + actualAlias.length);
     message.pureContent = argsNotSplit.trim();
     message.args = (argsNotSplit.trim()).split(/\s+/);
-    return bot.commands.get(actualAlias);
+    return ps.commands.get(actualAlias);
 }
 
-module.exports.parseInteractionCommand = async (bot, interaction) => {
+module.exports.parseInteractionCommand = async (interaction) => {
 
     interaction.cType = 'INTERACTION';
-    return bot.commands.get(interaction.commandName);
+    return ps.commands.get(interaction.commandName);
 }

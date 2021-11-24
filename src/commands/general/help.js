@@ -1,4 +1,5 @@
 const { MessageEmbed } = require('discord.js');
+const ps = require(`${process.cwd()}/passthrough`);
 
 module.exports = {
     name: 'help',
@@ -13,18 +14,18 @@ module.exports = {
             required: false
         }
     ],
-    async execute(bot, ctx) {
+    async execute(ctx) {
         
             const fields = new Array();
 
             let prefix = '?';
 
             const helpEmbed = new MessageEmbed();
-            helpEmbed.setColor(bot.primaryColor);
+            helpEmbed.setColor(ps.bot.primaryColor);
             helpEmbed.setTitle('Help For Commands\n');
             helpEmbed.setURL('https://www.oyintare.dev/');
 
-            bot.commands.forEach(function (value, key) {
+            ps.bot.commands.forEach(function (value, key) {
                 let syntax = "";
                 syntax += `${prefix}${value.name} `;
 

@@ -1,4 +1,7 @@
-const { queueTimeout, queueItemsPerPage, maxQueueFetchTime } = require(`${process.cwd()}/config.json`);
+const ps = require(`${process.cwd()}/passthrough`);
+
+const { queueTimeout, queueItemsPerPage, maxQueueFetchTime } = ps.sync.require("../config.json");
+
 const play = require('play-dl');
 const { createAudioPlayer, createAudioResource, joinVoiceChannel, NoSubscriberBehavior, AudioPlayerState, AudioPlayerStatus, getVoiceConnection } = require('@discordjs/voice');
 const EventEmitter = require("events");
@@ -6,26 +9,27 @@ const { MessageEmbed, MessageActionRow, MessageButton, InteractionCollector, Int
 const { response } = require('express');
 const { time, clear } = require('console');
 
-module.exports.createQueue = async function (bot, ctx) {
 
-    if (bot.Queues.get(ctx.member.guild.id) == undefined) {
+module.exports.createQueue = async function (ctx) {
 
-        return createNewQueue(bot, ctx);
+    if (ps.queues.get(ctx.member.guild.id) == undefined) {
+
+        return createNewQueue(ctx);
     }
     else {
-        return bot.Queues.get(ctx.member.guild.id);
+        return ps.queues.get(ctx.member.guild.id);
     }
 
 }
 
-function createNewQueue(bot, ctx) {
-    const newQueue = new Queue(bot, ctx);
+function createNewQueue(ctx) {
+    const newQueue = new Queue(ctx);
 
     newQueue.on('state', (state) => {
         console.log(state);
     })
 
-    bot.Queues.set(ctx.member.guild.id, newQueue);
+    ps.queues.set(ctx.member.guild.id, newQueue);
 
     return newQueue;
 }
@@ -42,7 +46,6 @@ const createSong = function (songTitle, songRequester, songThumbnailURL, songURL
 }
 
 const createNowPlayingMessage = async function (ref) {
-    const bot = ref.bot;
     const channel = ref.channel;
     let song = ref.currentSong;
 
@@ -71,7 +74,7 @@ const createNowPlayingMessage = async function (ref) {
 
     const Embed = new MessageEmbed();
 
-    Embed.setColor(bot.primaryColor);
+    Embed.setColor(ps.bot.primaryColor);
     Embed.setTitle(`**${song.title}**`);
     Embed.setURL(`${song.url}`);
     Embed.setThumbnail(`${song.thumbnail}`);
@@ -100,7 +103,7 @@ const createNowPlayingMessage = async function (ref) {
     const message = await channel.send({ embeds: [Embed], components: [nowButtons] });
     if (message) {
 
-        const nowPlayingCollector = new InteractionCollector(bot, { message: message, componentType: 'BUTTON' });
+        const nowPlayingCollector = new InteractionCollector(ps.bot, { message: message, componentType: 'BUTTON' });
         nowPlayingCollector.queue = ref;
 
 
@@ -198,13 +201,12 @@ const createNowPlayingMessage = async function (ref) {
 
 const generateQueueEmbed = function (page, ref) {
 
-    const bot = ref.bot;
     const currentQueueLenth = ref.queue.length;
     const itemsPerPage = queueItemsPerPage;
     const currentPages = Math.ceil((currentQueueLenth / itemsPerPage));
 
     const Embed = new MessageEmbed();
-    Embed.setColor(bot.primaryColor);
+    Embed.setColor(ps.bot.primaryColor);
     Embed.setTitle(`${currentQueueLenth} in Queue`);
     Embed.setURL('https://www.oyintare.dev/');
 
@@ -228,9 +230,8 @@ const generateQueueEmbed = function (page, ref) {
 
 class Queue extends EventEmitter {
 
-    constructor(bot, ctx) {
+    constructor(ctx) {
         super();
-        this.bot = bot;
         this.Id = ctx.member.guild.id;
         this.channel = ctx.channel;
         this.voiceChannel = ctx.member.voice.channel;
@@ -484,7 +485,7 @@ class Queue extends EventEmitter {
             console.log('Sent to Queue');
             const Embed = new MessageEmbed();
 
-            Embed.setColor(this.bot.primaryColor);
+            Embed.setColor(ps.bot.primaryColor);
             Embed.setFooter(`Added to the Queue`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
             if (newSongs.length > 1) {
@@ -511,7 +512,7 @@ class Queue extends EventEmitter {
             this.player.pause();
 
             const Embed = new MessageEmbed();
-            Embed.setColor(this.bot.primaryColor);
+            Embed.setColor(ps.bot.primaryColor);
             Embed.setURL('https://www.oyintare.dev/');
             Embed.setFooter(`${ctx.member.displayName} paused the music`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
@@ -526,7 +527,7 @@ class Queue extends EventEmitter {
             this.player.unpause();
 
             const Embed = new MessageEmbed();
-            Embed.setColor(this.bot.primaryColor);
+            Embed.setColor(ps.bot.primaryColor);
             Embed.setURL('https://www.oyintare.dev/');
             Embed.setFooter(`${ctx.member.displayName} Un-Paused the music`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
@@ -558,7 +559,7 @@ class Queue extends EventEmitter {
         if (ctx.args[0] == undefined) return ctx.channel.send('Please use either `loop on` or `loop off`');
 
         const Embed = new MessageEmbed();
-        Embed.setColor(this.bot.primaryColor);
+        Embed.setColor(ps.bot.primaryColor);
 
         Embed.setURL('https://www.oyintare.dev/');
         Embed.setFooter(`${ctx.member.displayName}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
@@ -600,7 +601,7 @@ class Queue extends EventEmitter {
             const message = await ctx.channel.send({ embeds: [generateQueueEmbed(1, this)[0]], components: [showQueueButtons] });
             if (message) {
 
-                const queueCollector = new InteractionCollector(this.bot, { message: message, componentType: 'BUTTON', idle: 7000 });
+                const queueCollector = new InteractionCollector(ps.bot, { message: message, componentType: 'BUTTON', idle: 7000 });
                 queueCollector.resetTimer({ time: 7000 });
                 queueCollector.currentPage = 1;
                 queueCollector.queue = this;
@@ -711,7 +712,7 @@ class Queue extends EventEmitter {
 
 
         const Embed = new MessageEmbed();
-        Embed.setColor(this.bot.primaryColor);
+        Embed.setColor(ps.bot.primaryColor);
         Embed.setURL('https://www.oyintare.dev/');
         Embed.setFooter(`${ctx.member.displayName} Changed the volume to ${parseInt(this.volume * 100)}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
@@ -722,7 +723,7 @@ class Queue extends EventEmitter {
         if (this.isPlaying()) {
             this.player.stop();
             const Embed = new MessageEmbed();
-            Embed.setColor(this.bot.primaryColor);
+            Embed.setColor(ps.bot.primaryColor);
             Embed.setURL('https://www.oyintare.dev/');
             Embed.setFooter(`${ctx.member.displayName} Skipped the song`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
@@ -738,7 +739,7 @@ class Queue extends EventEmitter {
     async stop(ctx) {
 
         const Embed = new MessageEmbed();
-        Embed.setColor(this.bot.primaryColor);
+        Embed.setColor(ps.bot.primaryColor);
         Embed.setURL('https://www.oyintare.dev/');
         Embed.setFooter(`${ctx.member.displayName} Disconnected Me`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
@@ -776,7 +777,7 @@ class Queue extends EventEmitter {
             getVoiceConnection(ref.Id).destroy();
         }
 
-        ref.bot.Queues.delete(ref.Id);
+        ps.queues.delete(ref.Id);
     }
 
 }

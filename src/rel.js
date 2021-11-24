@@ -1,9 +1,24 @@
 const process = require('process');
+process.chdir(__dirname);
+
+const ps = require('./passthrough');
+const Heatsync = require("heatsync");
+
+const sync = new Heatsync();
+
+ps.sync = sync;
+
+
 require('dotenv').config();
 const { Client, Intents } = require('discord.js');
-const eventsModule = require('./handlers/handle_events');
-const httpModule = require('./handlers/handle_http');
-const commandsModule = require('./handlers/handle_commands');
+
+
+
+const eventsModule = sync.require('./handlers/handle_events');
+const httpModule = sync.require('./handlers/handle_http');
+const commandsModule = sync.require('./handlers/handle_commands');
+
+
 
 
 // bot Intents
@@ -24,29 +39,34 @@ const botIntents = {
     partials: ['MESSAGE', 'CHANNEL', 'REACTION']
 }
 
-
-// Setup settinngs and configs
-
+// Setup settings and configs
 const bot = new Client(botIntents);
 
 bot.on('ready', () => {
-    console.log('BOT ACTIVE');
 
-    commandsModule.loadCommands(bot);
+    ps.bot = bot;
+    
+
+    commandsModule.loadCommands();
+
+
+    console.log('BOT ACTIVE');
 
     // alert owner
     bot.users.fetch(process.env.CREATOR_ID).then((user) => {
         if (user) {
-            user.send(`Loaded ${bot.commands.size} Commands`);
+            user.send(`Loaded ${ps.commands.size} Commands`);
         }
     }).catch(console.error);
 
 
     bot.primaryColor = '#00FF00';
 
-    const Queues = new Map();
+    ps.queues = new Map();
 
-    bot.Queues = Queues;
+    eventsModule.setup();
+
+    httpModule.initialize();
     
     // Fix name 
     /*bot.guilds.fetch().then((guilds) => {
@@ -62,10 +82,9 @@ bot.on('ready', () => {
     });*/
 
 
-    eventsModule.setup(bot);
-    httpModule.setup(bot);
+    
 });
  
-bot.login(process.env.DISCORD_BOT_TOKEN);
+bot.login(process.env.DISCORD_BOT_TOKEN_ALPHA);
 
 

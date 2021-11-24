@@ -1,16 +1,18 @@
+const ps = require(`${process.cwd()}/passthrough`);
 
 // Imports the Dialogflow library
 const dialogflow = require('@google-cloud/dialogflow');
 // Instantiates a session client
 const sessionClient = new dialogflow.SessionsClient();
 
+
+
 class ChatBot {
 
-    constructor(Project_ID, bot, sessionId) {
+    constructor(Project_ID,sessionId) {
 
         this.Project_ID = Project_ID;
         this.sessionId = sessionId;
-        this.bot = bot;
         this.lastContext;
     }
 
@@ -68,11 +70,10 @@ class ChatBot {
 
 module.exports.ChatBotManager = class ChatBotManager {
 
-    constructor(Project_ID, bot) {
+    constructor(Project_ID) {
 
         this.Project_ID = Project_ID;
         this.childInstances = new Map();
-        this.bot = bot;
 
     }
 
@@ -120,7 +121,7 @@ module.exports.ChatBotManager = class ChatBotManager {
 
             try {
                 this.childInstances.set(Id,
-                    [new ChatBot(this.Project_ID, this.bot, Id), this.createTimerForInstance(Id)]
+                    [new ChatBot(this.Project_ID, ps.bot, Id), this.createTimerForInstance(Id)]
                 );
             } catch (error) {
                 console.log(error);

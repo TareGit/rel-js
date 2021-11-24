@@ -1,4 +1,6 @@
-const { Queue, createQueue } = require(`${process.cwd()}/handlers/handle_music_queue`);
+const ps = require(`${process.cwd()}/passthrough`);
+
+const { createQueue } = ps.sync.require(`${process.cwd()}/handlers/handle_music_queue`);
 
 module.exports = {
     name: 'load',
@@ -13,14 +15,14 @@ module.exports = {
             required: false
         }
     ],
-    async execute(bot, ctx) {
+    async execute(ctx) {
         
             if (!ctx.guild || !ctx.member.voice.channel) return ctx.reply("You need to be in a voice channel to use this command");
 
-            let Queue = bot.Queues.get(ctx.member.guild.id);
+            let Queue = ps.queues.get(ctx.member.guild.id);
 
             if (Queue == undefined) {
-                Queue = await createQueue(bot, ctx);
+                Queue = await createQueue(ps.bot, ctx);
             }
 
             Queue.loadQueue(ctx);

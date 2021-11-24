@@ -1,30 +1,33 @@
+const ps = require(`${process.cwd()}/passthrough`);
+
+const chatModule = ps.sync.require('./handle_chat');
+const parser = ps.sync.require('./handle_commands');
+
 const fs = require('fs');
-const chatModule = require('./handle_chat');
-const parser = require('./handle_commands');
+
+
 
 const serviceAccountCredentials = JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS));
 
 
 let chatBotManagerInstance = undefined;
 
-let bot = undefined
 
-module.exports.setup = function setup(botIn) {
+module.exports.setup = function setup() {
 
-    bot = botIn;
 
     chatBotManagerInstance = new chatModule.ChatBotManager(serviceAccountCredentials['project_id']);
 
-    bot.on('messageCreate', (message) => {
+    ps.bot.on('messageCreate', (message) => {
 
-        if (message.author.id === bot.user.id) return;
+        if (message.author.id === ps.bot.user.id) return;
     
         asyncMessageCreate(message).then(result => {
         });
     
     });
     
-    bot.on('interactionCreate', (interaction) => {
+    ps.bot.on('interactionCreate', (interaction) => {
         if (!interaction.isCommand() && !interaction.isContextMenu()) {
             return;
         }
@@ -35,14 +38,14 @@ module.exports.setup = function setup(botIn) {
     
     
     
-    bot.on('guildMemberUpdate', (oldMember, newMember) => {
+    ps.bot.on('guildMemberUpdate', (oldMember, newMember) => {
         asyncGuildMemberUpdate(oldMember, newMember);
     });
 }
 
 async function asyncMessageCreate(message){
 
-    const commandToExecute = await parser.parseMessage(bot, message);
+    const commandToExecute = await parser.parseMessage(message);
 
     if (commandToExecute == undefined) {
 
@@ -64,7 +67,7 @@ async function asyncMessageCreate(message){
         }
     }
     else {
-        commandToExecute.execute(bot, message, 'MESSAGE').catch((error) => {
+        commandToExecute.execute(message, 'MESSAGE').catch((error) => {
             console.log(error)
         });
     }
@@ -76,13 +79,13 @@ async function asyncMessageCreate(message){
 async function asyncInteractionCreate(interaction){
 
 
-    const commandToExecute = await parser.parseInteractionCommand(bot, interaction);
+    const commandToExecute = await parser.parseInteractionCommand(interaction);
 
     if (commandToExecute == undefined) {
         interaction.reply("Command not yet implemented");
     }
     else {
-        commandToExecute.execute(bot, interaction, 'COMMAND').catch((error) => {
+        commandToExecute.execute(interaction, 'COMMAND').catch((error) => {
             console.log(error)
         });
 
@@ -91,7 +94,7 @@ async function asyncInteractionCreate(interaction){
 
 async function asyncGuildMemberUpdate(oldMember, newMember){
     
-    if (newMember.id == bot.user.id) {
+    if (newMember.id == ps.bot.user.id) {
 
         if (newMember.displayName.toLowerCase() != 'rel') {
             newMember.setNickname('REL');

@@ -1,7 +1,7 @@
 const play = require('play-dl');
 const Voice = require('@discordjs/voice');
-const async = require('async')
-const pify = require('pify')
+const async = require('async');
+const pify = require('pify');
 const { MessageEmbed, MessageActionRow, MessageButton, ReactionUserManager } = require('discord.js');
 
 // time before a message is deleted

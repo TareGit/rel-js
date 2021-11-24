@@ -1,11 +1,12 @@
+const ps = require(`${process.cwd()}/passthrough`);
+
+const { loadCommands } = ps.sync.require('./handle_commands');
 
 const express = require('express');
 const https = require('https');
 const fs = require('fs');
-const { loadCommands } = require('./handle_commands');
 
 
-let bot = undefined;
 const app = express()
 
 
@@ -21,10 +22,10 @@ app.get('/', (request, response) => {
 app.post('/sendmessage', (request, response) => {
   response.set('Content-Type', 'application/json')
 
-  if (!bot.isReady()) return response.send({ "result": "client is not ready" });
+  if (!ps.bot === undefined) return response.send({ "result": "client is not ready" });
 
   try {
-    bot.users.fetch(request.body['user']).then((user) => {
+    ps.bot.users.fetch(request.body['user']).then((user) => {
 
       if (user) {
         user.send(request.body['message']);
@@ -46,10 +47,10 @@ app.post('/sendmessage', (request, response) => {
 app.post('/fulfillment', (request, response) => {
   response.set('Content-Type', 'application/json')
 
-  if (!bot.isReady()) return response.send({ "result": "client is not ready" });
+  if (!ps.bot === undefined) return response.send({ "result": "client is not ready" });
 
   try {
-    bot.users.fetch(request.body['user']).then((user) => {
+    ps.bot.users.fetch(request.body['user']).then((user) => {
 
       if (user) {
         user.send(request.body['message']);
@@ -71,22 +72,22 @@ app.post('/fulfillment', (request, response) => {
 app.post('/dev', (request, response) => {
   response.set('Content-Type', 'application/json')
 
-  if (!bot.isReady()) return response.send({ "result": "client is not ready" });
+  if (!ps.bot === undefined) return response.send({ "result": "client is not ready" });
 
   try {
     const command = request.body['command'];
     switch (command) {
       case 'reload commands':
 
-        loadCommands(bot);
+        loadCommands();
 
-        response.send({ "result": `Reloaded ${bot.commands.size} Commands` });
+        response.send({ "result": `Reloaded ${ps.commands.size} Commands` });
 
         break;
 
       case 'update color':
 
-        bot.primaryColor = request.body['color'];
+        ps.primaryColor = request.body['color'];
 
         response.send({ "result": `Set color to ${bot.primaryColor}` });
 
@@ -107,9 +108,8 @@ app.post('/dev', (request, response) => {
 
 
 
-module.exports.setup = function (botIn) {
+module.exports.initialize = function () {
 
-  bot = botIn;
 
   app.listen(port, () => {
     console.log(`REL HTTP Server listening at http://rel.oyintare.dev:${port}/`)
