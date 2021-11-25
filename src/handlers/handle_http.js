@@ -6,21 +6,26 @@ const fs = require('fs');
 
 const { io } = require("socket.io-client");
 
+// On connect to the server
 function onConnect() {
     console.log('Connected to server');
     ps.socket.emit('identify', 'REL');
     console.log('Sent identity to server');
 }
 
+// On disconnect from the server
 function onDisconnect() {
     console.log('Disconnected from server');
 }
 
+
+// handle an event from the server to invalidate local date( make the data dirty so we pull a new version from the db)
 function onInvalidate(payload) {
     console.log(`Payload recieved`);
     console.log(payload);
 }
 
+// array of possible events (done like this for heatsync reloading)
 const socketEvents = [
     { id: 'connect', event: onConnect },
     { id: 'disconnect', event: onDisconnect },
