@@ -218,7 +218,8 @@ const generateQueueEmbed = function (page, ref) {
 
     const currentQueueLenth = ref.queue.length;
     const itemsPerPage = queueItemsPerPage;
-    const currentPages = Math.ceil((currentQueueLenth / itemsPerPage));
+    const prevCurrentPages = Math.ceil((currentQueueLenth / itemsPerPage))
+    const currentPages = prevCurrentPages < 1 ? 1 : prevCurrentPages;
 
     const Embed = new MessageEmbed();
     Embed.setColor(ps.pColors.get(ref.guildId));
@@ -321,7 +322,6 @@ class Queue extends EventEmitter {
             this.timeout = undefined;
         }
 
-        console.log('PLay Next song Called');
         if (this.queue.length == 0) {
             this.timeout = setTimeout(this.destroyQueue, queueTimeout, this);
             this.isIdle = true;
@@ -386,10 +386,10 @@ class Queue extends EventEmitter {
                 break;
             case 'CONTEXT_MENU':
                 const contextMessage = ctx.options.getMessage('message');
-                if (contextMessage.embeds[0] != undefined) {
+                if (contextMessage.embeds[0] !== undefined) {
                     url = contextMessage.embeds[0].url;
                 }
-                else if (contextMessage.content != '') {
+                else if (contextMessage.content !== '') {
                     const contentLow = contextMessage.content.toLowerCase();
                     url = contextMessage.content;
                 }
@@ -421,7 +421,7 @@ class Queue extends EventEmitter {
 
                 if (details) newSongs.push(createSong(details.title, ctx.member, details.thumbnail.url, details.url));
             }
-            else if (check == 'sp_track' || check == 'sp_album' || check == 'sp_playlist') // handle spotify
+            else if (check === 'sp_track' || check === 'sp_album' || check === 'sp_playlist') // handle spotify
             {
 
                 if (play.is_expired()) {
@@ -435,7 +435,7 @@ class Queue extends EventEmitter {
                 // helper function to convert spotify links to youtube search terms (needs more special sauce)
                 const convertTrackToYTSearch = async function (trackData) {
                     let artists = "";
-                    if (trackData.type == 'track') {
+                    if (trackData.type === 'track') {
                         trackData.artists.forEach(element => artists += ' ' + element.name);
                     }
                     const searchToMake = trackData.name + ' ' + artists + ' audio';
@@ -515,7 +515,7 @@ class Queue extends EventEmitter {
 
             }
 
-            handleReply(ctx,{ embeds: [Embed] })
+            handleReply(ctx, { embeds: [Embed] })
         }
 
 
@@ -531,7 +531,7 @@ class Queue extends EventEmitter {
             Embed.setURL('https://www.oyintare.dev/');
             Embed.setFooter(`${ctx.member.displayName} paused the music`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
-            handleReply(ctx,{ embeds: [Embed] })
+            handleReply(ctx, { embeds: [Embed] })
         }
     }
 
@@ -546,7 +546,7 @@ class Queue extends EventEmitter {
             Embed.setURL('https://www.oyintare.dev/');
             Embed.setFooter(`${ctx.member.displayName} Un-Paused the music`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
-            handleReply(ctx,{ embeds: [Embed] })
+            handleReply(ctx, { embeds: [Embed] })
         }
 
 
@@ -571,7 +571,7 @@ class Queue extends EventEmitter {
     async setLooping(ctx) {
 
 
-        if (ctx.args[0] == undefined) return handleReply(ctx,'Please use either `loop on` or `loop off`');
+        if (ctx.args[0] == undefined) return handleReply(ctx, 'Please use either `loop on` or `loop off`');
 
         const Embed = new MessageEmbed();
         Embed.setColor(ps.pColors.get(this.guildId));
@@ -588,11 +588,11 @@ class Queue extends EventEmitter {
             this.isLooping = false;
             Embed.setFooter(`Looping Off`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
         } else {
-            handleReply(ctx,'Please use either `loop on` or `loop true`');
+            handleReply(ctx, 'Please use either `loop on` or `loop true`');
             return
         }
 
-        handleReply(ctx,{ embeds: [Embed] })
+        handleReply(ctx, { embeds: [Embed] })
 
     }
 
@@ -613,7 +613,7 @@ class Queue extends EventEmitter {
                         .setStyle(`PRIMARY`),
                 );
 
-            const message = await handleReply(ctx,{ embeds: [generateQueueEmbed(1, this)[0]], components: [showQueueButtons] });
+            const message = await handleReply(ctx, { embeds: [generateQueueEmbed(1, this)[0]], components: [showQueueButtons] });
             if (message) {
 
                 const queueCollector = new InteractionCollector(ps.bot, { message: message, componentType: 'BUTTON', idle: 7000 });
@@ -684,13 +684,13 @@ class Queue extends EventEmitter {
             }
             else {
 
-                handleReply(ctx,{ embeds: [generateQueueEmbed(1, this)[0]] });
+                handleReply(ctx, { embeds: [generateQueueEmbed(1, this)[0]] });
             }
 
 
         }
         else {
-            handleReply(ctx,{ embeds: [generateQueueEmbed(1, this)[0]] });
+            handleReply(ctx, { embeds: [generateQueueEmbed(1, this)[0]] });
         }
 
     }
@@ -704,18 +704,18 @@ class Queue extends EventEmitter {
     }
 
     async setVolume(ctx) {
-        if (ctx.args[0] == undefined) return handleReply(ctx,'IDK what song you wanna set the volume to');
+        if (ctx.args[0] == undefined) return handleReply(ctx, 'IDK what song you wanna set the volume to');
 
 
         const volume = parseInt(ctx.args[0]);
 
         if (volume !== volume) {
-            handleReply(ctx,'Bruh is that even a number ?');
+            handleReply(ctx, 'Bruh is that even a number ?');
             return;
         }
 
         if (volume < 1 || volume > 100) {
-            handleReply(ctx,'Please use a value between 1 and 100');
+            handleReply(ctx, 'Please use a value between 1 and 100');
             return;
         }
 
@@ -731,7 +731,7 @@ class Queue extends EventEmitter {
         Embed.setURL('https://www.oyintare.dev/');
         Embed.setFooter(`${ctx.member.displayName} Changed the volume to ${parseInt(this.volume * 100)}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
-        handleReply(ctx,{ embeds: [Embed] })
+        handleReply(ctx, { embeds: [Embed] })
     }
 
     async skipSong(ctx) {
@@ -742,8 +742,7 @@ class Queue extends EventEmitter {
             Embed.setURL('https://www.oyintare.dev/');
             Embed.setFooter(`${ctx.member.displayName} Skipped the song`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
-            if (c)
-                handleReply(ctx,{ embeds: [Embed] })
+            handleReply(ctx, { embeds: [Embed] })
         }
         else {
             if (this.queue.length != 0) {
@@ -760,7 +759,7 @@ class Queue extends EventEmitter {
         Embed.setFooter(`${ctx.member.displayName} Disconnected Me`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
 
-        handleReply(ctx,{ embeds: [Embed] })
+        handleReply(ctx, { embeds: [Embed] })
 
         this.destroyQueue(this);
 

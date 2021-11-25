@@ -11,33 +11,9 @@ const serviceAccountCredentials = JSON.parse(fs.readFileSync(process.env.GOOGLE_
 
 const chatBotManagerInstance = new chatModule.ChatBotManager(serviceAccountCredentials['project_id']);
 
-    ps.bot.on('messageCreate', (message) => {
+ps.bot.on('messageCreate', async (message) => {
 
-        if (message.author.id === ps.bot.user.id) return;
-    
-        asyncMessageCreate(message).then(result => {
-        });
-    
-    });
-    
-    ps.bot.on('interactionCreate', (interaction) => {
-        if (!interaction.isCommand() && !interaction.isContextMenu()) {
-            return;
-        }
-    
-        asyncInteractionCreate(interaction).then(result => {
-        });
-    });
-    
-    
-    
-    ps.bot.on('guildMemberUpdate', (oldMember, newMember) => {
-        asyncGuildMemberUpdate(oldMember, newMember);
-    });
-
-    console.log('Events Module Online');
-
-async function asyncMessageCreate(message){
+    if (message.author.id === ps.bot.user.id) return;
 
     const commandToExecute = await parser.parseMessage(message);
 
@@ -68,10 +44,13 @@ async function asyncMessageCreate(message){
 
 
 
-}
 
-async function asyncInteractionCreate(interaction){
+});
 
+ps.bot.on('interactionCreate', async (interaction) => {
+    if (!interaction.isCommand() && !interaction.isContextMenu()) {
+        return;
+    }
 
     const commandToExecute = await parser.parseInteractionCommand(interaction);
 
@@ -84,17 +63,21 @@ async function asyncInteractionCreate(interaction){
         });
 
     }
-}
+});
 
-async function asyncGuildMemberUpdate(oldMember, newMember){
-    
+
+
+ps.bot.on('guildMemberUpdate', async (oldMember, newMember) => {
     if (newMember.id == ps.bot.user.id) {
 
         if (newMember.displayName.toLowerCase() != 'rel') {
             newMember.setNickname('REL');
         }
-
+        
     }
-}
+});
+
+
+console.log('Events Module Online');
 
 

@@ -33,7 +33,7 @@ module.exports = {
 
             const hoursUp = parseInt(Math.floor(seconds / (60 * 60)));
 
-            Embed.addField(`Version`, `${ps.version}`, false);
+            Embed.addField(`Version`, `${version}`, false);
             Embed.addField(`Language`, `Node JS`, false);
             Embed.addField(`UP Time`, ` ${pad(hoursUp)}Hrs ${pad(minutsUp)}Min ${pad(secondsUp)}Secs`, false);
             Embed.addField(`Guilds Count `, ` ${ps.bot.guilds.cache.size}`, false);

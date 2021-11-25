@@ -14,7 +14,6 @@ const { Client, Intents } = require('discord.js');
 const casandraDriver = require("cassandra-driver");
 
 // can be loaded now as it is not dependent on the bot and does not need to be initialized
-const commandsModule = sync.require('./handlers/handle_commands');
 const { defaultPrefix, defaultPrimaryColor } = ps.sync.require(`${process.cwd()}/config.json`);
 
 
@@ -45,64 +44,47 @@ bot.on('ready', () => {
 
     const db = new casandraDriver.Client({
         cloud: {
-          secureConnectBundle: process.env.ASTRA_CONNECT_BUNDLE,
+            secureConnectBundle: process.env.ASTRA_CONNECT_BUNDLE,
         },
         credentials: {
-          username: process.env.ASTRA_CLIENT_ID,
-          password: process.env.ASTRA_CLIENT_SECRETE,
+            username: process.env.ASTRA_CLIENT_ID,
+            password: process.env.ASTRA_CLIENT_SECRETE,
         },
-      });
+    });
 
-    db.connect().then(()=>{
+    db.connect().then(() => {
 
         console.log('Sucessfully Connected to Database');
 
         ps.bot = bot;
-        ps.pColors.set('DM',defaultPrimaryColor);
-        ps.prefixes.set('DM',defaultPrefix);
+        ps.pColors.set('DM', defaultPrimaryColor);
+        ps.prefixes.set('DM', defaultPrefix);
 
-        db.execute("USE main").then(() =>{
+        db.execute("USE main").then(() => {
             //db.execute("DROP TABLE IF EXISTS guilds") never un-comment
             ps.db = db;
-        commandsModule.loadCommands();
-        console.log(`Loaded ${ps.commands.size} Commands`);
 
-        // alert owner
-        bot.users.fetch(process.env.CREATOR_ID).then((user) => {
-            if (user) {
-                user.send(`Loaded ${ps.commands.size} Commands`);
-            }
-        }).catch((error) => {console.log(`Error Notifying creator of commands Init \n${error}`);});
+            console.log(`Loaded ${ps.sync.require('./handlers/handle_commands_load')} Commands`);
 
-        // arent actually used here but we need to load them up
-        const eventsModule = sync.require('./handlers/handle_events');
-        const guildDataModule = sync.require('./handlers/handle_guild_data');
-        const httpModule = sync.require('./handlers/handle_http');
+            // alert owner
+            bot.users.fetch(process.env.CREATOR_ID).then((user) => {
+                if (user) {
+                    user.send(`Loaded ${ps.commands.size} Commands`);
+                }
+            }).catch((error) => { console.log(`Error Notifying creator of commands Init \n${error}`); });
+
+            // arent actually used here but we need to load them up
+            const eventsModule = sync.require('./handlers/handle_events');
+            const guildDataModule = sync.require('./handlers/handle_guild_data');
+            const httpModule = sync.require('./handlers/handle_http');
 
         });
 
-    }).catch((error)=> {console.log(`Error connecting to database \n${error}`);})
+    }).catch((error) => { console.log(`Error connecting to database \n${error}`); })
 
-    
-    
-    // Fix name 
-    /*bot.guilds.fetch().then((guilds) => {
-        for (const guild of guilds) {
-            guild[1].fetch().then((fetchedGuild) => {
-                let user = fetchedGuild.me;
-                if (user.displayName.toLowerCase() != 'rel') {
-                    user.setNickname('REL');
-                }
-            });
-
-        }
-    });*/
-
-
-    
 });
- 
-bot.login(process.env.DISCORD_BOT_TOKEN_ALPHA);
+
+bot.login(process.env.DISCORD_BOT_TOKEN);
 
 sync.events.on("error", console.error);
 

@@ -13,7 +13,7 @@ async function pushRemainingKeysToDb() {
     guilds.forEach(function (guild, index) {
 
         const query = 'INSERT INTO guilds (guild_id, prefix, primary_color) VALUES(?,?,?)';
-        const params = [guild,defaultPrefix,defaultPrimaryColor];
+        const params = [guild, defaultPrefix, defaultPrimaryColor];
 
         ps.db.execute(query, params, { prepare: true });
 
@@ -42,4 +42,4 @@ ps.db.stream('SELECT * FROM guilds')
         console.log(err);
     });
 
-console.log(ps.pColors);
+console.log('Guilddata Module Online');

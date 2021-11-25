@@ -4,7 +4,7 @@ const ps = require(`${process.cwd()}/passthrough`);
 module.exports = {
     name: 'loop',
     category: 'Music',
-    description: 'sets the loop state of the Queue',
+    description: 'set the loop state of the Queue to on or off',
     ContextMenu: {},
     options: [
         {
