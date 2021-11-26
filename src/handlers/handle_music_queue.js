@@ -175,7 +175,6 @@ const createNowPlayingMessage = async function (ref) {
 
         nowPlayingCollector.on('end', (collected, reason) => {
 
-            console.log('END')
             const editedNowButtons = new MessageActionRow()
                 .addComponents(
                     new MessageButton()
@@ -278,13 +277,9 @@ class Queue extends EventEmitter {
             }
 
 
-            this.playNextSong().then(() => {
-                if (!this.isPlaying()) {
-                    this.ensurePlayTimeout = setTimeout(this.ensurePlay, 1500, this);
-                }
-            });
+            this.playNextSong();
 
-
+            this.ensurePlayTimeout = setTimeout(this.ensurePlay, 1000, this);
 
         });
 
@@ -309,8 +304,8 @@ class Queue extends EventEmitter {
     }
 
     async ensurePlay(ref) {
-        if (!ref.isPlaying() || !ref.isPaused() || this.queue.length > 0) {
-
+        if (!ref.isPlaying() && !ref.isPaused() && this.queue.length > 0) {
+            console.log('THE QUEUE IS TRIPPING ENSURING PLAY');
             ref.playNextSong();
         }
     }
@@ -323,6 +318,7 @@ class Queue extends EventEmitter {
         }
 
         if (this.queue.length == 0) {
+            console.log('Queue Empty');
             this.timeout = setTimeout(this.destroyQueue, queueTimeout, this);
             this.isIdle = true;
             this.emit('state', 'Idle');
@@ -330,6 +326,8 @@ class Queue extends EventEmitter {
         }
 
         try {
+
+            console.log('Trying to play');
             const song = this.queue[0];
 
             const stream = await play.stream(song.url);
@@ -348,8 +346,9 @@ class Queue extends EventEmitter {
 
             this.queue.shift();
 
+            console.log('FINISHED tryinig to play');
 
-            await createNowPlayingMessage(this);
+            createNowPlayingMessage(this);
 
             this.emit('state', 'Playing');
 
@@ -431,6 +430,8 @@ class Queue extends EventEmitter {
                 function timeout(ms) {
                     return new Promise(resolve => setTimeout(resolve, ms));
                 }
+
+                
 
                 // helper function to convert spotify links to youtube search terms (needs more special sauce)
                 const convertTrackToYTSearch = async function (trackData) {

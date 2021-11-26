@@ -86,6 +86,8 @@ bot.on('ready', () => {
 
 bot.login(process.env.DISCORD_BOT_TOKEN);
 
+bot.on('debug', console.log);
+
 sync.events.on("error", console.error);
 
 
