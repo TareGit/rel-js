@@ -57,8 +57,6 @@ bot.on('ready', () => {
         console.log('Sucessfully Connected to Database');
 
         ps.bot = bot;
-        ps.pColors.set('DM', defaultPrimaryColor);
-        ps.prefixes.set('DM', defaultPrefix);
 
         db.execute("USE main").then(() => {
             //db.execute("DROP TABLE IF EXISTS guilds") never un-comment
@@ -84,9 +82,9 @@ bot.on('ready', () => {
 
 });
 
-bot.login(process.env.DISCORD_BOT_TOKEN);
+bot.login(process.env.DISCORD_BOT_TOKEN_ALPHA);
 
-bot.on('debug', console.log);
+//bot.on('debug', console.log);
 
 sync.events.on("error", console.error);
 

@@ -1,6 +1,9 @@
 const { MessageEmbed } = require('discord.js');
 const ps = require(`${process.cwd()}/passthrough`);
 
+
+const {defaultPrimaryColor} = ps.sync.require(`${process.cwd()}/config.json`);
+
 module.exports = {
     name: 'help',
     category: 'Main',
@@ -21,7 +24,7 @@ module.exports = {
             let prefix = '?';
 
             const helpEmbed = new MessageEmbed();
-            helpEmbed.setColor(ps.pColors.get((ctx.member !== null) ? ctx.member.guild.id : 'DM'));
+            helpEmbed.setColor((ctx.member !== null) ? ps.perGuildData.get(this.guildId).pColor :  defaultPrimaryColor);
             helpEmbed.setTitle('Help For Commands\n');
             helpEmbed.setURL('https://www.oyintare.dev/');
 

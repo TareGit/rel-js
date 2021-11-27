@@ -2,7 +2,7 @@ const { MessageEmbed } = require('discord.js');
 const ps = require(`${process.cwd()}/passthrough`);
 const osu = require('node-os-utils')
 
-const {version} = ps.sync.require(`${process.cwd()}/config.json`);
+const {version, defaultPrimaryColor} = ps.sync.require(`${process.cwd()}/config.json`);
 
 module.exports = {
     name: 'servers',
@@ -15,7 +15,7 @@ module.exports = {
         const guilds = Array.from(ps.bot.guilds.cache.keys());
 
         const Embed = new MessageEmbed();
-        Embed.setColor(ps.pColors.get((ctx.member !== null) ? ctx.member.guild.id : 'DM'));
+        Embed.setColor((ctx.member !== null) ? ps.perGuildData.get(this.guildId).pColor :  defaultPrimaryColor);
         Embed.setTitle('Servers');
         Embed.setURL('https://www.oyintare.dev/');
 

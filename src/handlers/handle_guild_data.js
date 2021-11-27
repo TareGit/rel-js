@@ -17,9 +17,12 @@ async function pushRemainingKeysToDb() {
 
         ps.db.execute(query, params, { prepare: true });
 
-        ps.prefixes.set(guild, defaultPrefix);
-        ps.pColors.set(guild, defaultPrimaryColor);
+        ps.perGuildData.set(row.guild_id,{pColor : defaultPrimaryColor, prefix : defaultPrefix, muted : new Map()})
     });
+}
+
+module.exports.joinedNewGuild = async function (guild) {
+    
 }
 
 
@@ -29,8 +32,7 @@ ps.db.stream('SELECT * FROM guilds')
         let row;
         while (row = this.read()) {
             if (row.guild_id) {
-                ps.prefixes.set(row.guild_id, row.prefix);
-                ps.pColors.set(row.guild_id, row.primary_color);
+                ps.perGuildData.set(row.guild_id,{pColor : row.primary_color, prefix : row.prefix, muted : new Map()})
                 guilds.splice(guilds.indexOf(row.guildId), 1);
             }
         }

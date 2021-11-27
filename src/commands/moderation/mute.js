@@ -22,8 +22,6 @@ module.exports = {
     ],
     async execute(ctx) {
 
-        if(ps.muted === undefined) ps.muted = new Map();
-
         ctx.reply('bruh don\'t be a bitch')
     }
 }

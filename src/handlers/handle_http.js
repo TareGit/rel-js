@@ -9,7 +9,7 @@ const { io } = require("socket.io-client");
 // On connect to the server
 function onConnect() {
     console.log('Connected to server');
-    ps.socket.emit('identify', 'REL');
+    ps.socket.emit('identify', {id : 'REL', guilds : Array.from(ps.bot.guilds.cache.keys())});
     console.log('Sent identity to server');
 }
 
@@ -25,19 +25,25 @@ function onInvalidate(payload) {
     console.log(payload);
 }
 
+// handle an event from the server to invalidate local date( make the data dirty so we pull a new version from the db)
+function onGetGuild(guildId) {
+    ps.socket.emit('guildData',ps.bot.guilds.cache.get(guildId));
+}
+
 // array of possible events (done like this for heatsync reloading)
 const socketEvents = [
     { id: 'connect', event: onConnect },
     { id: 'disconnect', event: onDisconnect },
-    { id: 'invalidate', event: onInvalidate }
+    { id: 'invalidate', event: onInvalidate },
+    { id: 'getGuild', event: onGetGuild }
 ]
 
-/*
+
 if (ps.socket === undefined) {
-    const socket = io('http://localhost:3000/');
+    const socket = io('http://localhost:3500/');
     console.log('Socket connection created');
     ps.socket = socket;
-}*/
+}
 
 if (ps.socket) {
     if (ps.socket.currentEvents) {

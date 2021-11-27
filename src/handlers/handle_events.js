@@ -2,6 +2,7 @@ const ps = require(`${process.cwd()}/passthrough`);
 
 const chatModule = ps.sync.require('./handle_chat');
 const parser = ps.sync.require('./handle_commands');
+const guildDataModule = ps.sync.require('./handle_guild_data');
 
 const fs = require('fs');
 
@@ -75,6 +76,10 @@ ps.bot.on('guildMemberUpdate', async (oldMember, newMember) => {
         }
         
     }
+});
+
+ps.bot.on('guildCreate', async (guild) => {
+    guildDataModule.joinedNewGuild(guild);
 });
 
 
