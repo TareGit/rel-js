@@ -30,9 +30,6 @@ module.exports = {
         Embed.setTimestamp()
 
         await ctx.reply({ embeds: [Embed] });
-
         
-
-
     }
 }
