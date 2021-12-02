@@ -1,7 +1,5 @@
 const ps = require(`${process.cwd()}/passthrough`);
 
-const { loadCommands } = ps.sync.require('./handle_commands');
-
 const fs = require('fs');
 
 const { io } = require("socket.io-client");

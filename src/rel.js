@@ -10,13 +10,14 @@ ps.sync = sync;
 
 
 require('dotenv').config();
-const { Client, Intents } = require('discord.js');
+const { Client, Intents, CommandInteractionOptionResolver } = require('discord.js');
+const chokidar = require('chokidar');
 const casandraDriver = require("cassandra-driver");
 
 // can be loaded now as it is not dependent on the bot and does not need to be initialized
 const { defaultPrefix, defaultPrimaryColor } = ps.sync.require(`${process.cwd()}/config.json`);
 
-
+const fs = require('fs');
 
 // bot Intents
 const botIntents = {
@@ -62,19 +63,10 @@ bot.on('ready', () => {
             //db.execute("DROP TABLE IF EXISTS guilds") never un-comment
             ps.db = db;
 
-            console.log(`Loaded ${ps.sync.require('./handlers/handle_commands_load')} Commands`);
-
-            // alert owner
-            bot.users.fetch(process.env.CREATOR_ID).then((user) => {
-                if (user) {
-                    user.send(`Loaded ${ps.commands.size} Commands`);
-                }
-            }).catch((error) => { console.log(`Error Notifying creator of commands Init \n${error}`); });
-
             // arent actually used here but we need to load them up
-            const eventsModule = sync.require('./handlers/handle_events');
             const guildDataModule = sync.require('./handlers/handle_guild_data');
             const httpModule = sync.require('./handlers/handle_http');
+            const eventsModule = sync.require('./handlers/handle_events');
 
         });
 
@@ -82,10 +74,65 @@ bot.on('ready', () => {
 
 });
 
-bot.login(process.env.DISCORD_BOT_TOKEN);
+bot.login(process.env.DISCORD_BOT_TOKEN_ALPHA);
 
 //bot.on('debug', console.log);
 
 sync.events.on("error", console.error);
+
+ps.commands = new Map();
+
+chokidar.watch('./commands').on('all', (event, path) => {
+    switch (event) {
+        case 'add':
+
+            try {
+
+                const command = require(`./${path}`);
+
+                const pathAsArray = path.split('\\');
+
+                const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);// remove .js
+
+                ps.commands.set(fileName, command);
+
+            } catch (error) {
+                
+                const pathAsArray = path.split('\\');
+
+                const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
+
+                console.log(`Error Loading ${fileName} \n ${error}`);
+            }
+
+
+            break;
+
+        case 'change':
+
+            try {
+                const cachedValue = require.cache[require.resolve(`./${path}`)]
+
+                if (cachedValue !== undefined) delete require.cache[require.resolve(`./${path}`)];
+
+                const command = require(`./${path}`);
+
+                const pathAsArray = path.split('\\');
+
+                const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
+
+                ps.commands.set(fileName, command);
+
+            } catch (error) {
+                const pathAsArray = path.split('\\');
+
+                const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
+
+                console.log(`Error reloading ${fileName} \n ${error}`);
+            }
+
+            break;
+    }
+});
 
 
