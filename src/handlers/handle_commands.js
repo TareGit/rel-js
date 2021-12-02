@@ -12,8 +12,6 @@ module.exports.parseMessage = async (message) => {
     const content = message.content;
     const prefix = (message.member !== null) ? ps.perGuildData.get(message.member.guild.id).prefix : defaultPrefix;
 
-    console.log(prefix);
-
     if (!content.startsWith(prefix)) {
         return undefined
     }
