@@ -1,6 +1,7 @@
 const ps = require(`${process.cwd()}/passthrough`);
 
 const { Interaction } = require('discord.js');
+const { defaultPrefix } = ps.sync.require(`${process.cwd()}/config.json`);
 const fs = require('fs');
 
 
@@ -9,7 +10,9 @@ const fs = require('fs');
 module.exports.parseMessage = async (message) => {
 
     const content = message.content;
-    const prefix = ps.prefixes.get((message.member !== null) ? message.member.guild.id : 'DM');
+    const prefix = (message.member !== null) ? ps.perGuildData.get(message.member.guild.id).prefix : defaultPrefix;
+
+    console.log(prefix);
 
     if (!content.startsWith(prefix)) {
         return undefined
@@ -19,9 +22,7 @@ module.exports.parseMessage = async (message) => {
     const contentSplit = contentWithoutprefix.split(/\s+/);
     const actualAlias = contentSplit[0].toLowerCase();
 
-
-
-    if (ps.commands.get(actualAlias) == undefined) {
+    if (ps.commands.get(actualAlias) === undefined) {
         message.reply("\'" + actualAlias + "\' Is not a command");
         return undefined;
     }

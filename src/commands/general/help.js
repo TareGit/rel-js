@@ -2,7 +2,7 @@ const { MessageEmbed } = require('discord.js');
 const ps = require(`${process.cwd()}/passthrough`);
 
 
-const {defaultPrimaryColor} = ps.sync.require(`${process.cwd()}/config.json`);
+const {defaultPrimaryColor, defaultPrefix} = ps.sync.require(`${process.cwd()}/config.json`);
 
 module.exports = {
     name: 'help',
@@ -24,13 +24,13 @@ module.exports = {
             let prefix = '?';
 
             const helpEmbed = new MessageEmbed();
-            helpEmbed.setColor((ctx.member !== null) ? ps.perGuildData.get(this.guildId).pColor :  defaultPrimaryColor);
+            helpEmbed.setColor((ctx.member !== null) ? ps.perGuildData.get(ctx.member.guild.id).pColor : defaultPrimaryColor);
             helpEmbed.setTitle('Help For Commands\n');
             helpEmbed.setURL('https://www.oyintare.dev/');
 
             ps.commands.forEach(function (value, key) {
                 let syntax = "";
-                syntax += `${ps.prefixes.get((ctx.member !== null) ? ctx.member.guild.id : 'DM')}${value.name} `;
+                syntax += `${(ctx.member !== null) ? ps.perGuildData.get(ctx.member.guild.id).prefix : defaultPrefix}${value.name} `;
 
                 value.options.forEach(function (option, index) {
                     syntax += ` <${option.name}> `;

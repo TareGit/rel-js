@@ -17,12 +17,18 @@ async function pushRemainingKeysToDb() {
 
         ps.db.execute(query, params, { prepare: true });
 
-        ps.perGuildData.set(row.guild_id,{pColor : defaultPrimaryColor, prefix : defaultPrefix, muted : new Map()})
+        ps.perGuildData.set(guild,{pColor : defaultPrimaryColor, prefix : defaultPrefix, muted : new Map()})
     });
 }
 
 module.exports.joinedNewGuild = async function (guild) {
-    
+
+        const query = 'INSERT INTO guilds (guild_id, prefix, primary_color) VALUES(?,?,?)';
+        const params = [guild.id, defaultPrefix, defaultPrimaryColor];
+
+        ps.db.execute(query, params, { prepare: true });
+
+        ps.perGuildData.set(row.guild_id,{pColor : defaultPrimaryColor, prefix : defaultPrefix, muted : new Map()})
 }
 
 
@@ -44,4 +50,4 @@ ps.db.stream('SELECT * FROM guilds')
         console.log(err);
     });
 
-console.log('Guilddata Module Online');
+console.log('Guild data Module Online');

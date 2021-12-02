@@ -15,7 +15,7 @@ module.exports = {
         const guilds = Array.from(ps.bot.guilds.cache.keys());
 
         const Embed = new MessageEmbed();
-        Embed.setColor((ctx.member !== null) ? ps.perGuildData.get(this.guildId).pColor :  defaultPrimaryColor);
+        Embed.setColor((ctx.member !== null) ? ps.perGuildData.get(ctx.member.guild.id).pColor : defaultPrimaryColor);
         Embed.setTitle('Servers');
         Embed.setURL('https://www.oyintare.dev/');
 

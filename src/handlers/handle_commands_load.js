@@ -26,4 +26,5 @@ commandSubFolders.forEach(function (subFolder, index) {
 
 });
 
+
 module.exports = `${ps.commands.size}`

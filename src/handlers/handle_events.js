@@ -12,8 +12,7 @@ const serviceAccountCredentials = JSON.parse(fs.readFileSync(process.env.GOOGLE_
 
 const chatBotManagerInstance = new chatModule.ChatBotManager(serviceAccountCredentials['project_id']);
 
-ps.bot.on('messageCreate', async (message) => {
-
+async function onMessageCreate(message) {
     if (message.author.id === ps.bot.user.id) return;
 
     const commandToExecute = await parser.parseMessage(message);
@@ -42,13 +41,9 @@ ps.bot.on('messageCreate', async (message) => {
             console.log(error)
         });
     }
+}
 
-
-
-
-});
-
-ps.bot.on('interactionCreate', async (interaction) => {
+async function onInteractionCreate(interaction) {
     if (!interaction.isCommand() && !interaction.isContextMenu()) {
         return;
     }
@@ -64,11 +59,9 @@ ps.bot.on('interactionCreate', async (interaction) => {
         });
 
     }
-});
+}
 
-
-
-ps.bot.on('guildMemberUpdate', async (oldMember, newMember) => {
+async function onGuildMemberUpdate(oldMember, newMember) {
     if (newMember.id == ps.bot.user.id) {
 
         if (newMember.displayName.toLowerCase() != 'rel') {
@@ -76,11 +69,46 @@ ps.bot.on('guildMemberUpdate', async (oldMember, newMember) => {
         }
         
     }
-});
+}
 
-ps.bot.on('guildCreate', async (guild) => {
+async function onGuildCreate(guild) {
     guildDataModule.joinedNewGuild(guild);
-});
+}
+
+
+const botEvents = [
+    { id: 'messageCreate', event: onMessageCreate },
+    { id: 'interactionCreate', event: onInteractionCreate },
+    { id: 'guildMemberUpdate', event: onGuildMemberUpdate },
+    { id: 'guildCreate', event: onGuildCreate }
+]
+
+if(ps.bot !== undefined)
+{
+    if (ps.botEvents !== undefined) {
+        const previousEvents = ps.botEvents;
+    
+        previousEvents.forEach(function (botEvent, index) {
+            try {
+                ps.bot.removeListener(botEvent.id, botEvent.event);
+            } catch (error) {
+                console.log(error);
+            }
+        });
+    
+    }
+    
+    botEvents.forEach(function (botEvent, index) {
+        try {
+            ps.bot.on(botEvent.id, botEvent.event);
+        } catch (error) {
+            console.log(error);
+        }
+    });
+    
+    ps.botEvents = botEvents;
+}
+
 
 
 console.log('Events Module Online');

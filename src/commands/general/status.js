@@ -13,7 +13,7 @@ module.exports = {
     async execute(ctx) {
         
             const Embed = new MessageEmbed();
-            Embed.setColor((ctx.member !== null) ? ps.perGuildData.get(this.guildId).pColor :  defaultPrimaryColor);
+            Embed.setColor((ctx.member !== null) ? ps.perGuildData.get(ctx.member.guild.id).pColor : defaultPrimaryColor);
             Embed.setTitle('Status');
             Embed.setURL('https://www.oyintare.dev/');
 

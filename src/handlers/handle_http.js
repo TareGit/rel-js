@@ -40,14 +40,14 @@ const socketEvents = [
 
 
 if (ps.socket === undefined) {
-    const socket = io('http://localhost:3500/');
+    const socket = io('https://rel-js-server.oyintareebelo.repl.co');
     console.log('Socket connection created');
     ps.socket = socket;
 }
 
 if (ps.socket) {
-    if (ps.socket.currentEvents) {
-        const previousEvents = ps.socket.currentEvents;
+    if (ps.socketEvents !== undefined) {
+        const previousEvents = ps.socketEvents;
 
         previousEvents.forEach(function (socketEvent, index) {
             try {
@@ -67,7 +67,7 @@ if (ps.socket) {
         }
     });
 
-    ps.socket.currentEvents = socketEvents;
+    ps.socketEvents = socketEvents;
 }
 
 
