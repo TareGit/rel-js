@@ -74,7 +74,7 @@ bot.on('ready', () => {
 
 });
 
-bot.login(process.env.DISCORD_BOT_TOKEN_ALPHA);
+bot.login(process.env.DISCORD_BOT_TOKEN);
 
 //bot.on('debug', console.log);
 
@@ -97,7 +97,7 @@ chokidar.watch('./commands').on('all', (event, path) => {
                 ps.commands.set(fileName, command);
 
             } catch (error) {
-                
+
                 const pathAsArray = path.split('\\');
 
                 const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
