@@ -38,7 +38,7 @@ module.exports = {
             Embed.addField(`UP Time`, ` ${pad(hoursUp)}Hrs ${pad(minutsUp)}Min ${pad(secondsUp)}Secs`, false);
             Embed.addField(`Guilds Count `, ` ${ps.bot.guilds.cache.size}`, false);
             Embed.addField(`CPU Usage`, `${parseInt(cpu)}%`, false);
-            Embed.addField(`RAM Usage`, `${parseInt((memory.freeMemMb / memory.totalMemMb) * 100)}%`, false);
+            Embed.addField(`Ram In Use`, `${(process.memoryUsage().heapUsed / 1024 / 1024)} MB`, false);
 
             ctx.reply({ embeds: [Embed] });
 
