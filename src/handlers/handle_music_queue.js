@@ -1,6 +1,6 @@
 const ps = require(`${process.cwd()}/passthrough`);
 
-const { queueTimeout, queueItemsPerPage, maxQueueFetchTime } = ps.sync.require(`${process.cwd()}/config.json`);
+const { queueTimeout, queueItemsPerPage, maxQueueFetchTime, maxRawVolume } = ps.sync.require(`${process.cwd()}/config.json`);
 
 const play = require('play-dl');
 const { createAudioPlayer, createAudioResource, joinVoiceChannel, NoSubscriberBehavior, AudioPlayerState, AudioPlayerStatus, getVoiceConnection } = require('@discordjs/voice');
@@ -8,6 +8,8 @@ const EventEmitter = require("events");
 const { MessageEmbed, MessageActionRow, MessageButton, InteractionCollector, Interaction } = require('discord.js');
 const { response } = require('express');
 const { time, clear } = require('console');
+const axios = require('axios');
+const { URLSearchParams } = require("url");
 
 
 module.exports.createQueue = async function (ctx) {
@@ -49,12 +51,14 @@ const handleReply = async function (ctx, reply) {
     }
 }
 // function to create a song class (for the sake of consistency and sanity)
-const createSong = function (songTitle, songRequester, songThumbnailURL, songURL, songGroupURL = "") {
+const createSong = function (songData, songRequester, songGroupURL = "") {
     return {
-        title: songTitle,
+        id: songData.info.identifier,
+        track: songData.track,
+        title: songData.info.title,
+        uri: songData.info.uri,
+        length: songData.info.length,
         requester: songRequester,
-        thumbnail: songThumbnailURL,
-        url: songURL,
         groupURL: songGroupURL
     }
 }
@@ -90,9 +94,8 @@ const createNowPlayingMessage = async function (ref) {
     console.log(ref.Id)
     Embed.setColor(ps.perGuildData.get(ref.Id).pColor);
     Embed.setTitle(`**${song.title}**`);
-    Embed.setURL(`${song.url}`);
-    Embed.setThumbnail(`${song.thumbnail}`);
-    Embed.setDescription(`**Volume** : **${parseInt(ref.volume * 100)}%**`);
+    Embed.setURL(`${song.uri}`);
+    Embed.setDescription(`**Volume** : **${parseInt((ref.volume * 100) / maxRawVolume)}%**`);
     Embed.setFooter(`${song.requester.displayName}`, song.requester.displayAvatarURL({ format: 'png', size: 32 }));
     const nowButtons = new MessageActionRow()
         .addComponents(
@@ -166,11 +169,7 @@ const createNowPlayingMessage = async function (ref) {
                         .setStyle('SECONDARY'),
                 );
 
-            nowPlayingCollector.options.message.fetch().then((message) => {
-                if (message) message.edit({ embeds: [Embed], components: [editedNowButtons] });
-            });
-
-
+                button.message.edit({ embeds: [Embed], components: [editedNowButtons] });
         });
 
         nowPlayingCollector.on('end', (collected, reason) => {
@@ -212,7 +211,6 @@ const createNowPlayingMessage = async function (ref) {
 
 }
 
-
 const generateQueueEmbed = function (page, ref) {
 
     const currentQueueLenth = ref.queue.length;
@@ -250,57 +248,16 @@ class Queue extends EventEmitter {
         this.Id = ctx.member.guild.id;
         this.channel = ctx.channel;
         this.voiceChannel = ctx.member.voice.channel;
-        this.player = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Stop } });
+        this.player = undefined;
         this.queue = []
         this.nowPlayingMessage = undefined;
         this.currentSong = undefined
-        this.currentResource = undefined;
-        this.volume = 0.05;
+        this.volume = maxRawVolume * 0.25;
         this.isIdle = true;
         this.isLooping = false;
         this.isCreatingNowPlaying = false;
         this.ensurePlayTimeout = undefined
         this.timeout = setTimeout(this.destroyQueue, queueTimeout, this);
-
-        // handle when the queue goes back to idle
-        this.player.on(AudioPlayerStatus.Idle, () => {
-
-            this.emit('state', 'Finished');
-
-            if (this.nowPlayingMessage != undefined) {
-                this.nowPlayingMessage.stop('EndOfLife');
-                this.nowPlayingMessage = undefined;
-            }
-
-            if (this.isLooping) {
-                this.queue.push(this.currentSong);
-            }
-
-
-            this.playNextSong();
-
-            this.ensurePlayTimeout = setTimeout(this.ensurePlay, 1000, this);
-
-        });
-
-        this.player.on(AudioPlayerStatus.Playing, () => {
-
-            if (this.ensurePlayTimeout != undefined) {
-                clearTimeout(this.ensurePlayTimeout);
-                this.ensurePlayTimeout = undefined;
-
-            }
-
-        });
-
-
-        const connection = joinVoiceChannel({
-            channelId: ctx.member.voice.channel.id,
-            guildId: ctx.member.guild.id,
-            adapterCreator: ctx.guild.voiceAdapterCreator
-        });
-
-        connection.subscribe(this.player);
     }
 
     async ensurePlay(ref) {
@@ -327,28 +284,25 @@ class Queue extends EventEmitter {
 
         try {
 
+
+
             console.log('Trying to play');
+
             const song = this.queue[0];
 
-            const stream = await play.stream(song.url);
-
-            const resource = createAudioResource(stream.stream, {
-                inputType: stream.type,
-                inlineVolume: true
-            })
-
-            this.currentResource = resource;
             this.currentSong = song;
 
-            resource.volume.setVolume(this.volume);
+            await this.player.play(song.track);
 
-            this.player.play(resource, { seek: 0, volume: this.volume });
+            this.player.volume(this.volume);
+
+            createNowPlayingMessage(this);
 
             this.queue.shift();
 
             console.log('FINISHED tryinig to play');
 
-            createNowPlayingMessage(this);
+
 
             this.emit('state', 'Playing');
 
@@ -368,12 +322,48 @@ class Queue extends EventEmitter {
 
     async parseInput(ctx) {
 
+
         console.log('Play Recieved');
         console.time('ParseSong');
         let url = "";
 
         if (ctx.cType != "MESSAGE") await command.deferReply(); // defer because this might take a while
 
+        if (this.player === undefined) {
+
+            this.player = await ps.LavaManager.join({
+                guild: ctx.member.guild.id, // Guild id
+                channel: ctx.member.voice.channel.id, // Channel id
+                node: "1" // lavalink node id, based on array of nodes
+            });
+
+            this.player.volume(this.volume);
+
+            this.player.on("error", error => console.error(error));
+
+            this.player.on("end", data => {
+                console.log("END")
+                if (data.reason === "REPLACED") return; // Ignore REPLACED reason to prevent skip loops
+                
+                console.log("DONEEEE");
+                // Play next song
+                this.emit('state', 'Finished');
+
+                if (this.nowPlayingMessage != undefined) {
+                    this.nowPlayingMessage.stop('EndOfLife');
+                    this.nowPlayingMessage = undefined;
+                }
+
+                if (this.isLooping) {
+                    this.queue.push(this.currentSong);
+                }
+
+
+                this.playNextSong();
+
+                //this.ensurePlayTimeout = setTimeout(this.ensurePlay, 1000, this);
+            });
+        }
 
         // handle different command types
         switch (ctx.cType) {
@@ -404,21 +394,40 @@ class Queue extends EventEmitter {
 
         const check = await play.validate(url);
 
+        async function getSong(search, user, isDirectLink = false) {
+            try {
+                const node = ps.LavaManager.idealNodes[0];
+
+                const params = new URLSearchParams();
+
+                params.append("identifier", "ytsearch:" + search);
+
+                const data = (await axios.get(`http://${node.host}:${node.port}/loadtracks?${params}`, { headers: { Authorization: node.password } })).data;
+
+                const songData = data.tracks[0];
+
+                return createSong(songData, user, songData.info.uri);
+            } catch (error) {
+                console.log(`Error fetching song for ${search} \n ${error}`);
+                return undefined;
+            }
+
+        }
 
         // Fetch song data
         try {
             // Simple yt video shit
             if (check === "search") // handle just a regular search term
             {
-                const details = (await play.search(url, { limit: 1 }))[0];
+                const song = await getSong(url, ctx.member, false);
 
-                if (details) newSongs.push(createSong(details.title, ctx.member, details.thumbnail.url, details.url));
+                if (song) newSongs.push(song);
             }
             else if (check == 'yt_video') {
 
-                const details = (await play.video_basic_info(url)).video_details;
+                const song = await getSong(url, ctx.member, true);
 
-                if (details) newSongs.push(createSong(details.title, ctx.member, details.thumbnail.url, details.url));
+                if (song) newSongs.push(song);
             }
             else if (check === 'sp_track' || check === 'sp_album' || check === 'sp_playlist') // handle spotify
             {
@@ -431,7 +440,7 @@ class Queue extends EventEmitter {
                     return new Promise(resolve => setTimeout(resolve, ms));
                 }
 
-                
+
 
                 // helper function to convert spotify links to youtube search terms (needs more special sauce)
                 const convertTrackToYTSearch = async function (trackData) {
@@ -441,16 +450,16 @@ class Queue extends EventEmitter {
                     }
                     const searchToMake = trackData.name + ' ' + artists + ' audio';
 
-                    return (await play.search(searchToMake, { limit: 1 }))[0];
+                    return (await getSong(searchToMake, ctx.member, false));
                 }
 
                 const processSpotifyData = async function (trackData) {
 
-                    const details = await Promise.race([convertTrackToYTSearch(trackData), timeout(maxQueueFetchTime)]);
+                    const song = await Promise.race([convertTrackToYTSearch(trackData), timeout(maxQueueFetchTime)]);
 
-                    if (details == undefined) return;
+                    if (song == undefined) return;
 
-                    newSongs.push(createSong(details.title, ctx.member, details.thumbnail.url, details.url)); // add if details checks out
+                    newSongs.push(song); // add if details checks out
 
                 }
 
@@ -512,7 +521,7 @@ class Queue extends EventEmitter {
                 if (newSongs[0] == undefined) return;
 
                 Embed.setTitle(`${newSongs[0].title}`);
-                Embed.setURL(`${newSongs[0].url}`)
+                Embed.setURL(`${newSongs[0].uri}`)
 
             }
 
@@ -525,7 +534,7 @@ class Queue extends EventEmitter {
     async pauseSong(ctx) {
         if (this.isPlaying() && !this.isPaused()) {
             this.emit('state', 'Paused');
-            this.player.pause();
+            this.player.pause(true);
 
             const Embed = new MessageEmbed();
             Embed.setColor(ps.perGuildData.get(this.Id).pColor);
@@ -540,7 +549,7 @@ class Queue extends EventEmitter {
 
         if (this.isPaused()) {
             this.emit('state', 'Resumed');
-            this.player.unpause();
+            this.player.pause(false);
 
             const Embed = new MessageEmbed();
             Embed.setColor(ps.perGuildData.get(this.Id).pColor);
@@ -654,11 +663,7 @@ class Queue extends EventEmitter {
 
                     queueCollector.resetTimer({ time: 7000 });
 
-                    queueCollector.options.message.fetch().then((message) => {
-                        if (message) message.edit({ embeds: [newEmbed], components: [newButtons] });
-                    });
-
-
+                    button.message.edit({ embeds: [newEmbed], components: [newButtons] });
                 });
 
                 queueCollector.on('end', (collected, reason) => {
@@ -720,36 +725,45 @@ class Queue extends EventEmitter {
             return;
         }
 
-        this.volume = volume / 100;
+        this.volume = maxRawVolume * (volume / 100);
 
-        if (this.isPlaying()) {
-            this.currentResource.volume.setVolume(this.volume);
-        }
+        this.player.volume(this.volume);
 
 
         const Embed = new MessageEmbed();
         Embed.setColor(ps.perGuildData.get(this.Id).pColor);
         Embed.setURL('https://www.oyintare.dev/');
-        Embed.setFooter(`${ctx.member.displayName} Changed the volume to ${parseInt(this.volume * 100)}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
+        Embed.setFooter(`${ctx.member.displayName} Changed the volume to ${parseInt((this.volume * 100) / maxRawVolume)}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
         handleReply(ctx, { embeds: [Embed] })
     }
 
     async skipSong(ctx) {
-        if (this.isPlaying()) {
-            this.player.stop();
+        if (this.queue.length != 0 || (this.isPlaying && this.isLooping === true)) {
             const Embed = new MessageEmbed();
             Embed.setColor(ps.perGuildData.get(this.Id).pColor);
             Embed.setURL('https://www.oyintare.dev/');
             Embed.setFooter(`${ctx.member.displayName} Skipped the song`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
-            handleReply(ctx, { embeds: [Embed] })
-        }
-        else {
-            if (this.queue.length != 0) {
-                this.playNextSong();
+            handleReply(ctx, { embeds: [Embed] });
+
+            if (this.isLooping) {
+                this.queue.push(this.currentSong);
             }
+
+            this.playNextSong();
         }
+        else
+        {
+            const Embed = new MessageEmbed();
+            Embed.setColor(ps.perGuildData.get(this.Id).pColor);
+            Embed.setURL('https://www.oyintare.dev/');
+            Embed.setFooter(`The Queue is empty`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
+
+            handleReply(ctx, { embeds: [Embed] });
+        }
+
+        
     }
 
     async stop(ctx) {
@@ -768,11 +782,11 @@ class Queue extends EventEmitter {
     }
 
     isPlaying() {
-        return this.player.state.status == AudioPlayerStatus.Playing || this.player.state.status == AudioPlayerStatus.Paused;
+        return this.player.playing || this.player.paused;
     }
 
     isPaused() {
-        return this.player.state.status == AudioPlayerStatus.Paused;
+        return this.player.paused;
     }
 
     async destroyQueue(ref) {
@@ -790,10 +804,8 @@ class Queue extends EventEmitter {
         ref.isLooping = false;
 
         ref.emit('state', 'Destroyed');
-        if (getVoiceConnection(ref.Id) != undefined) {
-            getVoiceConnection(ref.Id).disconnect();
-            getVoiceConnection(ref.Id).destroy();
-        }
+
+        ps.LavaManager.leave(ref.Id);
 
         ps.queues.delete(ref.Id);
     }

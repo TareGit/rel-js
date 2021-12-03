@@ -10,7 +10,9 @@ const fs = require('fs');
 module.exports.parseMessage = async (message) => {
 
     const content = message.content;
-    const prefix = (message.member !== null) ? ps.perGuildData.get(message.member.guild.id).prefix : defaultPrefix;
+    const guildData = (message.member !== null) ? ps.perGuildData.get(message.member.guild.id) : undefined;
+
+    const prefix = (message.member !== null && guildData !== undefined) ? ps.perGuildData.get(message.member.guild.id).prefix : defaultPrefix;
 
     if (!content.startsWith(prefix)) {
         return undefined

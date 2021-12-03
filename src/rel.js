@@ -14,7 +14,10 @@ const { Client, Intents, CommandInteractionOptionResolver } = require('discord.j
 const chokidar = require('chokidar');
 const casandraDriver = require("cassandra-driver");
 
-// can be loaded now as it is not dependent on the bot and does not need to be initialized
+// import the Manager class from lavacord
+const { Manager } = require("lavacord");
+
+
 const { defaultPrefix, defaultPrimaryColor } = ps.sync.require(`${process.cwd()}/config.json`);
 
 const fs = require('fs');
@@ -40,8 +43,42 @@ const botIntents = {
 // Setup settings and configs
 const bot = new Client(botIntents);
 
-bot.on('ready', () => {
+bot.on('ready', async () => {
     console.log('Bot Ready');
+
+    ps.bot = bot;
+
+    // Define the nodes array as an example
+    const nodes = [
+        { id: "1", host: "localhost", port: 2333, password: "RunningOutOfAir" }
+    ];
+
+    // Initilize the Manager with all the data it needs
+    const LavaManager = new Manager(nodes, {
+        user: bot.user.id,
+        shards: bot.options.shardCount,
+        send: (packet) => {
+
+            const guild = bot.guilds.cache.get(packet.d.guild_id);
+            return guild.shard.send(packet);
+
+        }
+    });
+
+    ps.LavaManager = LavaManager
+
+    await LavaManager.connect();
+
+    bot.ws
+        .on("VOICE_SERVER_UPDATE", ps.LavaManager.voiceServerUpdate.bind(ps.LavaManager))
+        .on("VOICE_STATE_UPDATE", ps.LavaManager.voiceStateUpdate.bind(ps.LavaManager))
+        .on("GUILD_CREATE", async data => {
+            for (const state of data.voice_states) await ps.LavaManager.voiceStateUpdate({ ...state, guild_id: data.id });
+        });
+
+    LavaManager.on("error", (error, node) => {
+        console.log(error);
+    });
 
     const db = new casandraDriver.Client({
         cloud: {
@@ -53,24 +90,77 @@ bot.on('ready', () => {
         },
     });
 
-    db.connect().then(() => {
-
+    try {
+        await db.connect();
         console.log('Sucessfully Connected to Database');
+        await db.execute("USE main");
 
-        ps.bot = bot;
+        //db.execute("DROP TABLE IF EXISTS guilds") never un-comment
+        ps.db = db;
 
-        db.execute("USE main").then(() => {
-            //db.execute("DROP TABLE IF EXISTS guilds") never un-comment
-            ps.db = db;
+        // arent actually used here but we need to load them up
+        const guildDataModule = sync.require('./handlers/handle_guild_data');
+        const httpModule = sync.require('./handlers/handle_http');
+        const eventsModule = sync.require('./handlers/handle_events');
+    } catch (error) {
+        console.log(`Error connecting to database \n${error}`);
+    }
 
-            // arent actually used here but we need to load them up
-            const guildDataModule = sync.require('./handlers/handle_guild_data');
-            const httpModule = sync.require('./handlers/handle_http');
-            const eventsModule = sync.require('./handlers/handle_events');
+    ps.commands = new Map();
 
-        });
+    // commands loading and reloading
+    chokidar.watch('./commands', { persistent: true, usePolling: true }).on('all', (event, path) => {
 
-    }).catch((error) => { console.log(`Error connecting to database \n${error}`); })
+        const pathAsArray = process.platform === 'linux' ? path.split('/') : path.split('\\');
+
+        switch (event) {
+
+            case 'add':
+
+                try {
+
+                    const command = require(`./${path}`);
+
+                    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);// remove .js
+
+                    ps.commands.set(fileName, command);
+                    console.log('ADDED NEW COMMAND ' + fileName);
+
+                } catch (error) {
+
+                    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
+
+                    console.log(`Error Loading ${fileName} \n ${error}`);
+                }
+
+
+                break;
+
+            case 'change':
+
+                try {
+                    const cachedValue = require.cache[require.resolve(`./${path}`)]
+
+                    if (cachedValue !== undefined) delete require.cache[require.resolve(`./${path}`)];
+
+                    const command = require(`./${path}`);
+
+                    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
+
+                    ps.commands.set(fileName, command);
+
+                    console.log('RELOADED COMMAND ' + fileName);
+
+                } catch (error) {
+
+                    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
+
+                    console.log(`Error reloading ${fileName} \n ${error}`);
+                }
+
+                break;
+        }
+    });
 
 });
 
@@ -80,59 +170,5 @@ bot.login(process.env.DISCORD_BOT_TOKEN);
 
 sync.events.on("error", console.error);
 
-ps.commands = new Map();
-
-chokidar.watch('./commands').on('all', (event, path) => {
-    switch (event) {
-        case 'add':
-
-            try {
-
-                const command = require(`./${path}`);
-
-                const pathAsArray = path.split('\\');
-
-                const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);// remove .js
-
-                ps.commands.set(fileName, command);
-
-            } catch (error) {
-
-                const pathAsArray = path.split('\\');
-
-                const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
-
-                console.log(`Error Loading ${fileName} \n ${error}`);
-            }
-
-
-            break;
-
-        case 'change':
-
-            try {
-                const cachedValue = require.cache[require.resolve(`./${path}`)]
-
-                if (cachedValue !== undefined) delete require.cache[require.resolve(`./${path}`)];
-
-                const command = require(`./${path}`);
-
-                const pathAsArray = path.split('\\');
-
-                const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
-
-                ps.commands.set(fileName, command);
-
-            } catch (error) {
-                const pathAsArray = path.split('\\');
-
-                const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
-
-                console.log(`Error reloading ${fileName} \n ${error}`);
-            }
-
-            break;
-    }
-});
 
 
