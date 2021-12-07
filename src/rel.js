@@ -1,15 +1,16 @@
 const process = require('process');
 process.chdir(__dirname);
 
-const ps = require('./passthrough');
+require('dotenv').config();
+
+const ps = require('./passthrough.js');
+
 const Heatsync = require("heatsync");
 
 const sync = new Heatsync();
 
-ps.sync = sync;
+Object.assign(ps, { sync: sync });
 
-
-require('dotenv').config();
 const { Client, Intents, CommandInteractionOptionResolver } = require('discord.js');
 const chokidar = require('chokidar');
 const casandraDriver = require("cassandra-driver");
@@ -18,7 +19,9 @@ const casandraDriver = require("cassandra-driver");
 const { Manager } = require("lavacord");
 
 
-const { defaultPrefix, defaultPrimaryColor } = ps.sync.require(`${process.cwd()}/config.json`);
+const { defaultPrefix, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.json`);
+
+const { addNewCommand, reloadCommand } = sync.require(`${process.cwd()}/utils.js`)
 
 const fs = require('fs');
 
@@ -46,11 +49,11 @@ const bot = new Client(botIntents);
 bot.on('ready', async () => {
     console.log('Bot Ready');
 
-    ps.bot = bot;
+    Object.assign(ps, { bot: bot });
 
     // Define the nodes array as an example
     const nodes = [
-        { id: "1", host: "localhost", port: 2333, password: "RunningOutOfAir" }
+        { id: "1", host: "localhost", port: 2333, password: process.env.LAVALINK_PASSWORD }
     ];
 
     // Initilize the Manager with all the data it needs
@@ -65,7 +68,7 @@ bot.on('ready', async () => {
         }
     });
 
-    ps.LavaManager = LavaManager
+    Object.assign(ps, { LavaManager: LavaManager });
 
     await LavaManager.connect();
 
@@ -96,19 +99,18 @@ bot.on('ready', async () => {
         await db.execute("USE main");
 
         //db.execute("DROP TABLE IF EXISTS guilds") never un-comment
-        ps.db = db;
+        Object.assign(ps, { db: db });
 
         // arent actually used here but we need to load them up
         const guildDataModule = sync.require('./handlers/handle_guild_data');
         const httpModule = sync.require('./handlers/handle_http');
         const eventsModule = sync.require('./handlers/handle_events');
+
     } catch (error) {
         console.log(`Error connecting to database \n${error}`);
     }
 
-    ps.commands = new Map();
-
-    // commands loading and reloading
+    // Commands loading and reloading
     chokidar.watch('./commands', { persistent: true, usePolling: true }).on('all', (event, path) => {
 
         const pathAsArray = process.platform === 'linux' ? path.split('/') : path.split('\\');
@@ -116,48 +118,11 @@ bot.on('ready', async () => {
         switch (event) {
 
             case 'add':
-
-                try {
-
-                    const command = require(`./${path}`);
-
-                    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);// remove .js
-
-                    ps.commands.set(fileName, command);
-                    console.log('ADDED NEW COMMAND ' + fileName);
-
-                } catch (error) {
-
-                    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
-
-                    console.log(`Error Loading ${fileName} \n ${error}`);
-                }
-
-
+                addNewCommand(path);
                 break;
 
             case 'change':
-
-                try {
-                    const cachedValue = require.cache[require.resolve(`./${path}`)]
-
-                    if (cachedValue !== undefined) delete require.cache[require.resolve(`./${path}`)];
-
-                    const command = require(`./${path}`);
-
-                    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
-
-                    ps.commands.set(fileName, command);
-
-                    console.log('RELOADED COMMAND ' + fileName);
-
-                } catch (error) {
-
-                    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
-
-                    console.log(`Error reloading ${fileName} \n ${error}`);
-                }
-
+                reloadCommand(path);
                 break;
         }
     });

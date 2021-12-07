@@ -1,4 +1,5 @@
-const ps = require(`${process.cwd()}/passthrough`);
+const ps = require(`${process.cwd()}/passthrough.js`);
+const { sync, bot, socket, socketEvents,modulesLastReloadTime } = require(`${process.cwd()}/passthrough.js`);
 
 const fs = require('fs');
 
@@ -7,7 +8,7 @@ const { io } = require("socket.io-client");
 // On connect to the server
 function onConnect() {
     console.log('Connected to server');
-    ps.socket.emit('identify', {id : 'REL', guilds : Array.from(ps.bot.guilds.cache.keys())});
+    socket.emit('identify', {id : 'REL', guilds : Array.from(bot.guilds.cache.keys())});
     console.log('Sent identity to server');
 }
 
@@ -19,17 +20,16 @@ function onDisconnect() {
 
 // handle an event from the server to invalidate local date( make the data dirty so we pull a new version from the db)
 function onInvalidate(payload) {
-    console.log(`Payload recieved`);
-    console.log(payload);
+    
 }
 
 // handle an event from the server to invalidate local date( make the data dirty so we pull a new version from the db)
 function onGetGuild(guildId) {
-    ps.socket.emit('guildData',ps.bot.guilds.cache.get(guildId));
+    socket.emit('guildData',bot.guilds.cache.get(guildId));
 }
 
 // array of possible events (done like this for heatsync reloading)
-const socketEvents = [
+const newSocketEvents = [
     { id: 'connect', event: onConnect },
     { id: 'disconnect', event: onDisconnect },
     { id: 'invalidate', event: onInvalidate },
@@ -37,19 +37,18 @@ const socketEvents = [
 ]
 
 
-if (ps.socket === undefined) {
-    const socket = io('https://rel-js-server.oyintareebelo.repl.co');
+if (socket === undefined) {
+    const newSocket = io('https://rel-js-server.oyintareebelo.repl.co');
     console.log('Socket connection created');
-    ps.socket = socket;
+    Object.assign(ps, { socket: newSocket });
 }
 
-if (ps.socket) {
-    if (ps.socketEvents !== undefined) {
-        const previousEvents = ps.socketEvents;
-
-        previousEvents.forEach(function (socketEvent, index) {
+if (socket) {
+    if (socketEvents !== undefined) {
+        
+        socketEvents.forEach(function (socketEvent, index) {
             try {
-                ps.socket.removeListener(socketEvent.id, socketEvent.event);
+                socket.removeListener(socketEvent.id, socketEvent.event);
             } catch (error) {
                 console.log(error);
             }
@@ -57,16 +56,27 @@ if (ps.socket) {
 
     }
 
-    socketEvents.forEach(function (socketEvent, index) {
+    newSocketEvents.forEach(function (socketEvent, index) {
         try {
-            ps.socket.on(socketEvent.id, socketEvent.event);
+            socket.on(socketEvent.id, socketEvent.event);
         } catch (error) {
             console.log(error);
         }
     });
 
-    ps.socketEvents = socketEvents;
+    Object.assign(ps, { socketEvents: newSocketEvents });
 }
+
+console.log('Socket Module Loaded');
+
+if(modulesLastReloadTime.socket !== undefined)
+{
+    
+}
+
+modulesLastReloadTime.socket = bot.uptime;
+
+
 
 
 

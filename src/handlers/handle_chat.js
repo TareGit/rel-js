@@ -1,7 +1,10 @@
-const ps = require(`${process.cwd()}/passthrough`);
+
 
 // Imports the Dialogflow library
 const dialogflow = require('@google-cloud/dialogflow');
+
+const { bot,modulesLastReloadTime } = require(`${process.cwd()}/passthrough`);
+
 // Instantiates a session client
 const sessionClient = new dialogflow.SessionsClient();
 
@@ -121,7 +124,7 @@ module.exports.ChatBotManager = class ChatBotManager {
 
             try {
                 this.childInstances.set(Id,
-                    [new ChatBot(this.Project_ID, ps.bot, Id), this.createTimerForInstance(Id)]
+                    [new ChatBot(this.Project_ID, bot, Id), this.createTimerForInstance(Id)]
                 );
             } catch (error) {
                 console.log(error);
@@ -130,3 +133,13 @@ module.exports.ChatBotManager = class ChatBotManager {
         }
     }
 }
+
+console.log('Chat Module Loaded');
+
+if(modulesLastReloadTime.chat !== undefined)
+{
+    
+}
+
+modulesLastReloadTime.chat = bot.uptime;
+

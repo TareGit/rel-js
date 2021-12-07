@@ -1,4 +1,6 @@
-const ps = require(`${process.cwd()}/passthrough`);
+const { sync } = require(`${process.cwd()}/passthrough.js`);
+
+const { reply } = sync.require(`${process.cwd()}/utils.js`);
 
 module.exports = {
     name: 'vc-disconnect',
@@ -20,7 +22,7 @@ module.exports = {
 
         const user = ctx.mentions.members.first();
 
-        if(user === undefined || user === null) return ctx.reply(`Who tf do you want to disconnect`)
+        if(user === undefined || user === null) return reply(ctx,`Who tf do you want to disconnect`)
 
         ctx.reply(`<@${user.id}> 🤡`);
 

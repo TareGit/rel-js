@@ -4,6 +4,7 @@
     "maxQueueFetchTime" : 5000,
     "defaultPrimaryColor":"#00FF00",
     "defaultPrefix":"?",
-    "maxRawVolume" : 20,
-    "version": 2.5
+    "defaultVolumeMultiplier" : 0.05,
+    "maxRawVolume" : 150,
+    "version": 2.9
 }

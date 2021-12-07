@@ -1,5 +1,6 @@
 
-const ps = require(`${process.cwd()}/passthrough`);
+const { sync, queues } = require(`${process.cwd()}/passthrough.js`);
+const { reply } = sync.require(`${process.cwd()}/utils.js`);
 
 module.exports = {
     name: 'pause',
@@ -9,11 +10,11 @@ module.exports = {
     options: [],
     async execute(ctx) {
         
-            if (!ctx.guild || !ctx.member.voice.channel) return ctx.reply("You need to be in a voice channel to use this command");
+            if (!ctx.guild || !ctx.member.voice.channel) return reply(ctx,"You need to be in a voice channel to use this command");
 
-            const Queue = ps.queues.get(ctx.member.guild.id);
+            const Queue = queues.get(ctx.member.guild.id);
 
-            if (Queue == undefined) return ctx.reply("Theres no Queue");
+            if (Queue == undefined) return reply(ctx,"Theres no Queue");
 
             Queue.pauseSong(ctx);
         

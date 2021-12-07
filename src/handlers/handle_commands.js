@@ -1,8 +1,9 @@
-const ps = require(`${process.cwd()}/passthrough`);
+const { bot, sync, perGuildData, commands,modulesLastReloadTime } = require(`${process.cwd()}/passthrough`);
 
 const { Interaction } = require('discord.js');
-const { defaultPrefix } = ps.sync.require(`${process.cwd()}/config.json`);
 const fs = require('fs');
+
+const { defaultPrefix } = sync.require(`${process.cwd()}/config.json`);
 
 
 
@@ -10,9 +11,9 @@ const fs = require('fs');
 module.exports.parseMessage = async (message) => {
 
     const content = message.content;
-    const guildData = (message.member !== null) ? ps.perGuildData.get(message.member.guild.id) : undefined;
+    const guildData = (message.member !== null) ? perGuildData.get(message.member.guild.id) : undefined;
 
-    const prefix = (message.member !== null && guildData !== undefined) ? ps.perGuildData.get(message.member.guild.id).prefix : defaultPrefix;
+    const prefix = (message.member !== null && guildData !== undefined) ? perGuildData.get(message.member.guild.id).prefix : defaultPrefix;
 
     if (!content.startsWith(prefix)) {
         return undefined
@@ -22,8 +23,7 @@ module.exports.parseMessage = async (message) => {
     const contentSplit = contentWithoutprefix.split(/\s+/);
     const actualAlias = contentSplit[0].toLowerCase();
 
-    if (ps.commands.get(actualAlias) === undefined) {
-        message.reply("\'" + actualAlias + "\' Is not a command");
+    if (commands.get(actualAlias) === undefined) {
         return undefined;
     }
 
@@ -32,11 +32,22 @@ module.exports.parseMessage = async (message) => {
     const argsNotSplit = content.slice(prefix.length + actualAlias.length);
     message.pureContent = argsNotSplit.trim();
     message.args = (argsNotSplit.trim()).split(/\s+/);
-    return ps.commands.get(actualAlias);
+    return commands.get(actualAlias);
 }
 
 module.exports.parseInteractionCommand = async (interaction) => {
 
     interaction.cType = 'INTERACTION';
-    return ps.commands.get(interaction.commandName);
+    return commands.get(interaction.commandName);
 }
+
+
+console.log('Commands Module loaded');
+
+if(modulesLastReloadTime.commands !== undefined)
+{
+    
+}
+
+modulesLastReloadTime.commands = bot.uptime;
+

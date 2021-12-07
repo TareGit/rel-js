@@ -1,25 +1,29 @@
-const ps = require(`${process.cwd()}/passthrough`);
+const { sync, bot, queues, perGuildData, LavaManager, modulesLastReloadTime } = require(`${process.cwd()}/passthrough.js`);
 
-const { queueTimeout, queueItemsPerPage, maxQueueFetchTime, maxRawVolume } = ps.sync.require(`${process.cwd()}/config.json`);
+const { reply, reloadCommandCategory } = sync.require(`${process.cwd()}/utils.js`);
+const { queueTimeout, queueItemsPerPage, maxQueueFetchTime, maxRawVolume, defaultVolumeMultiplier } = sync.require(`${process.cwd()}/config.json`);
 
 const play = require('play-dl');
+
+const { MessageEmbed, MessageActionRow, MessageButton, InteractionCollector, Interaction } = require('discord.js');
 const { createAudioPlayer, createAudioResource, joinVoiceChannel, NoSubscriberBehavior, AudioPlayerState, AudioPlayerStatus, getVoiceConnection } = require('@discordjs/voice');
 const EventEmitter = require("events");
-const { MessageEmbed, MessageActionRow, MessageButton, InteractionCollector, Interaction } = require('discord.js');
-const { response } = require('express');
-const { time, clear } = require('console');
+
+
+
 const axios = require('axios');
+
 const { URLSearchParams } = require("url");
 
 
 module.exports.createQueue = async function (ctx) {
 
-    if (ps.queues.get(ctx.member.guild.id) == undefined) {
+    if (queues.get(ctx.member.guild.id) == undefined) {
 
         return createNewQueue(ctx);
     }
     else {
-        return ps.queues.get(ctx.member.guild.id);
+        return queues.get(ctx.member.guild.id);
     }
 
 }
@@ -31,25 +35,12 @@ function createNewQueue(ctx) {
         console.log(state);
     })
 
-    ps.queues.set(ctx.member.guild.id, newQueue);
+    queues.set(ctx.member.guild.id, newQueue);
 
     return newQueue;
 }
 
-// handle replies
-const handleReply = async function (ctx, reply) {
-    if (ctx.cType === 'MESSAGE') {
-        return await ctx.reply(reply);
-    }
-    else {
-        if (ctx.deferred === true || ctx.replied === true) {
-            return await ctx.editReply(reply);
-        }
-        else {
-            return await ctx.reply(reply);
-        }
-    }
-}
+
 // function to create a song class (for the sake of consistency and sanity)
 const createSong = function (songData, songRequester, songGroupURL = "") {
     return {
@@ -92,10 +83,10 @@ const createNowPlayingMessage = async function (ref) {
 
     const Embed = new MessageEmbed();
     console.log(ref.Id)
-    Embed.setColor(ps.perGuildData.get(ref.Id).pColor);
+    Embed.setColor(perGuildData.get(ref.Id).pColor);
     Embed.setTitle(`**${song.title}**`);
     Embed.setURL(`${song.uri}`);
-    Embed.setDescription(`**Volume** : **${parseInt((ref.volume * 100) / maxRawVolume)}%**`);
+    Embed.setDescription(`**Volume** : **${parseInt(ref.volume * 100)}%**`);
     Embed.setFooter(`${song.requester.displayName}`, song.requester.displayAvatarURL({ format: 'png', size: 32 }));
     const nowButtons = new MessageActionRow()
         .addComponents(
@@ -120,36 +111,43 @@ const createNowPlayingMessage = async function (ref) {
     const message = await channel.send({ embeds: [Embed], components: [nowButtons] });
     if (message) {
 
-        const nowPlayingCollector = new InteractionCollector(ps.bot, { message: message, componentType: 'BUTTON' });
+        const nowPlayingCollector = new InteractionCollector(bot, { message: message, componentType: 'BUTTON' });
         nowPlayingCollector.queue = ref;
 
 
-        nowPlayingCollector.on('collect', (button) => {
+        nowPlayingCollector.on('collect', async (button) => {
+
+            await button.deferUpdate();
 
             button.cType = 'COMMAND';
-            switch (button.customId) {
-                case 'pause':
-                    nowPlayingCollector.queue.pauseSong(button);
-                    break;
 
-                case 'resume':
-                    nowPlayingCollector.queue.resumeSong(button);
-                    break;
+            button.forceChannelReply = true;
 
-                case 'queue':
-                    nowPlayingCollector.queue.showQueue(button);
-                    break;
+                switch (button.customId) {
+                    case 'pause':
+                        await nowPlayingCollector.queue.pauseSong(button);
+                        break;
+    
+                    case 'resume':
+                        await nowPlayingCollector.queue.resumeSong(button);
+                        break;
+    
+                    case 'queue':
+                        await nowPlayingCollector.queue.showQueue(button);
+                        break;
+    
+                    case 'skip':
+                        await nowPlayingCollector.queue.skipSong(button);
+                        break;
+    
+                    case 'stop':
+                        await nowPlayingCollector.queue.stop(button);
+                        break;
+                }
 
-                case 'skip':
-                    nowPlayingCollector.queue.skipSong(button);
-                    break;
-
-                case 'stop':
-                    nowPlayingCollector.queue.stop(button);
-                    break;
-            }
-
-            const editedNowButtons = new MessageActionRow()
+                button.forceChannelReply = undefined;
+                
+                const editedNowButtons = new MessageActionRow()
                 .addComponents(
                     new MessageButton()
                         .setCustomId('skip')
@@ -169,7 +167,7 @@ const createNowPlayingMessage = async function (ref) {
                         .setStyle('SECONDARY'),
                 );
 
-                button.message.edit({ embeds: [Embed], components: [editedNowButtons] });
+                await button.editReply({ embeds: [Embed], components: [editedNowButtons] });
         });
 
         nowPlayingCollector.on('end', (collected, reason) => {
@@ -219,7 +217,7 @@ const generateQueueEmbed = function (page, ref) {
     const currentPages = prevCurrentPages < 1 ? 1 : prevCurrentPages;
 
     const Embed = new MessageEmbed();
-    Embed.setColor(ps.perGuildData.get(ref.Id).pColor);
+    Embed.setColor(perGuildData.get(ref.Id).pColor);
     Embed.setTitle(`${currentQueueLenth} in Queue`);
     Embed.setURL('https://www.oyintare.dev/');
 
@@ -235,6 +233,7 @@ const generateQueueEmbed = function (page, ref) {
     }
 
     Embed.setFooter(`Page ${page} of ${currentPages}`);
+    
 
     return [Embed, currentPages];
 }
@@ -252,12 +251,14 @@ class Queue extends EventEmitter {
         this.queue = []
         this.nowPlayingMessage = undefined;
         this.currentSong = undefined
-        this.volume = maxRawVolume * 0.25;
+        this.volume = defaultVolumeMultiplier;
         this.isIdle = true;
         this.isLooping = false;
         this.isCreatingNowPlaying = false;
         this.ensurePlayTimeout = undefined
+        this.isFirstPlay = true;
         this.timeout = setTimeout(this.destroyQueue, queueTimeout, this);
+        console.log(maxRawVolume);
     }
 
     async ensurePlay(ref) {
@@ -265,6 +266,11 @@ class Queue extends EventEmitter {
             console.log('THE QUEUE IS TRIPPING ENSURING PLAY');
             ref.playNextSong();
         }
+    }
+
+    async fixFirstVolume(ref,max){
+        console.log(ref.volume * max);
+        ref.player.volume(ref.volume * max);
     }
 
     async playNextSong() {
@@ -294,7 +300,12 @@ class Queue extends EventEmitter {
 
             await this.player.play(song.track);
 
-            this.player.volume(this.volume);
+            if(this.isFirstPlay)
+            {
+                setTimeout(this.fixFirstVolume,1000,this,maxRawVolume);
+                this.isFirstPlay = false;
+            }
+            
 
             createNowPlayingMessage(this);
 
@@ -331,21 +342,15 @@ class Queue extends EventEmitter {
 
         if (this.player === undefined) {
 
-            this.player = await ps.LavaManager.join({
+            this.player = await LavaManager.join({
                 guild: ctx.member.guild.id, // Guild id
                 channel: ctx.member.voice.channel.id, // Channel id
-                node: "1" // lavalink node id, based on array of nodes
+                node: "1", // lavalink node id, based on array of nodes
             });
 
-            this.player.volume(this.volume);
-
-            this.player.on("error", error => console.error(error));
-
             this.player.on("end", data => {
-                console.log("END")
                 if (data.reason === "REPLACED") return; // Ignore REPLACED reason to prevent skip loops
                 
-                console.log("DONEEEE");
                 // Play next song
                 this.emit('state', 'Finished');
 
@@ -386,7 +391,7 @@ class Queue extends EventEmitter {
         }
 
 
-        if (url.length == 0) return;
+        if (url.length == 0) return reply(ctx,'What even is that ?');
 
 
         let newSongs = [];
@@ -396,7 +401,7 @@ class Queue extends EventEmitter {
 
         async function getSong(search, user, isDirectLink = false) {
             try {
-                const node = ps.LavaManager.idealNodes[0];
+                const node = LavaManager.idealNodes[0];
 
                 const params = new URLSearchParams();
 
@@ -510,7 +515,7 @@ class Queue extends EventEmitter {
             console.log('Sent to Queue');
             const Embed = new MessageEmbed();
 
-            Embed.setColor(ps.perGuildData.get(this.Id).pColor);
+            Embed.setColor(perGuildData.get(this.Id).pColor);
             Embed.setFooter(`Added to the Queue`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
             if (newSongs.length > 1) {
@@ -525,7 +530,7 @@ class Queue extends EventEmitter {
 
             }
 
-            handleReply(ctx, { embeds: [Embed] })
+            reply(ctx, { embeds: [Embed] })
         }
 
 
@@ -534,14 +539,15 @@ class Queue extends EventEmitter {
     async pauseSong(ctx) {
         if (this.isPlaying() && !this.isPaused()) {
             this.emit('state', 'Paused');
-            this.player.pause(true);
+
+            await this.player.pause(true);
 
             const Embed = new MessageEmbed();
-            Embed.setColor(ps.perGuildData.get(this.Id).pColor);
+            Embed.setColor(perGuildData.get(this.Id).pColor);
             Embed.setURL('https://www.oyintare.dev/');
             Embed.setFooter(`${ctx.member.displayName} paused the music`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
-            handleReply(ctx, { embeds: [Embed] })
+            reply(ctx, { embeds: [Embed] })
         }
     }
 
@@ -549,14 +555,15 @@ class Queue extends EventEmitter {
 
         if (this.isPaused()) {
             this.emit('state', 'Resumed');
-            this.player.pause(false);
+
+            await this.player.pause(false);
 
             const Embed = new MessageEmbed();
-            Embed.setColor(ps.perGuildData.get(this.Id).pColor);
+            Embed.setColor(perGuildData.get(this.Id).pColor);
             Embed.setURL('https://www.oyintare.dev/');
             Embed.setFooter(`${ctx.member.displayName} Un-Paused the music`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
-            handleReply(ctx, { embeds: [Embed] })
+            reply(ctx, { embeds: [Embed] })
         }
 
 
@@ -581,10 +588,10 @@ class Queue extends EventEmitter {
     async setLooping(ctx) {
 
 
-        if (ctx.args[0] == undefined) return handleReply(ctx, 'Please use either `loop on` or `loop off`');
+        if (ctx.args[0] == undefined) return reply(ctx, 'Please use either `loop on` or `loop off`');
 
         const Embed = new MessageEmbed();
-        Embed.setColor(ps.perGuildData.get(this.Id).pColor);
+        Embed.setColor(perGuildData.get(this.Id).pColor);
 
         Embed.setURL('https://www.oyintare.dev/');
         Embed.setFooter(`${ctx.member.displayName}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
@@ -598,11 +605,11 @@ class Queue extends EventEmitter {
             this.isLooping = false;
             Embed.setFooter(`Looping Off`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
         } else {
-            handleReply(ctx, 'Please use either `loop on` or `loop true`');
+            reply(ctx, 'Please use either `loop on` or `loop true`');
             return
         }
 
-        handleReply(ctx, { embeds: [Embed] })
+        reply(ctx, { embeds: [Embed] })
 
     }
 
@@ -623,15 +630,17 @@ class Queue extends EventEmitter {
                         .setStyle(`PRIMARY`),
                 );
 
-            const message = await handleReply(ctx, { embeds: [generateQueueEmbed(1, this)[0]], components: [showQueueButtons] });
+            const message = await reply(ctx, { embeds: [generateQueueEmbed(1, this)[0]], components: [showQueueButtons] });
             if (message) {
 
-                const queueCollector = new InteractionCollector(ps.bot, { message: message, componentType: 'BUTTON', idle: 7000 });
+                const queueCollector = new InteractionCollector(bot, { message: message, componentType: 'BUTTON', idle: 7000 });
                 queueCollector.resetTimer({ time: 7000 });
                 queueCollector.currentPage = 1;
                 queueCollector.queue = this;
 
-                queueCollector.on('collect', (button) => {
+                queueCollector.on('collect', async (button) => {
+
+                    await button.deferUpdate();
 
                     const newButtons = new MessageActionRow()
                         .addComponents(
@@ -663,7 +672,7 @@ class Queue extends EventEmitter {
 
                     queueCollector.resetTimer({ time: 7000 });
 
-                    button.message.edit({ embeds: [newEmbed], components: [newButtons] });
+                    await button.editReply({ embeds: [newEmbed], components: [newButtons] });
                 });
 
                 queueCollector.on('end', (collected, reason) => {
@@ -690,77 +699,77 @@ class Queue extends EventEmitter {
             }
             else {
 
-                handleReply(ctx, { embeds: [generateQueueEmbed(1, this)[0]] });
+                reply(ctx, { embeds: [generateQueueEmbed(1, this)[0]] });
             }
 
 
         }
         else {
-            handleReply(ctx, { embeds: [generateQueueEmbed(1, this)[0]] });
+            reply(ctx, { embeds: [generateQueueEmbed(1, this)[0]] });
         }
 
     }
 
     async saveQueue(ctx) {
-
     }
 
     async loadQueue(ctx) {
-
     }
 
     async setVolume(ctx) {
-        if (ctx.args[0] == undefined) return handleReply(ctx, 'IDK what song you wanna set the volume to');
+        if (ctx.args[0] == undefined) return reply(ctx, 'IDK what song you wanna set the volume to');
 
 
         const volume = parseInt(ctx.args[0]);
 
         if (volume !== volume) {
-            handleReply(ctx, 'Bruh is that even a number ?');
+            reply(ctx, 'Bruh is that even a number ?');
             return;
         }
 
         if (volume < 1 || volume > 100) {
-            handleReply(ctx, 'Please use a value between 1 and 100');
+            reply(ctx, 'Please use a value between 1 and 100');
             return;
         }
 
-        this.volume = maxRawVolume * (volume / 100);
+        this.volume = (volume / 100);
 
-        this.player.volume(this.volume);
+        this.player.volume(this.volume * maxRawVolume);
+
+        console.log(this.volume * maxRawVolume)
 
 
         const Embed = new MessageEmbed();
-        Embed.setColor(ps.perGuildData.get(this.Id).pColor);
+        Embed.setColor(perGuildData.get(this.Id).pColor);
         Embed.setURL('https://www.oyintare.dev/');
-        Embed.setFooter(`${ctx.member.displayName} Changed the volume to ${parseInt((this.volume * 100) / maxRawVolume)}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
+        Embed.setFooter(`${ctx.member.displayName} Changed the volume to ${parseInt(this.volume * 100)}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
-        handleReply(ctx, { embeds: [Embed] })
+        reply(ctx, { embeds: [Embed] })
     }
 
     async skipSong(ctx) {
         if (this.queue.length != 0 || (this.isPlaying && this.isLooping === true)) {
+            
             const Embed = new MessageEmbed();
-            Embed.setColor(ps.perGuildData.get(this.Id).pColor);
+            Embed.setColor(perGuildData.get(this.Id).pColor);
             Embed.setURL('https://www.oyintare.dev/');
             Embed.setFooter(`${ctx.member.displayName} Skipped the song`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
-            handleReply(ctx, { embeds: [Embed] });
+            await this.player.stop();
 
-            if (this.isLooping) {
-                this.queue.push(this.currentSong);
-            }
 
-            this.playNextSong();
+            reply(ctx, { embeds: [Embed] });
+
+            
         }
         else
         {
             const Embed = new MessageEmbed();
-            Embed.setColor(ps.perGuildData.get(this.Id).pColor);
+            Embed.setColor(perGuildData.get(this.Id).pColor);
             Embed.setURL('https://www.oyintare.dev/');
             Embed.setFooter(`The Queue is empty`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
-            handleReply(ctx, { embeds: [Embed] });
+            reply(ctx, { embeds: [Embed] });
         }
 
         
@@ -769,16 +778,14 @@ class Queue extends EventEmitter {
     async stop(ctx) {
 
         const Embed = new MessageEmbed();
-        Embed.setColor(ps.perGuildData.get(this.Id).pColor);
+        Embed.setColor(perGuildData.get(this.Id).pColor);
         Embed.setURL('https://www.oyintare.dev/');
         Embed.setFooter(`${ctx.member.displayName} Disconnected Me`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
 
-        handleReply(ctx, { embeds: [Embed] })
+        reply(ctx, { embeds: [Embed] })
 
         this.destroyQueue(this);
-
-
     }
 
     isPlaying() {
@@ -790,6 +797,7 @@ class Queue extends EventEmitter {
     }
 
     async destroyQueue(ref) {
+        
         if (ref.nowPlayingMessage != undefined) {
             ref.nowPlayingMessage.stop('EndOfLife');
             ref.nowPlayingMessage = undefined;
@@ -805,11 +813,25 @@ class Queue extends EventEmitter {
 
         ref.emit('state', 'Destroyed');
 
-        ps.LavaManager.leave(ref.Id);
+        LavaManager.leave(ref.Id);
 
-        ps.queues.delete(ref.Id);
+        queues.delete(ref.Id);
     }
 
 }
 
 module.exports.Queue = Queue;
+
+console.log(' Music Module loaded ');
+
+if(modulesLastReloadTime.music !== undefined)
+{
+    reloadCommandCategory('Music');
+}
+
+modulesLastReloadTime.music = bot.uptime;
+
+
+
+
+

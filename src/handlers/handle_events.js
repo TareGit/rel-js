@@ -1,8 +1,10 @@
-const ps = require(`${process.cwd()}/passthrough`);
+const ps = require(`${process.cwd()}/passthrough.js`);
+const { sync, bot,modulesLastReloadTime} = require(`${process.cwd()}/passthrough.js`);
+const { reply } = sync.require(`${process.cwd()}/utils.js`);
 
-const chatModule = ps.sync.require('./handle_chat');
-const parser = ps.sync.require('./handle_commands');
-const guildDataModule = ps.sync.require('./handle_guild_data');
+const chatModule = sync.require('./handle_chat');
+const parser = sync.require('./handle_commands');
+const guildDataModule = sync.require('./handle_guild_data');
 
 const fs = require('fs');
 
@@ -13,7 +15,7 @@ const serviceAccountCredentials = JSON.parse(fs.readFileSync(process.env.GOOGLE_
 const chatBotManagerInstance = new chatModule.ChatBotManager(serviceAccountCredentials['project_id']);
 
 async function onMessageCreate(message) {
-    if (message.author.id === ps.bot.user.id) return;
+    if (message.author.id === bot.user.id) return;
 
     const commandToExecute = await parser.parseMessage(message);
 
@@ -62,7 +64,7 @@ async function onInteractionCreate(interaction) {
 }
 
 async function onGuildMemberUpdate(oldMember, newMember) {
-    if (newMember.id == ps.bot.user.id) {
+    if (newMember.id == bot.user.id) {
 
         if (newMember.displayName.toLowerCase() != 'rel') {
             newMember.setNickname('REL');
@@ -83,14 +85,14 @@ const botEvents = [
     { id: 'guildCreate', event: onGuildCreate }
 ]
 
-if(ps.bot !== undefined)
+if(bot !== undefined)
 {
     if (ps.botEvents !== undefined) {
         const previousEvents = ps.botEvents;
     
         previousEvents.forEach(function (botEvent, index) {
             try {
-                ps.bot.removeListener(botEvent.id, botEvent.event);
+                bot.removeListener(botEvent.id, botEvent.event);
             } catch (error) {
                 console.log(error);
             }
@@ -100,7 +102,7 @@ if(ps.bot !== undefined)
     
     botEvents.forEach(function (botEvent, index) {
         try {
-            ps.bot.on(botEvent.id, botEvent.event);
+            bot.on(botEvent.id, botEvent.event);
         } catch (error) {
             console.log(error);
         }
@@ -109,8 +111,15 @@ if(ps.bot !== undefined)
     ps.botEvents = botEvents;
 }
 
-
-
 console.log('Events Module Online');
+
+if(modulesLastReloadTime.events !== undefined)
+{
+    
+}
+
+modulesLastReloadTime.events = bot.uptime;
+
+
 
 

@@ -1,8 +1,10 @@
 const { MessageEmbed } = require('discord.js');
-const ps = require(`${process.cwd()}/passthrough`);
-const osu = require('node-os-utils')
 
-const {version, defaultPrimaryColor} = ps.sync.require(`${process.cwd()}/config.json`);
+const { sync, perGuildData, bot } = require(`${process.cwd()}/passthrough.js`);
+const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const {version, defaultPrimaryColor} = sync.require(`${process.cwd()}/config.json`);
+
+
 
 module.exports = {
     name: 'servers',
@@ -12,24 +14,24 @@ module.exports = {
     options: [],
     async execute(ctx) {
         
-        const guilds = Array.from(ps.bot.guilds.cache.keys());
+        const guilds = Array.from(bot.guilds.cache.keys());
 
         const Embed = new MessageEmbed();
-        Embed.setColor((ctx.member !== null) ? ps.perGuildData.get(ctx.member.guild.id).pColor : defaultPrimaryColor);
+        Embed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).pColor : defaultPrimaryColor);
         Embed.setTitle('Servers');
         Embed.setURL('https://www.oyintare.dev/');
 
-        console.log(ps.bot.guilds.cache);
+        console.log(bot.guilds.cache);
 
         guilds.forEach(function (guildId, index) {
-            const guild = ps.bot.guilds.cache.get(guildId);
+            const guild = bot.guilds.cache.get(guildId);
             Embed.addField(guild.name, `Members ${guild.memberCount}`, false);
         });
 
 
-        Embed.setTimestamp()
+        Embed.setTimestamp();
 
-        await ctx.reply({ embeds: [Embed] });
+        reply(ctx, { embeds: [Embed] });
         
     }
 }
