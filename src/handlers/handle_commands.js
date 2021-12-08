@@ -37,7 +37,9 @@ module.exports.parseMessage = async (message) => {
 
 module.exports.parseInteractionCommand = async (interaction) => {
 
+    if(interaction.)
     interaction.cType = 'INTERACTION';
+    console.log(interaction.type);
     return commands.get(interaction.commandName);
 }
 
