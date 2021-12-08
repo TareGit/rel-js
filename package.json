@@ -2,10 +2,10 @@
   "name": "rel-js",
   "version": "1.5.0",
   "description": "A Discord Bot",
-  "main": "./src/rel.js",
+  "main": "./src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node ./src/rel.js",
+    "start": "node ./src/index.js",
     "registerCommands": "node ./clearegisterCommands.js"
   },
   "keywords": [],

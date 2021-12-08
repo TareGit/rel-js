@@ -66,8 +66,8 @@ async function onInteractionCreate(interaction) {
 async function onGuildMemberUpdate(oldMember, newMember) {
     if (newMember.id == bot.user.id) {
 
-        if (newMember.displayName.toLowerCase() != 'rel') {
-            newMember.setNickname('REL');
+        if (newMember.displayName.toLowerCase() != 'Umeko') {
+            newMember.setNickname('Umeko');
         }
         
     }
