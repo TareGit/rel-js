@@ -22,16 +22,15 @@ async function onMessageCreate(message) {
     if (commandToExecute == undefined) {
 
         const messageContent = message.content;
-        if (message.channel.type == "DM" || messageContent.toLowerCase().split(/\s+/)[0] == 'rel') {
+        if (message.channel.type === "DM" || messageContent.toLowerCase().split(/\s+/)[0] === 'umeko' || messageContent.toLowerCase().split(/\s+/)[0] ==='meko' ) {
             await chatBotManagerInstance.processIntents(message);
         }
         else {
             if (message.reference) {
                 const repliedTo = await message.channel.messages.fetch(message.reference.messageId);
 
-
                 if (repliedTo) {
-                    if (repliedTo.author.id == '804165876362117141') {
+                    if (repliedTo.author.id === bot.user.id) {
                         await chatBotManagerInstance.processIntents(message);
                     }
                 }

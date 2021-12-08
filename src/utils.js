@@ -46,9 +46,16 @@ const addNewCommand = async function (path) {
 
         commands.set(fileName, command);
 
+        if(command.ContextMenu.name !== undefined)
+        {
+            console.log('Loaded context menu command ' + command.ContextMenu.name);
+            commands.set(command.ContextMenu.name, command);
+        }
+
         console.log('Loaded command ' + fileName);
 
         if (commandsPaths.get(command.category) === undefined) {
+
             commandsPaths.set(command.category, [])
         }
 
@@ -76,6 +83,12 @@ const reloadCommand = async function (path) {
         const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
 
         commands.set(fileName, command);
+
+        if(command.ContextMenu.name !== undefined)
+        {
+            console.log('Reloaded context menu command ' + command.ContextMenu.name);
+            commands.set(command.ContextMenu.name, command);
+        }
 
         console.log('Reloaded command ' + fileName);
 

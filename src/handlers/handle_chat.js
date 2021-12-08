@@ -22,11 +22,12 @@ class ChatBot {
     async processIntents(message) {
         try {
 
-            const messageContent = message.content;
-            if (messageContent.toLowerCase().startsWith('rel')) {
-                messageContent.slice(3);
-            }
+            let messageContent = message.content;
+            if (messageContent.toLowerCase().startsWith('umeko')) messageContent = messageContent.slice(5);
+            if(messageContent.toLowerCase().startsWith('meko')) messageContent = messageContent.slice(4);
 
+
+            console.log(messageContent);
             // The path to identify the agent that owns the created intent.
             const sessionPath = sessionClient.projectAgentSessionPath(
                 this.Project_ID,
@@ -38,7 +39,7 @@ class ChatBot {
                 session: sessionPath,
                 queryInput: {
                     text: {
-                        text: messageContent,
+                        text: messageContent.trim(),
                         languageCode: 'en',
                     },
                 },

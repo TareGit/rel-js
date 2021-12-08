@@ -1,4 +1,4 @@
-const { sync } = require(`${process.cwd()}/passthrough.js`);
+const { bot,sync } = require(`${process.cwd()}/passthrough.js`);
 
 const { reply } = sync.require(`${process.cwd()}/utils.js`);
 
@@ -22,7 +22,10 @@ module.exports = {
 
         const user = ctx.mentions.members.first();
 
-        if(user === undefined || user === null) return reply(ctx,`Who tf do you want to disconnect`)
+        if(user === undefined || user === null) return reply(ctx,`Who tf do you want to disconnect`);
+
+        if(user.id === bot.user.id) return reply(ctx,`I see what you did there`);
+        console.log(bot.id)
 
         ctx.reply(`<@${user.id}> 🤡`);
 

@@ -82,7 +82,6 @@ const createNowPlayingMessage = async function (ref) {
     }
 
     const Embed = new MessageEmbed();
-    console.log(ref.Id)
     Embed.setColor(perGuildData.get(ref.Id).pColor);
     Embed.setTitle(`**${song.title}**`);
     Embed.setURL(`${song.uri}`);
@@ -123,31 +122,31 @@ const createNowPlayingMessage = async function (ref) {
 
             button.forceChannelReply = true;
 
-                switch (button.customId) {
-                    case 'pause':
-                        await nowPlayingCollector.queue.pauseSong(button);
-                        break;
-    
-                    case 'resume':
-                        await nowPlayingCollector.queue.resumeSong(button);
-                        break;
-    
-                    case 'queue':
-                        await nowPlayingCollector.queue.showQueue(button);
-                        break;
-    
-                    case 'skip':
-                        await nowPlayingCollector.queue.skipSong(button);
-                        break;
-    
-                    case 'stop':
-                        await nowPlayingCollector.queue.stop(button);
-                        break;
-                }
+            switch (button.customId) {
+                case 'pause':
+                    await nowPlayingCollector.queue.pauseSong(button);
+                    break;
 
-                button.forceChannelReply = undefined;
-                
-                const editedNowButtons = new MessageActionRow()
+                case 'resume':
+                    await nowPlayingCollector.queue.resumeSong(button);
+                    break;
+
+                case 'queue':
+                    await nowPlayingCollector.queue.showQueue(button);
+                    break;
+
+                case 'skip':
+                    await nowPlayingCollector.queue.skipSong(button);
+                    break;
+
+                case 'stop':
+                    await nowPlayingCollector.queue.stop(button);
+                    break;
+            }
+
+            button.forceChannelReply = undefined;
+
+            const editedNowButtons = new MessageActionRow()
                 .addComponents(
                     new MessageButton()
                         .setCustomId('skip')
@@ -167,7 +166,7 @@ const createNowPlayingMessage = async function (ref) {
                         .setStyle('SECONDARY'),
                 );
 
-                await button.editReply({ embeds: [Embed], components: [editedNowButtons] });
+            await button.editReply({ embeds: [Embed], components: [editedNowButtons] });
         });
 
         nowPlayingCollector.on('end', (collected, reason) => {
@@ -233,7 +232,7 @@ const generateQueueEmbed = function (page, ref) {
     }
 
     Embed.setFooter(`Page ${page} of ${currentPages}`);
-    
+
 
     return [Embed, currentPages];
 }
@@ -257,8 +256,18 @@ class Queue extends EventEmitter {
         this.isCreatingNowPlaying = false;
         this.ensurePlayTimeout = undefined
         this.isFirstPlay = true;
+        this.isSwitchingChannels = false;
+        this.isDisconnecting = false;
         this.timeout = setTimeout(this.destroyQueue, queueTimeout, this);
-        console.log(maxRawVolume);
+        bot.ws.on("VOICE_STATE_UPDATE", this.voiceStateUpdate.bind(this));
+    }
+
+    voiceStateUpdate(data) {
+        if (data.guild_id === this.Id && this.user_id === bot.user.id) {
+            if (data.channel_id === null && !this.isSwitchingChannels) {
+                this.destroyQueue(this);
+            }
+        }
     }
 
     async ensurePlay(ref) {
@@ -266,11 +275,6 @@ class Queue extends EventEmitter {
             console.log('THE QUEUE IS TRIPPING ENSURING PLAY');
             ref.playNextSong();
         }
-    }
-
-    async fixFirstVolume(ref,max){
-        console.log(ref.volume * max);
-        ref.player.volume(ref.volume * max);
     }
 
     async playNextSong() {
@@ -298,12 +302,14 @@ class Queue extends EventEmitter {
 
             this.currentSong = song;
 
-            await this.player.play(song.track);
-
             if(this.isFirstPlay)
             {
-                setTimeout(this.fixFirstVolume,1000,this,maxRawVolume);
+                this.player.play(song.track,{"volume": this.volume * maxRawVolume});
                 this.isFirstPlay = false;
+            }
+            else
+            {
+                this.player.play(song.track);
             }
             
 
@@ -335,10 +341,9 @@ class Queue extends EventEmitter {
 
 
         console.log('Play Recieved');
-        console.time('ParseSong');
         let url = "";
 
-        if (ctx.cType != "MESSAGE") await command.deferReply(); // defer because this might take a while
+        if (ctx.cType != "MESSAGE") await ctx.deferReply(); // defer because this might take a while
 
         if (this.player === undefined) {
 
@@ -350,7 +355,7 @@ class Queue extends EventEmitter {
 
             this.player.on("end", data => {
                 if (data.reason === "REPLACED") return; // Ignore REPLACED reason to prevent skip loops
-                
+
                 // Play next song
                 this.emit('state', 'Finished');
 
@@ -391,7 +396,7 @@ class Queue extends EventEmitter {
         }
 
 
-        if (url.length == 0) return reply(ctx,'What even is that ?');
+        if (url.length == 0) return reply(ctx, 'What even is that ?');
 
 
         let newSongs = [];
@@ -410,6 +415,8 @@ class Queue extends EventEmitter {
                 const data = (await axios.get(`http://${node.host}:${node.port}/loadtracks?${params}`, { headers: { Authorization: node.password } })).data;
 
                 const songData = data.tracks[0];
+
+                if (songData.info !== undefined);
 
                 return createSong(songData, user, songData.info.uri);
             } catch (error) {
@@ -503,13 +510,17 @@ class Queue extends EventEmitter {
 
         this.queue.push.apply(this.queue, newSongs);
 
-        console.timeEnd('ParseSong');
-
 
         if (this.isIdle) {
             this.isIdle = false;
-            console.log('Play Called');
+
             this.playNextSong();
+
+            if (newSongs[0] == undefined) return reply(ctx, "The song could not be loaded");
+
+
+            if (ctx.cType !== "MESSAGE") reply(ctx, "Playing");
+
         }
         else {
             console.log('Sent to Queue');
@@ -523,7 +534,7 @@ class Queue extends EventEmitter {
                 Embed.setURL(`${url}`);
             }
             else {
-                if (newSongs[0] == undefined) return;
+                if (newSongs[0] == undefined) return reply(ctx, "The song could not be loaded");
 
                 Embed.setTitle(`${newSongs[0].title}`);
                 Embed.setURL(`${newSongs[0].uri}`)
@@ -736,8 +747,6 @@ class Queue extends EventEmitter {
 
         this.player.volume(this.volume * maxRawVolume);
 
-        console.log(this.volume * maxRawVolume)
-
 
         const Embed = new MessageEmbed();
         Embed.setColor(perGuildData.get(this.Id).pColor);
@@ -749,7 +758,7 @@ class Queue extends EventEmitter {
 
     async skipSong(ctx) {
         if (this.queue.length != 0 || (this.isPlaying && this.isLooping === true)) {
-            
+
             const Embed = new MessageEmbed();
             Embed.setColor(perGuildData.get(this.Id).pColor);
             Embed.setURL('https://www.oyintare.dev/');
@@ -760,10 +769,9 @@ class Queue extends EventEmitter {
 
             reply(ctx, { embeds: [Embed] });
 
-            
+
         }
-        else
-        {
+        else {
             const Embed = new MessageEmbed();
             Embed.setColor(perGuildData.get(this.Id).pColor);
             Embed.setURL('https://www.oyintare.dev/');
@@ -772,7 +780,7 @@ class Queue extends EventEmitter {
             reply(ctx, { embeds: [Embed] });
         }
 
-        
+
     }
 
     async stop(ctx) {
@@ -797,7 +805,11 @@ class Queue extends EventEmitter {
     }
 
     async destroyQueue(ref) {
-        
+
+        if (ref.isDisconnecting) return
+
+        ref.isDisconnecting = true;
+
         if (ref.nowPlayingMessage != undefined) {
             ref.nowPlayingMessage.stop('EndOfLife');
             ref.nowPlayingMessage = undefined;
@@ -824,8 +836,7 @@ module.exports.Queue = Queue;
 
 console.log(' Music Module loaded ');
 
-if(modulesLastReloadTime.music !== undefined)
-{
+if (modulesLastReloadTime.music !== undefined) {
     reloadCommandCategory('Music');
 }
 

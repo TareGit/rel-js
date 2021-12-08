@@ -6,5 +6,5 @@
     "defaultPrefix":"?",
     "defaultVolumeMultiplier" : 0.05,
     "maxRawVolume" : 150,
-    "version": 2.9
+    "version": 3.0
 }

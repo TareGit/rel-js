@@ -37,9 +37,16 @@ module.exports.parseMessage = async (message) => {
 
 module.exports.parseInteractionCommand = async (interaction) => {
 
-    if(interaction.)
-    interaction.cType = 'INTERACTION';
-    console.log(interaction.type);
+    if(interaction.isContextMenu())
+    {
+        interaction.cType = 'CONTEXT_MENU';
+    }
+
+    if(interaction.isCommand())
+    {
+        interaction.cType = 'COMMAND';
+    }   
+
     return commands.get(interaction.commandName);
 }
 

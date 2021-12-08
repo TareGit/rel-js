@@ -70,7 +70,14 @@ bot.on('ready', async () => {
 
     Object.assign(ps, { LavaManager: LavaManager });
 
-    await LavaManager.connect();
+    try {
+        await LavaManager.connect();
+        console.log("Connected to Music provider");
+    } catch (error) {
+        console.log("Error connecting to Music provider\n");
+        console.log(error)
+    }
+    
 
     bot.ws
         .on("VOICE_SERVER_UPDATE", ps.LavaManager.voiceServerUpdate.bind(ps.LavaManager))
@@ -101,14 +108,21 @@ bot.on('ready', async () => {
         //db.execute("DROP TABLE IF EXISTS guilds") never un-comment
         Object.assign(ps, { db: db });
 
+    } catch (error) {
+        console.log(`Error connecting to database \n`);
+        console.log(error);
+    }
+
+    try {
         // arent actually used here but we need to load them up
         const guildDataModule = sync.require('./handlers/handle_guild_data');
         const httpModule = sync.require('./handlers/handle_http');
         const eventsModule = sync.require('./handlers/handle_events');
-
     } catch (error) {
-        console.log(`Error connecting to database \n${error}`);
+        console.log(`Error loading modules \n`);
+        console.log(error);
     }
+
 
     // Commands loading and reloading
     chokidar.watch('./commands', { persistent: true, usePolling: true }).on('all', (event, path) => {
