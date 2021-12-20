@@ -1,3 +1,3 @@
 # umeko-js
 ## A discord bot written in NodeJs by Oyintare Ebelo
-### Invite link -CommingSoon-
+### Invite link https://umeko.dev/invite
