@@ -1,6 +1,6 @@
 const EventEmitter = require("events");
 
-const { sync, bot , db, perGuildData,modulesLastReloadTime} = require(`${process.cwd()}/passthrough.js`);
+const { sync, bot , db, perGuildData,modulesLastReloadTime, socket} = require(`${process.cwd()}/passthrough.js`);
 const { reply } = sync.require(`${process.cwd()}/utils.js`);
 const { defaultPrefix, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.json`);
 
@@ -32,6 +32,10 @@ module.exports.joinedNewGuild = async function (guild) {
         db.execute(query, params, { prepare: true });
 
         perGuildData.set(guild.id,setting);
+
+        if(socket !== undefined){
+            socket.emit('identify', { id: 'Umeko', guilds: Array.from(bot.guilds.cache.keys()) });
+        }
 }
 
 
