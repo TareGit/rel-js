@@ -6,7 +6,7 @@
 * My Anime List API (For anime lookup)
 * TMDB API (For movie lookup)
 * Sotify API (For converting spotify links to playable tracks)
-* Discord API (Its a discord bot ¯\\__(ツ)__/¯ )
+* Discord API (It's a discord bot ¯\\\_(ツ)\_/¯ )
 * Google Dialog Flow API (Chatbot Integration)
 ### Back End Information
 * Astra DB for most per-guild settings
