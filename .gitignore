@@ -2,7 +2,7 @@
 *.class
 
 # play-dl spotify api
-*.data
+src/.data
 
 # Log file
 *.log
