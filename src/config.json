@@ -6,5 +6,7 @@
     "defaultPrefix":"?",
     "defaultVolumeMultiplier" : 0.05,
     "maxRawVolume" : 150,
-    "version": 3.0
+    "version": 3.0,
+    "leftArrowEmoji" : "922308918917615676",
+    "rightArrowEmoji" : "922308931966091274"
 }

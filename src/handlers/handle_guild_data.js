@@ -11,33 +11,38 @@ async function pushRemainingKeysToDb() {
     console.log(`Guilds Not In Database [${guilds}]`)
     guilds.forEach(function (guild, index) {
 
-        const query = 'INSERT INTO guilds (guild_id, prefix, primary_color) VALUES(?,?,?)';
-        const params = [guild, defaultPrefix, defaultPrimaryColor];
+        const query = 'INSERT INTO guild_settings (guild_id, data) VALUES(?,?)';
+        const setting = {pColor : defaultPrimaryColor, prefix : defaultPrefix}
+
+        const params = [guild, JSON.stringify(setting)];
 
         db.execute(query, params, { prepare: true });
 
-        perGuildData.set(guild,{pColor : defaultPrimaryColor, prefix : defaultPrefix, muted : new Map()})
+        perGuildData.set(guild,setting);
     });
 }
 
 module.exports.joinedNewGuild = async function (guild) {
 
-        const query = 'INSERT INTO guilds (guild_id, prefix, primary_color) VALUES(?,?,?)';
-        const params = [guild.id, defaultPrefix, defaultPrimaryColor];
+        const query = 'INSERT INTO guild_settings (guild_id, data) VALUES(?,?)';
+        const setting = {pColor : defaultPrimaryColor, prefix : defaultPrefix}
+
+        const params = [guild.id, JSON.stringify(setting)];
 
         db.execute(query, params, { prepare: true });
 
-        perGuildData.set(row.guild_id,{pColor : defaultPrimaryColor, prefix : defaultPrefix, muted : new Map()})
+        perGuildData.set(guild.id,setting);
 }
 
 
-db.stream('SELECT * FROM guilds')
+db.stream('SELECT * FROM guild_settings')
     .on('readable', function () {
         // 'readable' is emitted as soon a row is received and parsed
         let row;
         while (row = this.read()) {
-            if (row.guild_id) {
-                perGuildData.set(row.guild_id,{pColor : row.primary_color, prefix : row.prefix, muted : new Map()})
+            if (row.data && row.data !== "") {
+                const settings = JSON.parse(row.data);
+                perGuildData.set(row.guild_id,settings)
                 guilds.splice(guilds.indexOf(row.guildId), 1);
             }
         }

@@ -8,7 +8,7 @@ const osu = require('node-os-utils');
 
 module.exports = {
     name: 'status',
-    category: 'Main',
+    category: 'General',
     description: 'get the bot status',
     ContextMenu: {},
     options: [],
@@ -17,7 +17,7 @@ module.exports = {
             const Embed = new MessageEmbed();
             Embed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).pColor : defaultPrimaryColor);
             Embed.setTitle('Status');
-            Embed.setURL('https://www.oyintare.dev/');
+            Embed.setURL(process.env.WEBSITE);
 
             let memory = await osu.mem.free();
 

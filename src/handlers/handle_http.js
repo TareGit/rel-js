@@ -1,5 +1,5 @@
 const ps = require(`${process.cwd()}/passthrough.js`);
-const { sync, bot, socket, socketEvents,modulesLastReloadTime } = require(`${process.cwd()}/passthrough.js`);
+const { sync, bot, socket, socketEvents,modulesLastReloadTime, perGuildData } = require(`${process.cwd()}/passthrough.js`);
 
 const fs = require('fs');
 
@@ -19,11 +19,16 @@ function onDisconnect() {
 
 
 // handle an event from the server to invalidate local date( make the data dirty so we pull a new version from the db)
-function onInvalidate(payload) {
-    
+function onUpdate({guild , field, value}) {
+    if(perGuildData.get(guild) !== undefined)
+    {
+        if(perGuildData.get(guild)[field] !== undefined)
+        {
+            perGuildData.get(guild)[field] = value;
+        }
+    }
 }
 
-// handle an event from the server to invalidate local date( make the data dirty so we pull a new version from the db)
 function onGetGuild(guildId) {
     socket.emit('guildData',bot.guilds.cache.get(guildId));
 }
@@ -32,7 +37,7 @@ function onGetGuild(guildId) {
 const newSocketEvents = [
     { id: 'connect', event: onConnect },
     { id: 'disconnect', event: onDisconnect },
-    { id: 'invalidate', event: onInvalidate },
+    { id: 'update', event: onUpdate },
     { id: 'getGuild', event: onGetGuild }
 ]
 

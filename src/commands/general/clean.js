@@ -5,7 +5,7 @@ const { reply } = sync.require(`${process.cwd()}/utils.js`);
 
 module.exports = {
     name: 'clean',
-    category: 'Main',
+    category: 'General',
     description: 'Deletes messages in a channel',
     ContextMenu: {},
     options: [

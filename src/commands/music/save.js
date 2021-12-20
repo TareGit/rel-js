@@ -24,7 +24,5 @@ module.exports = {
             if (Queue == undefined) return reply(ctx,"Theres no Queue");
 
             Queue.saveQueue(ctx);
-        
-
     }
 }

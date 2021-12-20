@@ -7,26 +7,21 @@ const {version, defaultPrimaryColor} = sync.require(`${process.cwd()}/config.jso
 
 
 module.exports = {
-    name: 'servers',
+    name: 'links',
     category: 'General',
-    description: 'get all the servers the bot is on',
+    description: 'A list of usefull links',
     ContextMenu: {},
     options: [],
     async execute(ctx) {
         
-        const guilds = Array.from(bot.guilds.cache.keys());
 
         const Embed = new MessageEmbed();
         Embed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).pColor : defaultPrimaryColor);
-        Embed.setTitle('Servers');
+        Embed.setTitle('Links');
         Embed.setURL(process.env.WEBSITE);
 
-        console.log(bot.guilds.cache);
-
-        guilds.forEach(function (guildId, index) {
-            const guild = bot.guilds.cache.get(guildId);
-            Embed.addField(guild.name, `Members ${guild.memberCount}`, false);
-        });
+        Embed.addField("Website", process.env.WEBSITE , false);
+        Embed.addField("Support Server","https://discord.gg/qx7eUVwTGY", false);
 
 
         Embed.setTimestamp();

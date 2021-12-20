@@ -27,7 +27,7 @@ hs_err_pid*
 
 /node_modules
 
-src/external_api
+src/secretes
 
 # env files
 *.env

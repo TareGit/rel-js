@@ -1,7 +1,9 @@
 // handle replies
 
 const { tracker } = require("cassandra-driver");
+const axios = require('axios');
 const { sync, commandsPaths, commands } = require("./passthrough");
+const { response } = require("express");
 
 const reply = async function (ctx, reply) {
 
@@ -10,9 +12,8 @@ const reply = async function (ctx, reply) {
             return await ctx.reply(reply);
         }
         else {
-            if(ctx.forceChannelReply !== undefined)
-            {
-                if(ctx.forceChannelReply === true) return await ctx.channel.send(reply);
+            if (ctx.forceChannelReply !== undefined) {
+                if (ctx.forceChannelReply === true) return await ctx.channel.send(reply);
             }
 
             if (ctx.deferred !== undefined) {
@@ -46,8 +47,7 @@ const addNewCommand = async function (path) {
 
         commands.set(fileName, command);
 
-        if(command.ContextMenu.name !== undefined)
-        {
+        if (command.ContextMenu !== undefined && command.ContextMenu.name !== undefined) {
             console.log('Loaded context menu command ' + command.ContextMenu.name);
             commands.set(command.ContextMenu.name, command);
         }
@@ -84,8 +84,7 @@ const reloadCommand = async function (path) {
 
         commands.set(fileName, command);
 
-        if(command.ContextMenu.name !== undefined)
-        {
+        if (command.ContextMenu !== undefined && command.ContextMenu.name !== undefined) {
             console.log('Reloaded context menu command ' + command.ContextMenu.name);
             commands.set(command.ContextMenu.name, command);
         }
@@ -125,6 +124,23 @@ const reloadCommands = async function (category) {
     if (commandsToReload === undefined) return;
 }
 
+async function getOsuApiToken() {
+    const request = {
+        client_id: process.env.OSU_CLIENT_ID, 
+        client_secret: process.env.OSU_CLIENT_SECRETE, 
+        grant_type: "client_credentials", 
+        scope: "public"
+    };
+
+    const response = (await axios.post(`${process.env.OSU_API_AUTH}`, request)).data;
+
+    process.env.OSU_API_TOKEN = response.access_token;
+
+    setTimeout(getOsuApiToken,response.expires_in * 1000);
+    
+    console.log("Done fetching Osu Api Token");
+}
+
 module.exports.reply = reply;
 
 module.exports.addNewCommand = addNewCommand;
@@ -134,3 +150,5 @@ module.exports.reloadCommand = reloadCommand;
 module.exports.reloadCommandCategory = reloadCommandCategory;
 
 module.exports.reloadCommands = reloadCommands;
+
+module.exports.getOsuApiToken = getOsuApiToken;

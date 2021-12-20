@@ -7,7 +7,8 @@ const passthrough = {
     queues : new Map(),
     commands : new Map(),
     commandsPaths : new Map(),
-    modulesLastReloadTime : {}
+    modulesLastReloadTime : {},
+    disabledCategories : []
 }
 
 module.exports = passthrough;

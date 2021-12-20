@@ -76,12 +76,17 @@ async function onGuildCreate(guild) {
     guildDataModule.joinedNewGuild(guild);
 }
 
+async function onPresenceUpdate(oldPresence, newPresence) {
+    console.log(newPresence.activity.id)
+}
+
 
 const botEvents = [
     { id: 'messageCreate', event: onMessageCreate },
     { id: 'interactionCreate', event: onInteractionCreate },
     { id: 'guildMemberUpdate', event: onGuildMemberUpdate },
-    { id: 'guildCreate', event: onGuildCreate }
+    { id: 'guildCreate', event: onGuildCreate },
+    { id: 'presenceUpdate', event: onPresenceUpdate }
 ]
 
 if(bot !== undefined)

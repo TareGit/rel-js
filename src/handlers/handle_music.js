@@ -1,7 +1,7 @@
-const { sync, bot, queues, perGuildData, LavaManager, modulesLastReloadTime } = require(`${process.cwd()}/passthrough.js`);
+const { sync, bot, queues, perGuildData, LavaManager, modulesLastReloadTime, db } = require(`${process.cwd()}/passthrough.js`);
 
 const { reply, reloadCommandCategory } = sync.require(`${process.cwd()}/utils.js`);
-const { queueTimeout, queueItemsPerPage, maxQueueFetchTime, maxRawVolume, defaultVolumeMultiplier } = sync.require(`${process.cwd()}/config.json`);
+const { queueTimeout, queueItemsPerPage, maxQueueFetchTime, maxRawVolume, defaultVolumeMultiplier, leftArrowEmoji, rightArrowEmoji } = sync.require(`${process.cwd()}/config.json`);
 
 const play = require('play-dl');
 
@@ -31,10 +31,6 @@ module.exports.createQueue = async function (ctx) {
 function createNewQueue(ctx) {
     const newQueue = new Queue(ctx);
 
-    newQueue.on('state', (state) => {
-        console.log(state);
-    })
-
     queues.set(ctx.member.guild.id, newQueue);
 
     return newQueue;
@@ -54,8 +50,8 @@ const createSong = function (songData, songRequester, songGroupURL = "") {
     }
 }
 
-const createNowPlayingMessage = async function (ref) {
-    const channel = ref.channel;
+const createNowPlayingMessage = async function (ref,targetChannel = undefined) {
+    const channel = targetChannel == undefined ? ref.channel : targetChannel;
     let song = ref.currentSong;
 
     if (ref.isCreatingNowPlaying) return undefined;
@@ -218,7 +214,7 @@ const generateQueueEmbed = function (page, ref) {
     const Embed = new MessageEmbed();
     Embed.setColor(perGuildData.get(ref.Id).pColor);
     Embed.setTitle(`${currentQueueLenth} in Queue`);
-    Embed.setURL('https://www.oyintare.dev/');
+    Embed.setURL(process.env.WEBSITE);
 
     const max = currentQueueLenth > itemsPerPage ? itemsPerPage * page : currentQueueLenth;
 
@@ -243,23 +239,62 @@ class Queue extends EventEmitter {
 
     constructor(ctx) {
         super();
-        this.Id = ctx.member.guild.id;
-        this.channel = ctx.channel;
-        this.voiceChannel = ctx.member.voice.channel;
-        this.player = undefined;
-        this.queue = []
-        this.nowPlayingMessage = undefined;
-        this.currentSong = undefined
-        this.volume = defaultVolumeMultiplier;
-        this.isIdle = true;
-        this.isLooping = false;
-        this.isCreatingNowPlaying = false;
-        this.ensurePlayTimeout = undefined
-        this.isFirstPlay = true;
-        this.isSwitchingChannels = false;
-        this.isDisconnecting = false;
+
+        if (ctx === undefined) return;
+
+        this.voiceStateUpdateBind = this.voiceStateUpdate.bind(this);
+        this.songEndBind = this.songEnd.bind(this);
+
+        if (ctx.__proto__.constructor.name === 'Queue') {
+            console.log("preparing to copy Queue");
+            const properties = Object.getOwnPropertyNames(ctx);
+
+            const propertiesToCopyIfFound = ['Id', 'channel', 'voiceChannel', 'player', 'queue', 'nowPlayingMessage', 'currentSong', 'volume', 'isIdle', 'isLooping', 'isCreatingNowPlaying', 'isFirstPlay', 'isSwitchingChannels', 'isDisconnecting']
+
+            const currentQueue = this;
+
+            propertiesToCopyIfFound.forEach(function (property) {
+
+                if (properties.includes(property)) {
+
+                    currentQueue[property] = ctx[property];
+                    console.log(`Copied ${property}`);
+                }
+            });
+
+            if (this.player !== undefined) {
+
+                this.player.on("end", this.songEndBind);
+            }
+
+            console.log("finished copying queue");
+
+        }
+        else
+        {
+            this.Id = ctx.member.guild.id;
+            this.channel = ctx.channel;
+            this.voiceChannel = ctx.member.voice.channel;
+        }
+
+        
+        if (this.player === undefined) this.player = undefined;
+        if (this.queue === undefined) this.queue = []
+        if (this.nowPlayingMessage === undefined) this.nowPlayingMessage = undefined;
+        if (this.currentSong === undefined) this.currentSong = undefined
+        if (this.volume === undefined) this.volume = defaultVolumeMultiplier;
+        if (this.isIdle === undefined) this.isIdle = true;
+        if (this.isLooping === undefined) this.isLooping = false;
+        if (this.isCreatingNowPlaying === undefined) this.isCreatingNowPlaying = false;
+        if (this.isFirstPlay === undefined) this.isFirstPlay = true;
+        if (this.isSwitchingChannels === undefined) this.isSwitchingChannels = false;
+        if (this.isDisconnecting === undefined) this.isDisconnecting = false;
+        this.ensurePlayTimeout = undefined;
+
+
         this.timeout = setTimeout(this.destroyQueue, queueTimeout, this);
-        bot.ws.on("VOICE_STATE_UPDATE", this.voiceStateUpdate.bind(this));
+        bot.ws.on("VOICE_STATE_UPDATE", this.voiceStateUpdateBind);
+
     }
 
     voiceStateUpdate(data) {
@@ -275,6 +310,23 @@ class Queue extends EventEmitter {
             console.log('THE QUEUE IS TRIPPING ENSURING PLAY');
             ref.playNextSong();
         }
+    }
+
+    async songEnd(data){
+        if (data.reason === "REPLACED") return; // Ignore REPLACED reason to prevent skip loops
+
+                this.emit('state', 'Finished');
+
+                if (this.nowPlayingMessage != undefined) {
+                    this.nowPlayingMessage.stop('EndOfLife');
+                    this.nowPlayingMessage = undefined;
+                }
+
+                if (this.isLooping) {
+                    this.queue.push(this.currentSong);
+                }
+
+                this.playNextSong();
     }
 
     async playNextSong() {
@@ -302,16 +354,14 @@ class Queue extends EventEmitter {
 
             this.currentSong = song;
 
-            if(this.isFirstPlay)
-            {
-                this.player.play(song.track,{"volume": this.volume * maxRawVolume});
+            if (this.isFirstPlay) {
+                this.player.play(song.track, { "volume": this.volume * maxRawVolume });
                 this.isFirstPlay = false;
             }
-            else
-            {
+            else {
                 this.player.play(song.track);
             }
-            
+
 
             createNowPlayingMessage(this);
 
@@ -353,26 +403,7 @@ class Queue extends EventEmitter {
                 node: "1", // lavalink node id, based on array of nodes
             });
 
-            this.player.on("end", data => {
-                if (data.reason === "REPLACED") return; // Ignore REPLACED reason to prevent skip loops
-
-                // Play next song
-                this.emit('state', 'Finished');
-
-                if (this.nowPlayingMessage != undefined) {
-                    this.nowPlayingMessage.stop('EndOfLife');
-                    this.nowPlayingMessage = undefined;
-                }
-
-                if (this.isLooping) {
-                    this.queue.push(this.currentSong);
-                }
-
-
-                this.playNextSong();
-
-                //this.ensurePlayTimeout = setTimeout(this.ensurePlay, 1000, this);
-            });
+            this.player.on("end", this.songEndBind);
         }
 
         // handle different command types
@@ -555,7 +586,7 @@ class Queue extends EventEmitter {
 
             const Embed = new MessageEmbed();
             Embed.setColor(perGuildData.get(this.Id).pColor);
-            Embed.setURL('https://www.oyintare.dev/');
+            Embed.setURL(process.env.WEBSITE);
             Embed.setFooter(`${ctx.member.displayName} paused the music`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
             reply(ctx, { embeds: [Embed] })
@@ -571,7 +602,7 @@ class Queue extends EventEmitter {
 
             const Embed = new MessageEmbed();
             Embed.setColor(perGuildData.get(this.Id).pColor);
-            Embed.setURL('https://www.oyintare.dev/');
+            Embed.setURL(process.env.WEBSITE);
             Embed.setFooter(`${ctx.member.displayName} Un-Paused the music`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
             reply(ctx, { embeds: [Embed] })
@@ -592,7 +623,7 @@ class Queue extends EventEmitter {
                 this.nowPlayingMessage = undefined;
             }
 
-            await createNowPlayingMessage(this);
+            await createNowPlayingMessage(this,ctx.channel);
         }
     }
 
@@ -604,7 +635,7 @@ class Queue extends EventEmitter {
         const Embed = new MessageEmbed();
         Embed.setColor(perGuildData.get(this.Id).pColor);
 
-        Embed.setURL('https://www.oyintare.dev/');
+        Embed.setURL(process.env.WEBSITE);
         Embed.setFooter(`${ctx.member.displayName}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
 
@@ -626,18 +657,17 @@ class Queue extends EventEmitter {
 
     async showQueue(ctx) {
 
-
         if (this.queue.length > queueItemsPerPage) {
             const showQueueButtons = new MessageActionRow()
                 .addComponents(
                     new MessageButton()
                         .setCustomId('previous')
-                        .setLabel('⬅️')
                         .setStyle('PRIMARY')
+                        .setEmoji(leftArrowEmoji)
                         .setDisabled(true),
                     new MessageButton()
                         .setCustomId('next')
-                        .setLabel(`➡️`)
+                        .setEmoji(rightArrowEmoji)
                         .setStyle(`PRIMARY`),
                 );
 
@@ -648,8 +678,13 @@ class Queue extends EventEmitter {
                 queueCollector.resetTimer({ time: 7000 });
                 queueCollector.currentPage = 1;
                 queueCollector.queue = this;
+                queueCollector.owner = (ctx.author !== null && ctx.author !== undefined) ? ctx.author.id : ctx.user.id;
 
                 queueCollector.on('collect', async (button) => {
+
+                    if (button.user.id !== queueCollector.owner) {
+                        return reply(ctx, { ephemeral: true, content: "why must thou choose violence ?" });
+                    }
 
                     await button.deferUpdate();
 
@@ -657,11 +692,11 @@ class Queue extends EventEmitter {
                         .addComponents(
                             new MessageButton()
                                 .setCustomId('previous')
-                                .setLabel('⬅️')
+                                .setEmoji(leftArrowEmoji)
                                 .setStyle('PRIMARY'),
                             new MessageButton()
                                 .setCustomId('next')
-                                .setLabel(`➡️`)
+                                .setEmoji(rightArrowEmoji)
                                 .setStyle(`PRIMARY`),
                         );
 
@@ -692,12 +727,12 @@ class Queue extends EventEmitter {
                         .addComponents(
                             new MessageButton()
                                 .setCustomId('previous')
-                                .setLabel('⬅️')
+                                .setLabel(leftArrowEmoji)
                                 .setStyle('PRIMARY')
                                 .setDisabled(true),
                             new MessageButton()
                                 .setCustomId('next')
-                                .setLabel(`➡️`)
+                                .setEmoji(rightArrowEmoji)
                                 .setStyle(`PRIMARY`)
                                 .setDisabled(true),
                         );
@@ -722,6 +757,7 @@ class Queue extends EventEmitter {
     }
 
     async saveQueue(ctx) {
+
     }
 
     async loadQueue(ctx) {
@@ -750,7 +786,7 @@ class Queue extends EventEmitter {
 
         const Embed = new MessageEmbed();
         Embed.setColor(perGuildData.get(this.Id).pColor);
-        Embed.setURL('https://www.oyintare.dev/');
+        Embed.setURL(process.env.WEBSITE);
         Embed.setFooter(`${ctx.member.displayName} Changed the volume to ${parseInt(this.volume * 100)}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
         reply(ctx, { embeds: [Embed] })
@@ -761,7 +797,7 @@ class Queue extends EventEmitter {
 
             const Embed = new MessageEmbed();
             Embed.setColor(perGuildData.get(this.Id).pColor);
-            Embed.setURL('https://www.oyintare.dev/');
+            Embed.setURL(process.env.WEBSITE);
             Embed.setFooter(`${ctx.member.displayName} Skipped the song`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
             await this.player.stop();
@@ -774,7 +810,7 @@ class Queue extends EventEmitter {
         else {
             const Embed = new MessageEmbed();
             Embed.setColor(perGuildData.get(this.Id).pColor);
-            Embed.setURL('https://www.oyintare.dev/');
+            Embed.setURL(process.env.WEBSITE);
             Embed.setFooter(`The Queue is empty`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
             reply(ctx, { embeds: [Embed] });
@@ -787,7 +823,7 @@ class Queue extends EventEmitter {
 
         const Embed = new MessageEmbed();
         Embed.setColor(perGuildData.get(this.Id).pColor);
-        Embed.setURL('https://www.oyintare.dev/');
+        Embed.setURL(process.env.WEBSITE);
         Embed.setFooter(`${ctx.member.displayName} Disconnected Me`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
 
@@ -838,6 +874,40 @@ console.log(' Music Module loaded ');
 
 if (modulesLastReloadTime.music !== undefined) {
     reloadCommandCategory('Music');
+    try {
+        queues.forEach(function (queue,key) {
+
+
+            
+
+            const oldQueue = queue;
+
+            console.log(oldQueue.player.listenerCount("end"));
+
+            console.log(bot.ws.listenerCount("VOICE_STATE_UPDATE"));
+
+            const newQueue = new Queue(oldQueue);
+
+            bot.ws.removeListener("VOICE_STATE_UPDATE", oldQueue.voiceStateUpdateBind);
+
+            oldQueue.player.removeListener("end",oldQueue.songEndBind);
+
+            
+
+            if (oldQueue.timeout != undefined) {
+                clearTimeout(oldQueue.timeout);
+                oldQueue.timeout = undefined;
+            }
+
+            oldQueue.player == undefined;
+
+            queues.set(key,newQueue);
+            
+        })
+    } catch (error) {
+        console.log(error)
+    }
+
 }
 
 modulesLastReloadTime.music = bot.uptime;

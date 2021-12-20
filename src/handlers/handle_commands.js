@@ -1,5 +1,6 @@
-const { bot, sync, perGuildData, commands,modulesLastReloadTime } = require(`${process.cwd()}/passthrough`);
+const { bot, sync, perGuildData, commands,modulesLastReloadTime,disabledCategories } = require(`${process.cwd()}/passthrough`);
 
+const { ifError } = require('assert');
 const { Interaction } = require('discord.js');
 const fs = require('fs');
 
@@ -27,6 +28,11 @@ module.exports.parseMessage = async (message) => {
         return undefined;
     }
 
+    if(disabledCategories.includes(commands.get(actualAlias).category))
+    {
+        return undefined;
+    }
+
     message.cType = 'MESSAGE';
 
     const argsNotSplit = content.slice(prefix.length + actualAlias.length);
@@ -45,7 +51,12 @@ module.exports.parseInteractionCommand = async (interaction) => {
     if(interaction.isCommand())
     {
         interaction.cType = 'COMMAND';
-    }   
+    }
+    
+    if(disabledCategories.includes(commands.get(interaction.commandName).category))
+    {
+        return undefined;
+    }
 
     return commands.get(interaction.commandName);
 }

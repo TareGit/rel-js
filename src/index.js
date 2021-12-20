@@ -1,8 +1,6 @@
 const process = require('process');
 process.chdir(__dirname);
 
-require('dotenv').config();
-
 const ps = require('./passthrough.js');
 
 const Heatsync = require("heatsync");
@@ -10,6 +8,8 @@ const Heatsync = require("heatsync");
 const sync = new Heatsync();
 
 Object.assign(ps, { sync: sync });
+
+process.env = sync.require('./secretes/secretes.json');;
 
 const { Client, Intents, CommandInteractionOptionResolver } = require('discord.js');
 const chokidar = require('chokidar');
@@ -22,6 +22,8 @@ const { Manager } = require("lavacord");
 const { defaultPrefix, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.json`);
 
 const { addNewCommand, reloadCommand } = sync.require(`${process.cwd()}/utils.js`)
+
+const { getOsuApiToken } = sync.require(`${process.cwd()}/utils.js`);
 
 const fs = require('fs');
 
@@ -42,6 +44,9 @@ const botIntents = {
 
     partials: ['MESSAGE', 'CHANNEL', 'REACTION']
 }
+
+
+
 
 // Setup settings and configs
 const bot = new Client(botIntents);
@@ -123,6 +128,7 @@ bot.on('ready', async () => {
         console.log(error);
     }
 
+    await getOsuApiToken();
 
     // Commands loading and reloading
     chokidar.watch('./commands', { persistent: true, usePolling: true }).on('all', (event, path) => {
@@ -148,6 +154,4 @@ bot.login(process.env.DISCORD_BOT_TOKEN);
 //bot.on('debug', console.log);
 
 sync.events.on("error", console.error);
-
-
 

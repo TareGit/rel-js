@@ -6,7 +6,7 @@ const { reply } = sync.require(`${process.cwd()}/utils.js`);
 module.exports = {
     name: 'eval',
     category: 'Development',
-    description: 'Runs an Eval Command From the Creator',
+    description: 'You may look, but you may not touch!',
     ContextMenu: {},
     options: [
         {
@@ -18,7 +18,7 @@ module.exports = {
     ],
     async execute(ctx) {            
 
-        if(ctx.author.id !== process.env.CREATOR_ID) return reply(ctx,"Lol, you are playing a dangerous game!");
+        if(ctx.author.id !== process.env.CREATOR_ID) return reply(ctx,this.description);
 
 
        try {
