@@ -151,7 +151,7 @@ bot.on('ready', async () => {
 
 });
 
-bot.login(process.env.DISCORD_BOT_TOKEN_ALPHA);
+bot.login(process.env.DISCORD_BOT_TOKEN);
 
 //bot.on('debug', console.log);
 
