@@ -3,8 +3,6 @@ const { sync, bot, queues, perGuildData, LavaManager, modulesLastReloadTime, db 
 const { reply, reloadCommandCategory } = sync.require(`${process.cwd()}/utils.js`);
 const { queueTimeout, queueItemsPerPage, maxQueueFetchTime, maxRawVolume, defaultVolumeMultiplier, leftArrowEmoji, rightArrowEmoji } = sync.require(`${process.cwd()}/config.json`);
 
-const play = require('play-dl');
-
 const { MessageEmbed, MessageActionRow, MessageButton, InteractionCollector, Interaction } = require('discord.js');
 const { createAudioPlayer, createAudioResource, joinVoiceChannel, NoSubscriberBehavior, AudioPlayerState, AudioPlayerStatus, getVoiceConnection } = require('@discordjs/voice');
 const EventEmitter = require("events");
@@ -36,6 +34,59 @@ function createNewQueue(ctx) {
     return newQueue;
 }
 
+function checkLink(link) {
+    try {
+        const spotifyExpression = /^(?:spotify:|(?:https?:\/\/(?:open|play)\.spotify\.com\/)(?:embed)?\/?(track|album|playlist)(?::|\/)((?:[0-9a-zA-Z]){22}))/;
+        const spMatch = link.match(spotifyExpression);
+
+        if (spMatch) {
+            const type = spMatch[1]
+            const id = spMatch[2]
+
+            return { type: `spotify-${type}`, id: id }
+        }
+
+        return { type: 'search' };
+    } catch (error) {
+        console.log(error);
+        return { type: 'search' };
+    }
+
+
+}
+
+async function fetchSpotifyTrack({ id }) {
+    const headers = {
+        'Authorization': `Bearer ${process.env.SPOTIFY_API_TOKEN}`
+    }
+
+    const data = (await axios.get(`${process.env.SPOTIFY_API}/tracks/${id}`, { headers: headers })).data;
+
+    return data;
+}
+
+async function fetchSpotifyAlbumTracks({ id }) {
+
+    const headers = {
+        'Authorization': `Bearer ${process.env.SPOTIFY_API_TOKEN}`
+    }
+
+    const data = (await axios.get(`${process.env.SPOTIFY_API}/albums/${id}/tracks`, { headers: headers })).data;
+
+    return data.items;
+
+}
+
+async function fetchSpotifyPlaylistTracks({ id }) {
+
+    const headers = {
+        'Authorization': `Bearer ${process.env.SPOTIFY_API_TOKEN}`
+    }
+
+    const data = (await axios.get(`${process.env.SPOTIFY_API}/playlists/${id}/tracks?fields=items(track(artists,name))`, { headers: headers })).data;
+
+    return data.items;
+}
 
 // function to create a song class (for the sake of consistency and sanity)
 const createSong = function (songData, songRequester, songGroupURL = "") {
@@ -50,8 +101,51 @@ const createSong = function (songData, songRequester, songGroupURL = "") {
     }
 }
 
-const createNowPlayingMessage = async function (ref,targetChannel = undefined) {
+async function getSong(search, user) {
+    try {
+        const node = LavaManager.idealNodes[0];
+
+        const params = new URLSearchParams();
+
+        params.append("identifier", "ytsearch:" + search);
+
+        const data = (await axios.get(`http://${node.host}:${node.port}/loadtracks?${params}`, { headers: { Authorization: node.password } })).data;
+
+        const songData = data.tracks[0];
+
+        if (songData.info !== undefined);
+
+        return createSong(songData, user, songData.info.uri);
+    } catch (error) {
+        console.log(`Error fetching song for ${search} \n ${error}`);
+        return undefined;
+    }
+
+}
+
+function trackFetchTimeout(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+const convertSpotifyToSong = async function (ctx, trackData, songList) {
+
+    let artists = "";
+
+    trackData.artists.forEach(element => artists += ' ' + element.name);
+
+    const searchToMake = trackData.name + ' ' + artists + ' audio';
+
+    const song = await Promise.race([getSong(searchToMake, ctx.member), trackFetchTimeout(maxQueueFetchTime)]);;
+
+    if (song === undefined) return;
+
+    songList.push(song);
+}
+
+const createNowPlayingMessage = async function (ref, targetChannel = undefined) {
+
     const channel = targetChannel == undefined ? ref.channel : targetChannel;
+
     let song = ref.currentSong;
 
     if (ref.isCreatingNowPlaying) return undefined;
@@ -246,7 +340,7 @@ class Queue extends EventEmitter {
         this.songEndBind = this.songEnd.bind(this);
 
         if (ctx.__proto__.constructor.name === 'Queue') {
-            console.log("preparing to copy Queue");
+            
             const properties = Object.getOwnPropertyNames(ctx);
 
             const propertiesToCopyIfFound = ['Id', 'channel', 'voiceChannel', 'player', 'queue', 'nowPlayingMessage', 'currentSong', 'volume', 'isIdle', 'isLooping', 'isCreatingNowPlaying', 'isFirstPlay', 'isSwitchingChannels', 'isDisconnecting']
@@ -258,7 +352,7 @@ class Queue extends EventEmitter {
                 if (properties.includes(property)) {
 
                     currentQueue[property] = ctx[property];
-                    console.log(`Copied ${property}`);
+                    
                 }
             });
 
@@ -267,17 +361,15 @@ class Queue extends EventEmitter {
                 this.player.on("end", this.songEndBind);
             }
 
-            console.log("finished copying queue");
 
         }
-        else
-        {
+        else {
             this.Id = ctx.member.guild.id;
             this.channel = ctx.channel;
             this.voiceChannel = ctx.member.voice.channel;
         }
 
-        
+
         if (this.player === undefined) this.player = undefined;
         if (this.queue === undefined) this.queue = []
         if (this.nowPlayingMessage === undefined) this.nowPlayingMessage = undefined;
@@ -307,26 +399,25 @@ class Queue extends EventEmitter {
 
     async ensurePlay(ref) {
         if (!ref.isPlaying() && !ref.isPaused() && ref.queue.length > 0) {
-            console.log('THE QUEUE IS TRIPPING ENSURING PLAY');
             ref.playNextSong();
         }
     }
 
-    async songEnd(data){
+    async songEnd(data) {
         if (data.reason === "REPLACED") return; // Ignore REPLACED reason to prevent skip loops
 
-                this.emit('state', 'Finished');
+        this.emit('state', 'Finished');
 
-                if (this.nowPlayingMessage != undefined) {
-                    this.nowPlayingMessage.stop('EndOfLife');
-                    this.nowPlayingMessage = undefined;
-                }
+        if (this.nowPlayingMessage != undefined) {
+            this.nowPlayingMessage.stop('EndOfLife');
+            this.nowPlayingMessage = undefined;
+        }
 
-                if (this.isLooping) {
-                    this.queue.push(this.currentSong);
-                }
+        if (this.isLooping) {
+            this.queue.push(this.currentSong);
+        }
 
-                this.playNextSong();
+        this.playNextSong();
     }
 
     async playNextSong() {
@@ -337,7 +428,6 @@ class Queue extends EventEmitter {
         }
 
         if (this.queue.length == 0) {
-            console.log('Queue Empty');
             this.timeout = setTimeout(this.destroyQueue, queueTimeout, this);
             this.isIdle = true;
             this.emit('state', 'Idle');
@@ -345,10 +435,6 @@ class Queue extends EventEmitter {
         }
 
         try {
-
-
-
-            console.log('Trying to play');
 
             const song = this.queue[0];
 
@@ -366,10 +452,6 @@ class Queue extends EventEmitter {
             createNowPlayingMessage(this);
 
             this.queue.shift();
-
-            console.log('FINISHED tryinig to play');
-
-
 
             this.emit('state', 'Playing');
 
@@ -433,111 +515,46 @@ class Queue extends EventEmitter {
         let newSongs = [];
 
 
-        const check = await play.validate(url);
-
-        async function getSong(search, user, isDirectLink = false) {
-            try {
-                const node = LavaManager.idealNodes[0];
-
-                const params = new URLSearchParams();
-
-                params.append("identifier", "ytsearch:" + search);
-
-                const data = (await axios.get(`http://${node.host}:${node.port}/loadtracks?${params}`, { headers: { Authorization: node.password } })).data;
-
-                const songData = data.tracks[0];
-
-                if (songData.info !== undefined);
-
-                return createSong(songData, user, songData.info.uri);
-            } catch (error) {
-                console.log(`Error fetching song for ${search} \n ${error}`);
-                return undefined;
-            }
-
-        }
+        const check = checkLink(url);
 
         // Fetch song data
         try {
             // Simple yt video shit
-            if (check === "search") // handle just a regular search term
+            if (check.type === "search") // handle just a regular search term
             {
                 const song = await getSong(url, ctx.member, false);
 
                 if (song) newSongs.push(song);
             }
-            else if (check == 'yt_video') {
+            else if (check.type == 'spotify-track') {
+                const spotifyData = await fetchSpotifyTrack(check)
 
-                const song = await getSong(url, ctx.member, true);
-
-                if (song) newSongs.push(song);
+                const song = await convertSpotifyToSong(ctx, spotifyData, newSongs);
             }
-            else if (check === 'sp_track' || check === 'sp_album' || check === 'sp_playlist') // handle spotify
-            {
+            else if (check.type == 'spotify-album') {
+                const tracks = await fetchSpotifyAlbumTracks(check);
 
-                if (play.is_expired()) {
-                    await play.refreshToken();
-                }
+                const promisesToAwait = [];
 
-                function timeout(ms) {
-                    return new Promise(resolve => setTimeout(resolve, ms));
-                }
+                tracks.forEach(data => {
+                    promisesToAwait.push(convertSpotifyToSong(ctx, data, newSongs));
+                });
 
+                await Promise.all(promisesToAwait);
 
+            }
+            else if (check.type == 'spotify-playlist') {
+                const tracks = await fetchSpotifyPlaylistTracks(check);
 
-                // helper function to convert spotify links to youtube search terms (needs more special sauce)
-                const convertTrackToYTSearch = async function (trackData) {
-                    let artists = "";
-                    if (trackData.type === 'track') {
-                        trackData.artists.forEach(element => artists += ' ' + element.name);
-                    }
-                    const searchToMake = trackData.name + ' ' + artists + ' audio';
+                const promisesToAwait = [];
 
-                    return (await getSong(searchToMake, ctx.member, false));
-                }
+                tracks.forEach(data => {
+                    promisesToAwait.push(convertSpotifyToSong(ctx, data, newSongs));
+                });
 
-                const processSpotifyData = async function (trackData) {
-
-                    const song = await Promise.race([convertTrackToYTSearch(trackData), timeout(maxQueueFetchTime)]);
-
-                    if (song == undefined) return;
-
-                    newSongs.push(song); // add if details checks out
-
-                }
-
-                // fetch the spofity data, could be a song, playlist or albumn
-                const dataGotten = await play.spotify(url);
-
-                // time for the serious shit
-                if (check == 'sp_track') // for just tracks
-                {
-                    await processSpotifyData(dataGotten);
-
-                }
-                else //  for albumns and playlists (same process)
-                {
-
-                    // iterate through all the albumn/playlist pages
-                    for (let i = 1; i <= dataGotten.total_pages; i++) {
-
-                        let currentData = dataGotten.page(i);// fetch the songs in this page
-
-                        let promisesToAwait = []
-
-
-                        currentData.forEach(data => {
-                            promisesToAwait.push(processSpotifyData(data));
-                        });
-
-                        await Promise.all(promisesToAwait);
-
-                    }
-                }
+                await Promise.all(promisesToAwait);
             }
         } catch (error) { console.log(error) }
-
-        console.log('Search End');
 
         this.queue.push.apply(this.queue, newSongs);
 
@@ -554,7 +571,6 @@ class Queue extends EventEmitter {
 
         }
         else {
-            console.log('Sent to Queue');
             const Embed = new MessageEmbed();
 
             Embed.setColor(perGuildData.get(this.Id).pColor);
@@ -623,7 +639,7 @@ class Queue extends EventEmitter {
                 this.nowPlayingMessage = undefined;
             }
 
-            await createNowPlayingMessage(this,ctx.channel);
+            await createNowPlayingMessage(this, ctx.channel);
         }
     }
 
@@ -875,24 +891,20 @@ console.log(' Music Module loaded ');
 if (modulesLastReloadTime.music !== undefined) {
     reloadCommandCategory('Music');
     try {
-        queues.forEach(function (queue,key) {
+        queues.forEach(function (queue, key) {
 
 
-            
+
 
             const oldQueue = queue;
-
-            console.log(oldQueue.player.listenerCount("end"));
-
-            console.log(bot.ws.listenerCount("VOICE_STATE_UPDATE"));
 
             const newQueue = new Queue(oldQueue);
 
             bot.ws.removeListener("VOICE_STATE_UPDATE", oldQueue.voiceStateUpdateBind);
 
-            oldQueue.player.removeListener("end",oldQueue.songEndBind);
+            oldQueue.player.removeListener("end", oldQueue.songEndBind);
 
-            
+
 
             if (oldQueue.timeout != undefined) {
                 clearTimeout(oldQueue.timeout);
@@ -901,8 +913,8 @@ if (modulesLastReloadTime.music !== undefined) {
 
             oldQueue.player == undefined;
 
-            queues.set(key,newQueue);
-            
+            queues.set(key, newQueue);
+
         })
     } catch (error) {
         console.log(error)
@@ -911,8 +923,3 @@ if (modulesLastReloadTime.music !== undefined) {
 }
 
 modulesLastReloadTime.music = bot.uptime;
-
-
-
-
-
