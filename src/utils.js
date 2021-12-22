@@ -136,9 +136,33 @@ async function getOsuApiToken() {
 
     process.env.OSU_API_TOKEN = response.access_token;
 
-    setTimeout(getOsuApiToken,response.expires_in * 1000);
+    setTimeout(getOsuApiToken,(response.expires_in * 1000) - 200);
     
     console.log("Done fetching Osu Api Token");
+}
+
+async function getSpotifyApiToken() {
+
+    const params = new URLSearchParams({ grant_type : 'client_credentials' });
+
+    const headers = {
+        Authorization: 'Basic ' + (Buffer.from(process.env.SPOTIFY_CLIENT_ID + ':' + process.env.SPOTIFY_CLIENT_SECRETE).toString('base64')),
+        'Content-Type' : 'application/x-www-form-urlencoded'
+    }
+
+    try {
+        
+    const response = (await axios.post(`${process.env.SPOTIFY_API_AUTH}`, params, {headers : headers})).data;
+
+    process.env.SPOTIFY_API_TOKEN = response.access_token;
+
+    setTimeout(getSpotifyApiToken,(response.expires_in * 1000) - 200);
+    
+    console.log("Done fetching Spotify Api Token");
+    } catch (error) {
+        console.log(error)
+    }
+    
 }
 
 module.exports.reply = reply;
@@ -152,3 +176,5 @@ module.exports.reloadCommandCategory = reloadCommandCategory;
 module.exports.reloadCommands = reloadCommands;
 
 module.exports.getOsuApiToken = getOsuApiToken;
+
+module.exports.getSpotifyApiToken = getSpotifyApiToken;

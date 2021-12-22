@@ -23,7 +23,7 @@ const { defaultPrefix, defaultPrimaryColor } = sync.require(`${process.cwd()}/co
 
 const { addNewCommand, reloadCommand } = sync.require(`${process.cwd()}/utils.js`)
 
-const { getOsuApiToken } = sync.require(`${process.cwd()}/utils.js`);
+const { getOsuApiToken, getSpotifyApiToken } = sync.require(`${process.cwd()}/utils.js`);
 
 const fs = require('fs');
 
@@ -130,6 +130,8 @@ bot.on('ready', async () => {
 
     await getOsuApiToken();
 
+    await getSpotifyApiToken();
+
     // Commands loading and reloading
     chokidar.watch('./commands', { persistent: true, usePolling: true }).on('all', (event, path) => {
 
@@ -149,7 +151,7 @@ bot.on('ready', async () => {
 
 });
 
-bot.login(process.env.DISCORD_BOT_TOKEN);
+bot.login(process.env.DISCORD_BOT_TOKEN_ALPHA);
 
 //bot.on('debug', console.log);
 

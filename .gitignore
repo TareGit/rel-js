@@ -1,8 +1,6 @@
 # Compiled class file
 *.class
 
-# play-dl spotify api
-src/.data
 
 # Log file
 *.log

@@ -5,10 +5,12 @@ const fs = require('fs');
 
 const { io } = require("socket.io-client");
 
+let socketRef = socket;
+
 // On connect to the server
 function onConnect() {
     console.log('Connected to server');
-    socket.emit('identify', { id: 'Umeko', guilds: Array.from(bot.guilds.cache.keys()) });
+    socketRef.emit('identify', { id: 'Umeko', guilds: Array.from(bot.guilds.cache.keys()) });
     console.log('Sent identity to server');
 }
 
@@ -28,7 +30,7 @@ function onUpdate({ guild, field, value }) {
 }
 
 function onGetGuild(guildId) {
-    socket.emit('guildData', bot.guilds.cache.get(guildId));
+    socketRef.emit('guildData', bot.guilds.cache.get(guildId));
 }
 
 // array of possible events (done like this for heatsync reloading)
@@ -50,21 +52,11 @@ if (socket === undefined) {
     
     Object.assign(ps, { socket: newSocket });
 
-    if (socketEvents !== undefined) {
-
-        socketEvents.forEach(function (socketEvent, index) {
-            try {
-                socket.removeListener(socketEvent.id, socketEvent.event);
-            } catch (error) {
-                console.log(error);
-            }
-        });
-
-    }
+    socketRef = newSocket;
 
     newSocketEvents.forEach(function (socketEvent, index) {
         try {
-            socket.on(socketEvent.id, socketEvent.event);
+            newSocket.on(socketEvent.id, socketEvent.event);
             console.log("BOUND EVENT TO SOCKET");
             console.log(socketEvent);
         } catch (error) {
@@ -80,12 +72,12 @@ console.log('Socket Module Loaded');
 
 if (modulesLastReloadTime.socket !== undefined) {
 
-    if (socket) {
+    if (socketRef) {
         if (socketEvents !== undefined) {
 
             socketEvents.forEach(function (socketEvent, index) {
                 try {
-                    socket.removeListener(socketEvent.id, socketEvent.event);
+                    socketRef.removeListener(socketEvent.id, socketEvent.event);
                 } catch (error) {
                     console.log(error);
                 }
@@ -95,7 +87,7 @@ if (modulesLastReloadTime.socket !== undefined) {
 
         newSocketEvents.forEach(function (socketEvent, index) {
             try {
-                socket.on(socketEvent.id, socketEvent.event);
+                socketRef.on(socketEvent.id, socketEvent.event);
                 console.log("BOUND EVENT TO SOCKET");
                 console.log(socketEvent);
             } catch (error) {
