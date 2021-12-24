@@ -165,6 +165,11 @@ async function getSpotifyApiToken() {
     
 }
 
+function logError(message,error) {
+    error.message = `\n${message}\n` + error.message;
+    console.log(error);
+}
+
 module.exports.reply = reply;
 
 module.exports.addNewCommand = addNewCommand;
@@ -178,3 +183,5 @@ module.exports.reloadCommands = reloadCommands;
 module.exports.getOsuApiToken = getOsuApiToken;
 
 module.exports.getSpotifyApiToken = getSpotifyApiToken;
+
+module.exports.logError = logError

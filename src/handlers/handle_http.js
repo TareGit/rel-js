@@ -1,5 +1,6 @@
 const ps = require(`${process.cwd()}/passthrough.js`);
 const { sync, bot, socket, socketEvents, modulesLastReloadTime, perGuildData } = require(`${process.cwd()}/passthrough.js`);
+const { logError } = sync.require(`${process.cwd()}/utils.js`);
 
 const fs = require('fs');
 
@@ -11,7 +12,6 @@ let socketRef = socket;
 function onConnect() {
     console.log('Connected to server');
     socketRef.emit('identify', { id: 'Umeko', guilds: Array.from(bot.guilds.cache.keys()) });
-    console.log('Sent identity to server');
 }
 
 // On disconnect from the server
@@ -57,10 +57,8 @@ if (socket === undefined) {
     newSocketEvents.forEach(function (socketEvent, index) {
         try {
             newSocket.on(socketEvent.id, socketEvent.event);
-            console.log("BOUND EVENT TO SOCKET");
-            console.log(socketEvent);
         } catch (error) {
-            console.log(error);
+            logError(`Error binding event "${socketEvent.id}" to socket`,error);
         }
     });
 
@@ -68,7 +66,7 @@ if (socket === undefined) {
 
 
 
-console.log('Socket Module Loaded');
+console.log("\x1b[32m",'Socket Module Loaded\x1b[0m');
 
 if (modulesLastReloadTime.socket !== undefined) {
 
@@ -79,7 +77,7 @@ if (modulesLastReloadTime.socket !== undefined) {
                 try {
                     socketRef.removeListener(socketEvent.id, socketEvent.event);
                 } catch (error) {
-                    console.log(error);
+                    logError(`Error unbinding event "${socketEvent.id}" to socket`,error);
                 }
             });
 
@@ -88,10 +86,8 @@ if (modulesLastReloadTime.socket !== undefined) {
         newSocketEvents.forEach(function (socketEvent, index) {
             try {
                 socketRef.on(socketEvent.id, socketEvent.event);
-                console.log("BOUND EVENT TO SOCKET");
-                console.log(socketEvent);
             } catch (error) {
-                console.log(error);
+                logError(`Error binding event "${socketEvent.id}" to socket`,error);
             }
         });
 

@@ -1,6 +1,6 @@
-const { sync, bot, queues, perGuildData, LavaManager, modulesLastReloadTime, db } = require(`${process.cwd()}/passthrough.js`);
+const { sync, bot, queues, perGuildData, LavaManager, modulesLastReloadTime, db, commands } = require(`${process.cwd()}/passthrough.js`);
 
-const { reply, reloadCommandCategory } = sync.require(`${process.cwd()}/utils.js`);
+const { reply, reloadCommandCategory, logError } = sync.require(`${process.cwd()}/utils.js`);
 const { queueTimeout, queueItemsPerPage, maxQueueFetchTime, maxRawVolume, defaultVolumeMultiplier, leftArrowEmoji, rightArrowEmoji } = sync.require(`${process.cwd()}/config.json`);
 
 const { MessageEmbed, MessageActionRow, MessageButton, InteractionCollector, Interaction } = require('discord.js');
@@ -48,7 +48,7 @@ function checkLink(link) {
 
         return { type: 'search' };
     } catch (error) {
-        console.log(error);
+        logError(`Error validating play url "${link}"`,error);
         return { type: 'search' };
     }
 
@@ -84,7 +84,7 @@ async function fetchSpotifyPlaylistTracks({ id }) {
     }
 
     const data = (await axios.get(`${process.env.SPOTIFY_API}/playlists/${id}/tracks?fields=items(track(artists,name))`, { headers: headers })).data;
-
+    
     return data.items;
 }
 
@@ -113,11 +113,13 @@ async function getSong(search, user) {
 
         const songData = data.tracks[0];
 
-        if (songData.info !== undefined);
+        if(songData === undefined) return undefined;
+
+        if (songData.info === undefined) return undefined;
 
         return createSong(songData, user, songData.info.uri);
     } catch (error) {
-        console.log(`Error fetching song for ${search} \n ${error}`);
+        logError(`Error fetching song for "${search}"`,error);
         return undefined;
     }
 
@@ -214,23 +216,23 @@ const createNowPlayingMessage = async function (ref, targetChannel = undefined) 
 
             switch (button.customId) {
                 case 'pause':
-                    await nowPlayingCollector.queue.pauseSong(button);
+                    if(commands.get('pause') !== undefined) await commands.get('pause').execute(button);
                     break;
 
                 case 'resume':
-                    await nowPlayingCollector.queue.resumeSong(button);
+                    if(commands.get('resume') !== undefined) await commands.get('resume').execute(button);
                     break;
 
                 case 'queue':
-                    await nowPlayingCollector.queue.showQueue(button);
+                    if(commands.get('queue') !== undefined) await commands.get('queue').execute(button);
                     break;
 
                 case 'skip':
-                    await nowPlayingCollector.queue.skipSong(button);
+                    if(commands.get('skip') !== undefined) await commands.get('skip').execute(button);
                     break;
 
                 case 'stop':
-                    await nowPlayingCollector.queue.stop(button);
+                    if(commands.get('stop') !== undefined) await commands.get('stop').execute(button);
                     break;
             }
 
@@ -390,7 +392,7 @@ class Queue extends EventEmitter {
     }
 
     voiceStateUpdate(data) {
-        if (data.guild_id === this.Id && this.user_id === bot.user.id) {
+        if (data.guild_id === this.Id && data.user_id === bot.user.id) {
             if (data.channel_id === null && !this.isSwitchingChannels) {
                 this.destroyQueue(this);
             }
@@ -457,7 +459,7 @@ class Queue extends EventEmitter {
 
         } catch (error) {
 
-            console.log(`\n\n Play Song Error \n\n${error}`);
+            logError(`Error playing song `,error);
 
             this.queue.shift();
 
@@ -471,8 +473,6 @@ class Queue extends EventEmitter {
 
     async parseInput(ctx) {
 
-
-        console.log('Play Recieved');
         let url = "";
 
         if (ctx.cType != "MESSAGE") await ctx.deferReply(); // defer because this might take a while
@@ -549,12 +549,16 @@ class Queue extends EventEmitter {
                 const promisesToAwait = [];
 
                 tracks.forEach(data => {
-                    promisesToAwait.push(convertSpotifyToSong(ctx, data, newSongs));
+                    promisesToAwait.push(convertSpotifyToSong(ctx, data.track, newSongs));
                 });
 
                 await Promise.all(promisesToAwait);
             }
-        } catch (error) { console.log(error) }
+        } 
+        catch (error) {
+            logError(`Error fetching song for url "${url}"`,error);
+
+            }
 
         this.queue.push.apply(this.queue, newSongs);
 
@@ -564,7 +568,7 @@ class Queue extends EventEmitter {
 
             this.playNextSong();
 
-            if (newSongs[0] == undefined) return reply(ctx, "The song could not be loaded");
+            if (newSongs[0] == undefined) return reply(ctx, "The music could not be loaded");
 
 
             if (ctx.cType !== "MESSAGE") reply(ctx, "Playing");
@@ -581,7 +585,7 @@ class Queue extends EventEmitter {
                 Embed.setURL(`${url}`);
             }
             else {
-                if (newSongs[0] == undefined) return reply(ctx, "The song could not be loaded");
+                if (newSongs[0] == undefined) return reply(ctx, "The music could not be loaded");
 
                 Embed.setTitle(`${newSongs[0].title}`);
                 Embed.setURL(`${newSongs[0].uri}`)
@@ -743,7 +747,7 @@ class Queue extends EventEmitter {
                         .addComponents(
                             new MessageButton()
                                 .setCustomId('previous')
-                                .setLabel(leftArrowEmoji)
+                                .setEmoji(leftArrowEmoji)
                                 .setStyle('PRIMARY')
                                 .setDisabled(true),
                             new MessageButton()
@@ -886,10 +890,12 @@ class Queue extends EventEmitter {
 
 module.exports.Queue = Queue;
 
-console.log(' Music Module loaded ');
+console.log("\x1b[32m",'Music Module loaded\x1b[0m');
 
 if (modulesLastReloadTime.music !== undefined) {
+
     reloadCommandCategory('Music');
+
     try {
         queues.forEach(function (queue, key) {
 
@@ -917,7 +923,7 @@ if (modulesLastReloadTime.music !== undefined) {
 
         })
     } catch (error) {
-        console.log(error)
+        logError(`Error transfering old queue data`,error);
     }
 
 }

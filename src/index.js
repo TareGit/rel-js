@@ -21,9 +21,7 @@ const { Manager } = require("lavacord");
 
 const { defaultPrefix, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.json`);
 
-const { addNewCommand, reloadCommand } = sync.require(`${process.cwd()}/utils.js`)
-
-const { getOsuApiToken, getSpotifyApiToken } = sync.require(`${process.cwd()}/utils.js`);
+const { addNewCommand, reloadCommand, getOsuApiToken, getSpotifyApiToken, logError } = sync.require(`${process.cwd()}/utils.js`)
 
 const fs = require('fs');
 
@@ -52,11 +50,13 @@ const botIntents = {
 const bot = new Client(botIntents);
 
 bot.on('ready', async () => {
-    console.log('Bot Ready');
+    console.log("\x1b[32m",'Bot Ready');
+
+    setInterval(() => bot.user.setActivity(`${bot.guilds.cache.size} Servers`,{type: 'WATCHING'}), 20000);
 
     Object.assign(ps, { bot: bot });
 
-    // Define the nodes array as an example
+    // Volcano nodes
     const nodes = [
         { id: "1", host: "localhost", port: 2333, password: process.env.LAVALINK_PASSWORD }
     ];
@@ -77,10 +77,10 @@ bot.on('ready', async () => {
 
     try {
         await LavaManager.connect();
-        console.log("Connected to Music provider");
+        
+        console.log("\x1b[32m","Connected to Music provider");
     } catch (error) {
-        console.log("Error connecting to Music provider\n");
-        console.log(error)
+        logError('Error connecting to music provider',error);
     }
     
 
@@ -92,31 +92,9 @@ bot.on('ready', async () => {
         });
 
     LavaManager.on("error", (error, node) => {
-        console.log(error);
+        logError('Lavalink error',error);
     });
 
-    const db = new casandraDriver.Client({
-        cloud: {
-            secureConnectBundle: process.env.ASTRA_CONNECT_BUNDLE,
-        },
-        credentials: {
-            username: process.env.ASTRA_CLIENT_ID,
-            password: process.env.ASTRA_CLIENT_SECRETE,
-        },
-    });
-
-    try {
-        await db.connect();
-        console.log('Sucessfully Connected to Database');
-        await db.execute("USE main");
-
-        //db.execute("DROP TABLE IF EXISTS guilds") never un-comment
-        Object.assign(ps, { db: db });
-
-    } catch (error) {
-        console.log(`Error connecting to database \n`);
-        console.log(error);
-    }
 
     try {
         // arent actually used here but we need to load them up
@@ -124,8 +102,7 @@ bot.on('ready', async () => {
         const httpModule = sync.require('./handlers/handle_http');
         const eventsModule = sync.require('./handlers/handle_events');
     } catch (error) {
-        console.log(`Error loading modules \n`);
-        console.log(error);
+        logError('Error loading modules',error);
     }
 
     await getOsuApiToken();
@@ -151,9 +128,21 @@ bot.on('ready', async () => {
 
 });
 
-bot.login(process.env.DISCORD_BOT_TOKEN);
+if(process.argv.includes('alpha'))
+{
+    bot.login(process.env.DISCORD_BOT_TOKEN_ALPHA);
+}
+else
+{
+    bot.login(process.env.DISCORD_BOT_TOKEN);
+}
 
-//bot.on('debug', console.log);
+if(process.argv.includes('debug'))
+{
+    bot.on('debug', console.log);
+}
 
 sync.events.on("error", console.error);
+
+
 

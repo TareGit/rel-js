@@ -62,7 +62,7 @@ module.exports.parseInteractionCommand = async (interaction) => {
 }
 
 
-console.log('Commands Module loaded');
+console.log("\x1b[32m",'Commands Module loaded\x1b[0m');
 
 if(modulesLastReloadTime.commands !== undefined)
 {

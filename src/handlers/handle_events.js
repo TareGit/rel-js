@@ -2,7 +2,6 @@ const ps = require(`${process.cwd()}/passthrough.js`);
 const { sync, bot,modulesLastReloadTime} = require(`${process.cwd()}/passthrough.js`);
 const { reply } = sync.require(`${process.cwd()}/utils.js`);
 
-const chatModule = sync.require('./handle_chat');
 const parser = sync.require('./handle_commands');
 const guildDataModule = sync.require('./handle_guild_data');
 
@@ -12,34 +11,15 @@ const fs = require('fs');
 
 const serviceAccountCredentials = JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS));
 
-const chatBotManagerInstance = new chatModule.ChatBotManager(serviceAccountCredentials['project_id']);
-
 async function onMessageCreate(message) {
     if (message.author.id === bot.user.id) return;
 
-    const commandToExecute = await parser.parseMessage(message);
+    const commandToExecute = await parser.parseMessage(message).catch((error) => logError(`Error parsing message`,error));
 
-    if (commandToExecute == undefined) {
-
-        const messageContent = message.content;
-        if (message.channel.type === "DM" || messageContent.toLowerCase().split(/\s+/)[0] === 'umeko' || messageContent.toLowerCase().split(/\s+/)[0] ==='meko' ) {
-            await chatBotManagerInstance.processIntents(message);
-        }
-        else {
-            if (message.reference) {
-                const repliedTo = await message.channel.messages.fetch(message.reference.messageId);
-
-                if (repliedTo) {
-                    if (repliedTo.author.id === bot.user.id) {
-                        await chatBotManagerInstance.processIntents(message);
-                    }
-                }
-            }
-        }
-    }
-    else {
-        commandToExecute.execute(message, 'MESSAGE').catch((error) => {
-            console.log(error)
+    if (commandToExecute !== undefined) {
+        commandToExecute.execute(message).catch((error) => {
+            console.log(`\nError Executing Message Command\n`)
+            console.log(error);
         });
     }
 }
@@ -49,14 +29,15 @@ async function onInteractionCreate(interaction) {
         return;
     }
 
-    const commandToExecute = await parser.parseInteractionCommand(interaction);
+    const commandToExecute = await parser.parseInteractionCommand(interaction).catch((error) => logError(`Error parsing interaction`,error));
 
     if (commandToExecute == undefined) {
         interaction.reply("Command not yet implemented");
     }
     else {
-        commandToExecute.execute(interaction, 'COMMAND').catch((error) => {
-            console.log(error)
+        commandToExecute.execute(interaction).catch((error) => {
+            console.log(`\nError Executing Interaction Command\n`)
+            console.log(error);
         });
 
     }
@@ -98,7 +79,7 @@ if(bot !== undefined)
             try {
                 bot.removeListener(botEvent.id, botEvent.event);
             } catch (error) {
-                console.log(error);
+                logError(`Error unbinding event ${botEvent.id} from bot`,error);
             }
         });
     
@@ -108,14 +89,14 @@ if(bot !== undefined)
         try {
             bot.on(botEvent.id, botEvent.event);
         } catch (error) {
-            console.log(error);
+            logError(`Error binding event ${botEvent.id} to bot`,error);
         }
     });
     
     ps.botEvents = botEvents;
 }
 
-console.log('Events Module Online');
+console.log("\x1b[32m",'Events Module Online\x1b[0m');
 
 if(modulesLastReloadTime.events !== undefined)
 {
