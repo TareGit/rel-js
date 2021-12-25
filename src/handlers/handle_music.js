@@ -174,7 +174,7 @@ const createNowPlayingMessage = async function (ref, targetChannel = undefined) 
     }
 
     const Embed = new MessageEmbed();
-    Embed.setColor(perGuildData.get(ref.Id).pColor);
+    Embed.setColor(perGuildData.get(ref.Id).color);
     Embed.setTitle(`**${song.title}**`);
     Embed.setURL(`${song.uri}`);
     Embed.setDescription(`**Volume** : **${parseInt(ref.volume * 100)}%**`);
@@ -308,7 +308,7 @@ const generateQueueEmbed = function (page, ref) {
     const currentPages = prevCurrentPages < 1 ? 1 : prevCurrentPages;
 
     const Embed = new MessageEmbed();
-    Embed.setColor(perGuildData.get(ref.Id).pColor);
+    Embed.setColor(perGuildData.get(ref.Id).color);
     Embed.setTitle(`${currentQueueLenth} in Queue`);
     Embed.setURL(process.env.WEBSITE);
 
@@ -577,7 +577,7 @@ class Queue extends EventEmitter {
         else {
             const Embed = new MessageEmbed();
 
-            Embed.setColor(perGuildData.get(this.Id).pColor);
+            Embed.setColor(perGuildData.get(this.Id).color);
             Embed.setFooter(`Added to the Queue`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
             if (newSongs.length > 1) {
@@ -605,7 +605,7 @@ class Queue extends EventEmitter {
             await this.player.pause(true);
 
             const Embed = new MessageEmbed();
-            Embed.setColor(perGuildData.get(this.Id).pColor);
+            Embed.setColor(perGuildData.get(this.Id).color);
             Embed.setURL(process.env.WEBSITE);
             Embed.setFooter(`${ctx.member.displayName} paused the music`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
@@ -621,7 +621,7 @@ class Queue extends EventEmitter {
             await this.player.pause(false);
 
             const Embed = new MessageEmbed();
-            Embed.setColor(perGuildData.get(this.Id).pColor);
+            Embed.setColor(perGuildData.get(this.Id).color);
             Embed.setURL(process.env.WEBSITE);
             Embed.setFooter(`${ctx.member.displayName} Un-Paused the music`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
@@ -653,7 +653,7 @@ class Queue extends EventEmitter {
         if (ctx.args[0] == undefined) return reply(ctx, 'Please use either `loop on` or `loop off`');
 
         const Embed = new MessageEmbed();
-        Embed.setColor(perGuildData.get(this.Id).pColor);
+        Embed.setColor(perGuildData.get(this.Id).color);
 
         Embed.setURL(process.env.WEBSITE);
         Embed.setFooter(`${ctx.member.displayName}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
@@ -703,7 +703,7 @@ class Queue extends EventEmitter {
                 queueCollector.on('collect', async (button) => {
 
                     if (button.user.id !== queueCollector.owner) {
-                        return reply(ctx, { ephemeral: true, content: "why must thou choose violence ?" });
+                        return reply(button, { ephemeral: true, content: "why must thou choose violence ?" });
                     }
 
                     await button.deferUpdate();
@@ -805,7 +805,7 @@ class Queue extends EventEmitter {
 
 
         const Embed = new MessageEmbed();
-        Embed.setColor(perGuildData.get(this.Id).pColor);
+        Embed.setColor(perGuildData.get(this.Id).color);
         Embed.setURL(process.env.WEBSITE);
         Embed.setFooter(`${ctx.member.displayName} Changed the volume to ${parseInt(this.volume * 100)}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
@@ -816,7 +816,7 @@ class Queue extends EventEmitter {
         if (this.queue.length != 0 || (this.isPlaying && this.isLooping === true)) {
 
             const Embed = new MessageEmbed();
-            Embed.setColor(perGuildData.get(this.Id).pColor);
+            Embed.setColor(perGuildData.get(this.Id).color);
             Embed.setURL(process.env.WEBSITE);
             Embed.setFooter(`${ctx.member.displayName} Skipped the song`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
@@ -828,8 +828,14 @@ class Queue extends EventEmitter {
 
         }
         else {
+
+            if(this.isPlaying)
+            {
+                return await this.stop(ctx);
+            }
+
             const Embed = new MessageEmbed();
-            Embed.setColor(perGuildData.get(this.Id).pColor);
+            Embed.setColor(perGuildData.get(this.Id).color);
             Embed.setURL(process.env.WEBSITE);
             Embed.setFooter(`The Queue is empty`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
@@ -842,7 +848,7 @@ class Queue extends EventEmitter {
     async stop(ctx) {
 
         const Embed = new MessageEmbed();
-        Embed.setColor(perGuildData.get(this.Id).pColor);
+        Embed.setColor(perGuildData.get(this.Id).color);
         Embed.setURL(process.env.WEBSITE);
         Embed.setFooter(`${ctx.member.displayName} Disconnected Me`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
 
@@ -890,7 +896,7 @@ class Queue extends EventEmitter {
 
 module.exports.Queue = Queue;
 
-console.log("\x1b[32m",'Music Module loaded\x1b[0m');
+console.log('\x1b[32mMusic Module loaded\x1b[0m');
 
 if (modulesLastReloadTime.music !== undefined) {
 
@@ -898,9 +904,6 @@ if (modulesLastReloadTime.music !== undefined) {
 
     try {
         queues.forEach(function (queue, key) {
-
-
-
 
             const oldQueue = queue;
 

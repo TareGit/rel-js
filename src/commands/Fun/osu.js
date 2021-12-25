@@ -22,7 +22,7 @@ module.exports = {
 
         const Embed = new MessageEmbed();
         
-        Embed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).pColor : defaultPrimaryColor);
+        Embed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).color : defaultPrimaryColor);
 
         try {
 

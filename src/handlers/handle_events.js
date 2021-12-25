@@ -58,7 +58,18 @@ async function onGuildCreate(guild) {
 }
 
 async function onPresenceUpdate(oldPresence, newPresence) {
-    console.log(newPresence.activity.id)
+    if(newPresence.activities.length === 0) return;
+
+    const relevantActivities = newPresence.activities.filter((activity) => activity.name === 'Twitch');
+
+    if(relevantActivities.length === 0) return;
+
+    const targetActivity = relevantActivities[0];
+
+    // we only check the first one because afaik you cant have more than 1 twitch activity
+    if(oldPresence.activities.filter((activity) => activity.id === targetActivity.id).length !== 0) return;
+
+    console.log(targetActivity)
 }
 
 
@@ -96,7 +107,7 @@ if(bot !== undefined)
     ps.botEvents = botEvents;
 }
 
-console.log("\x1b[32m",'Events Module Online\x1b[0m');
+console.log('\x1b[32mEvents Module Online\x1b[0m');
 
 if(modulesLastReloadTime.events !== undefined)
 {

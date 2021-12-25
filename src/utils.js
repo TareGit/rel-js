@@ -5,6 +5,11 @@ const axios = require('axios');
 const { sync, commandsPaths, commands } = require("./passthrough");
 const { response } = require("express");
 
+function logError(message,error) {
+    console.error(`\x1b[31m${message}\x1b[0m`);
+    console.log(error);
+}
+
 const reply = async function (ctx, reply) {
 
     try {
@@ -29,7 +34,7 @@ const reply = async function (ctx, reply) {
             }
         }
     } catch (error) {
-        console.log(`Error sending message \n ${error}`);
+        logError(`Error sending message`, error);
     }
 
 }
@@ -48,7 +53,6 @@ const addNewCommand = async function (path) {
         commands.set(fileName, command);
 
         if (command.ContextMenu !== undefined && command.ContextMenu.name !== undefined) {
-            console.log('Loaded context menu command ' + command.ContextMenu.name);
             commands.set(command.ContextMenu.name, command);
         }
 
@@ -64,8 +68,7 @@ const addNewCommand = async function (path) {
     } catch (error) {
         const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
 
-        console.log(`Error loading ${fileName} \n `);
-        console.log(error);
+        logError(`Error loading ${fileName}`, error);
     }
 }
 
@@ -85,18 +88,14 @@ const reloadCommand = async function (path) {
         commands.set(fileName, command);
 
         if (command.ContextMenu !== undefined && command.ContextMenu.name !== undefined) {
-            console.log('Reloaded context menu command ' + command.ContextMenu.name);
             commands.set(command.ContextMenu.name, command);
         }
-
-        console.log('Reloaded command ' + fileName);
 
     } catch (error) {
 
         const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
 
-        console.log(`Error reloading ${fileName} \n `);
-        console.log(error);
+        logError(`Error reloading command ${fileName}`, error);
     }
 }
 
@@ -111,8 +110,7 @@ const reloadCommandCategory = async function (category) {
             reloadCommand(path);
         });
     } catch (error) {
-        console.log(`Error reloading category ${category} \n `);
-        console.log(error);
+        logError(`Error reloading category ${category}`, error);
     }
 
 }
@@ -165,10 +163,7 @@ async function getSpotifyApiToken() {
     
 }
 
-function logError(message,error) {
-    error.message = `\n${message}\n` + error.message;
-    console.log(error);
-}
+
 
 module.exports.reply = reply;
 

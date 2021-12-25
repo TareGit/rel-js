@@ -25,7 +25,7 @@ module.exports = {
             const prefix = (ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).prefix : defaultPrefix;
 
             const helpEmbed = new MessageEmbed();
-            helpEmbed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).pColor : defaultPrimaryColor);
+            helpEmbed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).color : defaultPrimaryColor);
             helpEmbed.setTitle('Help For Commands\n');
             helpEmbed.setURL(process.env.WEBSITE);
 

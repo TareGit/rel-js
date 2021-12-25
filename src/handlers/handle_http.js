@@ -66,7 +66,7 @@ if (socket === undefined) {
 
 
 
-console.log("\x1b[32m",'Socket Module Loaded\x1b[0m');
+console.log('\x1b[32mSocket Module Loaded\x1b[0m');
 
 if (modulesLastReloadTime.socket !== undefined) {
 

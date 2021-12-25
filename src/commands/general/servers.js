@@ -17,7 +17,7 @@ module.exports = {
         const guilds = Array.from(bot.guilds.cache.keys());
 
         const Embed = new MessageEmbed();
-        Embed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).pColor : defaultPrimaryColor);
+        Embed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).color : defaultPrimaryColor);
         Embed.setTitle('Servers');
         Embed.setURL(process.env.WEBSITE);
 

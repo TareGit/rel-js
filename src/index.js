@@ -24,6 +24,7 @@ const { defaultPrefix, defaultPrimaryColor } = sync.require(`${process.cwd()}/co
 const { addNewCommand, reloadCommand, getOsuApiToken, getSpotifyApiToken, logError } = sync.require(`${process.cwd()}/utils.js`)
 
 const fs = require('fs');
+const passthrough = require('./passthrough.js');
 
 // bot Intents
 const botIntents = {
@@ -31,16 +32,12 @@ const botIntents = {
         Intents.FLAGS.GUILDS,
         Intents.FLAGS.GUILD_MEMBERS,
         Intents.FLAGS.GUILD_MESSAGES,
-        Intents.FLAGS.GUILD_MESSAGES,
-        Intents.FLAGS.GUILD_MESSAGE_TYPING,
-        Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
+        Intents.FLAGS.GUILD_PRESENCES,
         Intents.FLAGS.DIRECT_MESSAGES,
-        Intents.FLAGS.DIRECT_MESSAGE_TYPING,
-        Intents.FLAGS.DIRECT_MESSAGE_REACTIONS,
         Intents.FLAGS.GUILD_VOICE_STATES
     ],
 
-    partials: ['MESSAGE', 'CHANNEL', 'REACTION']
+    partials: ['MESSAGE', 'CHANNEL']
 }
 
 
@@ -50,7 +47,7 @@ const botIntents = {
 const bot = new Client(botIntents);
 
 bot.on('ready', async () => {
-    console.log("\x1b[32m",'Bot Ready');
+    console.log('\x1b[32mBot Ready\x1b[0m');
 
     setInterval(() => bot.user.setActivity(`${bot.guilds.cache.size} Servers`,{type: 'WATCHING'}), 20000);
 
@@ -78,9 +75,10 @@ bot.on('ready', async () => {
     try {
         await LavaManager.connect();
         
-        console.log("\x1b[32m","Connected to Music provider");
+        console.log("\x1b[32m","Connected to Music provider\x1b[0m");
     } catch (error) {
         logError('Error connecting to music provider',error);
+        passthrough.disabledCategories.push('Music');
     }
     
 

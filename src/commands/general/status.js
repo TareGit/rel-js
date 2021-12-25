@@ -15,7 +15,7 @@ module.exports = {
     async execute(ctx) {
         
             const Embed = new MessageEmbed();
-            Embed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).pColor : defaultPrimaryColor);
+            Embed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).color : defaultPrimaryColor);
             Embed.setTitle('Status');
             Embed.setURL(process.env.WEBSITE);
 
