@@ -7,8 +7,7 @@
 * TMDB API (For movie lookup)
 * Sotify API (For converting spotify links to playable tracks)
 * Discord API (It's a discord bot ¯\\\_(ツ)\_/¯ )
-* Google Dialog Flow API (Chatbot Integration)
 ### Back End Information
-* Astra DB for most per-guild settings
+* Custom Sqlite DB for most per-guild data
 * Custom server for dashboard integration
 * Custom server for playlist saving ( Not yet implemented and still being decided upon)
