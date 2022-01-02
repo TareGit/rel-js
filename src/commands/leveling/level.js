@@ -245,7 +245,7 @@ module.exports = {
         </html>`
 
         
-        const browser = await puppeteer.launch({ userDataDir: `${process.cwd()}/../puppeterUserData` });
+        const browser = await puppeteer.launch({ userDataDir: `${process.cwd()}/../puppeter` });
         const page = await browser.newPage();
 
         page.setViewport({width : 1200,height : 400});
