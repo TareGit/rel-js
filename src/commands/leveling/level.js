@@ -31,7 +31,7 @@ module.exports = {
         const level = levelData.level || 0;
         const currentXp = ((levelData.currentXp || 0.001) / 1000 ).toFixed(2);
 
-        const backgroundUrl = `https://hdwallsource.com/img/2020/8/cool-wallpaper-hd-71336-73788-hd-wallpapers.jpg`;
+        const backgroundUrl = `https://images8.alphacoders.com/942/thumb-1920-942722.jpg`;
 
 
         const member = ctx.mentions.members.first() || ctx.member;
