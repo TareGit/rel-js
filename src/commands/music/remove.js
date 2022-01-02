@@ -1,5 +1,5 @@
 const { sync, queues } = require(`${process.cwd()}/passthrough.js`);
-const { remove } = sync.require(`${process.cwd()}/handlers/handle_music`);
+const { removeSong } = sync.require(`${process.cwd()}/handlers/handle_music`);
 
 module.exports = {
     name: 'remove',
@@ -23,7 +23,7 @@ module.exports = {
 
             if (Queue == undefined) return reply(ctx,"Theres no Queue");
 
-            await remove(ctx,Queue);
+            await removeSong(ctx,Queue);
         
 
     }

@@ -4,6 +4,7 @@ const path = require('path');
 const { MessageAttachment } = require('discord.js')
 const fs = require('fs');
 const puppeteer = require('puppeteer');
+const { isError } = require('util');
 
 module.exports = {
     name: 'level',
@@ -15,13 +16,12 @@ module.exports = {
         {
             name: 'user',
             description: 'The user to check the level of',
-            type: 3,
+            type: 6,
             required: false
         }
     ],
     async execute(ctx) {
         if (ctx.guild === null) return reply(ctx, `You need to be in a server to use this command`);
-
         const options = new URLSearchParams(perGuildSettings.get(ctx.guild.id).levelingOptions);
 
         //if(options.get('enabled') === undefined || options.get('enabled') !== 'true') return await reply(ctx,`Leveling is disabled in this server`);
@@ -33,8 +33,12 @@ module.exports = {
 
         const backgroundUrl = `https://images8.alphacoders.com/942/thumb-1920-942722.jpg`;
 
+        if(ctx.cType === 'COMMAND') await ctx.deferReply();
 
-        const member = ctx.mentions.members.first() || ctx.member;
+        const member =  ctx.cType === 'COMMAND' ? (ctx.options.getMember('user') || ctx.member ) : ( ctx.mentions.members.first() || ctx.member);
+
+        if(member.user.bot) return await reply(ctx,'Bots are too sweaty to participate in leveling');
+
         const avatarUrl = member.displayAvatarURL({ format: 'png', size: 1024 });
         const displayName = member.displayName;
         const rank = 1;

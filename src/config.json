@@ -2,7 +2,7 @@
     "queueTimeout": 300000,
     "queueItemsPerPage": 10,
     "maxQueueFetchTime": 5000,
-    "defaultPrimaryColor": "#00FF00",
+    "defaultPrimaryColor": "#2f3136",
     "defaultPrefix": "?",
     "defaultLanguage": "en",
     "defaultNickname": "Umeko",
@@ -25,7 +25,7 @@
             {
                 "name": "color",
                 "type": "TEXT",
-                "option": "DEFAULT '#00FF00'"
+                "option": "DEFAULT '#2f3136'"
             },
             {
                 "name": "prefix",

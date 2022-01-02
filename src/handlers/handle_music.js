@@ -644,7 +644,31 @@ module.exports.resumeSong = async function (ctx, queue) {
  * @param {Queue} queue The queue specified.
  */
 module.exports.removeSong = async function (ctx, queue) {
+    const index = ctx.cType == "COMMAND" ? ctx.options.getInteger('index') : parseInt(ctx.args[0]);
 
+    if (!index) return await reply(ctx, commands.get('help').execute(ctx,'remove'));
+
+    if (index !== index) {
+        await reply(ctx, commands.get('help').execute(ctx,'remove'));
+        return;
+    }
+
+    if (index < 0 || index > queue.songs.length - 1) {
+        await reply(ctx, `Please select an index from the queue.`);
+        await commands.get('queue').execute(ctx);
+        return;
+    }
+
+    const song = queue.songs[index];
+
+    queue.songs.splice(index,1)
+
+    const Embed = new MessageEmbed();
+    Embed.setColor(perGuildSettings.get(queue.Id).color);
+    Embed.setURL(process.env.WEBSITE);
+    Embed.setFooter({ text: `Removed "${song.title}" from the queue`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
+
+    await reply(ctx, { embeds: [Embed] });
 }
 
 /**
@@ -831,13 +855,14 @@ module.exports.loadQueue = async function (ctx, queue) {
  * @param {Queue} queue The queue specified.
  */
 module.exports.setVolume = async function (ctx, queue) {
-    if (ctx.args[0] == undefined) return await reply(ctx, 'IDK what song you wanna set the volume to.');
 
+    const volume = ctx.cType == "COMMAND" ? ctx.options.getInteger('ammount') : parseInt(ctx.args[0]);
 
-    const volume = parseInt(ctx.args[0]);
+    if (!volume) return await reply(ctx, commands.get('help').execute(ctx,'volume'));
+
 
     if (volume !== volume) {
-        await reply(ctx, 'Bruh is that even a number ?.');
+        await reply(ctx, commands.get('help').execute(ctx,'volume'));
         return;
     }
 

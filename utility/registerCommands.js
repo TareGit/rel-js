@@ -1,4 +1,4 @@
-const deleteCommands =  process.argv.includes('delete');
+const deleteCommands = process.argv.includes('delete');
 const sendGlobalCommands = process.argv.includes('global');
 const isAlpha = process.argv.includes('alpha');
 const axios = require('axios');
@@ -13,7 +13,7 @@ function readDirR(dir) {
         : dir;
 }
 
-const commandsPaths = readDirR(`${process.cwd()}/src/commands`);
+const commandsPaths = deleteCommands ? [] : readDirR(`${process.cwd()}/src/commands`);
 
 process.chdir(`${process.cwd()}/src`);
 
@@ -28,41 +28,45 @@ Object.assign(ps, { sync: sync });
 
 const utils = sync.require(`${process.cwd()}/utils`);
 
-const rawCommands = []
-
-commandsPaths.forEach(path => {
-    const command = require(path);
-    rawCommands.push(command);
-});
-
-log("Emulated dev enviroment and loaded raw commands, count :",rawCommands.length)
-
 const commands = []
 
-rawCommands.forEach(rawCommand => {
+if (!deleteCommands) {
 
-    if(rawCommand.cateory === "Development") return;
+    const rawCommands = []
 
-    const commandForApi = {
-        name : rawCommand.name,
-        type : 1,
-        description : rawCommand.description,
-        options : rawCommand.options
-    }
+    commandsPaths.forEach(path => {
+        const command = require(path);
+        rawCommands.push(command);
+    });
 
-    commands.push(commandForApi);
+    log("Emulated dev enviroment and loaded raw commands, count :", rawCommands.length)
 
-    if (rawCommand.ContextMenu && rawCommand.ContextMenu.name){
-        const contextCommandForAPi = {
-            name : rawCommand.ContextMenu.name,
-            type : 2
+    rawCommands.forEach(rawCommand => {
+
+        if (rawCommand.cateory === "Development") return;
+
+        const commandForApi = {
+            name: rawCommand.name,
+            type: 1,
+            description: rawCommand.description,
+            options: rawCommand.options
         }
 
-        commands.push(contextCommandForAPi);
-    }
-});
+        commands.push(commandForApi);
 
-log("Converted raw commands into API commands count:",commands.length)
+        if (rawCommand.ContextMenu && rawCommand.ContextMenu.name) {
+            const contextCommandForAPi = {
+                name: rawCommand.ContextMenu.name,
+                type: 2
+            }
+
+            commands.push(contextCommandForAPi);
+        }
+    });
+
+    log("Converted raw commands into API commands count:", commands.length)
+}
+
 
 const botId = isAlpha ? process.env.DISCORD_BOT_ID_ALPHA : process.env.DISCORD_BOT_ID;
 
@@ -72,73 +76,11 @@ const headers = {
     "Authorization": `Bot ${isAlpha ? process.env.DISCORD_BOT_TOKEN_ALPHA : process.env.DISCORD_BOT_TOKEN}`
 }
 
-log(commands)
 
-axios.put(url,commands, {headers : headers}).then((response) => {
-    log(response.data);
+axios.put(url, deleteCommands ? [] : commands, { headers: headers }).then((response) => {
+    log(`Successfully ${deleteCommands ? "Deleted" : "Updated"} commands`);
 }).catch((error) => {
     log(error.response.data);
-    console.log(util.inspect(error.response.data, {showHidden: false, depth: null, colors: true}))
+    console.log(util.inspect(error.response.data, { showHidden: false, depth: null, colors: true }))
 });
 
-log(commands)
-
-
-/*
-let commandsInConfig = config['Commands'];
-function getCommandBuilder(type) {
-    switch (type) {
-        case 'string':
-            return new SlashCommandStringOption();
-            break;
-        case 'int':
-            return new SlashCommandIntegerOption();
-            break;
-    }
-
-}
-
-Object.keys(commandsInConfig).forEach(function (key, index) {
-    console.log(key);
-
-    let commandInConfig = config['Commands'][key];
-    let command = new SlashCommandBuilder();
-    command.setName(key);
-    command.setDescription(commandInConfig['description']);
-
-    let argumentsInConfig = commandInConfig['arguments'];
-
-    Object.keys(argumentsInConfig).forEach(function (key2, index) {
-        let argument = argumentsInConfig[key2];
-        let argumentType = argument['type'];
-        let option = getCommandBuilder(argumentType);
-        option.setName(key2);
-        option.setDescription(argument['description']);
-        option.setRequired(argument['required']);
-
-        switch (argumentType) {
-            case 'string':
-                command.addStringOption(option);
-                break;
-            case 'int':
-                command.addIntegerOption(option);
-                break;
-        }
-
-    });
-
-    if (commandInConfig.ContextMenu.Name != undefined) {
-        const contextMenu = new ContextMenuCommandBuilder()
-        .setName(commandInConfig.ContextMenu.Name)
-        .setType(commandInConfig.ContextMenu.Type) // 2 for USER, 3 for MESSAGE
-        .setDefaultPermission(true)
-
-        commandsList.push(contextMenu);
-        console.log(`context command added`);
-    }
-
-    commandsList.push(command);
-});
-
-
-*/
