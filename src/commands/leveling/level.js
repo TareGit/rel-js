@@ -93,7 +93,7 @@ module.exports = {
                     display: flex;
                     justify-content: center;
                     align-items: center;
-                    /*background: transparent;*/
+                    background: transparent;
                 }
         
                 .user-profile {
