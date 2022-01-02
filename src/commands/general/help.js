@@ -1,7 +1,6 @@
 const { MessageEmbed, MessageSelectMenu, MessageSelectOptionData, MessageActionRow, InteractionCollector } = require('discord.js');
 
-const { bot, sync, perGuildData, commands } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const { bot, sync, perGuildSettings, commands } = require(`${process.cwd()}/passthrough.js`);
 const { defaultPrimaryColor, defaultPrefix } = sync.require(`${process.cwd()}/config.json`);
 
 module.exports = {
@@ -9,39 +8,59 @@ module.exports = {
     category: 'General',
     description: 'shows help',
     ContextMenu: {},
+    syntax: '{prefix}{name} <specific command>',
     options: [
         {
             name: 'command',
-            description: "The spec                                                                                                                                                                      ific command to get help on",
+            description: "The specific command to get help on",
             type: 3,
             required: false
         }
     ],
-    async execute(ctx) {
+    async execute(ctx, targetCommand = undefined) {
+
+        const specificCommand = targetCommand || ctx.cType == "COMMAND" ? ctx.options.getString('command') : ctx.args[0];
+
+        if (commands.get(specificCommand)) {
+            const command = commands.get(specificCommand);
+
+            const prefix = (ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).prefix : defaultPrefix;
+
+            const helpEmbed = new MessageEmbed();
+            helpEmbed.setColor((ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).color : defaultPrimaryColor);
+            helpEmbed.setTitle(`Help For ${command.name}\n`);
+            helpEmbed.setURL(process.env.WEBSITE);
+
+            let syntax = command.syntax;
+            syntax = syntax.replace(/{prefix}/gi, `${prefix}`);
+            syntax = syntax.replace(/{name}/gi, `${command.name}`);
+
+            helpEmbed.setDescription(`Description: ${command.description} \n Syntax: \`${syntax}\``);
+            helpEmbed.setTimestamp();
+
+            return await reply(ctx, { embeds: [helpEmbed], fetchReply: true });
+        }
 
         const buildHelpEmbed = (Section) => {
             const fields = [];
 
-            const prefix = (ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).prefix : defaultPrefix;
+            const prefix = (ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).prefix : defaultPrefix;
 
             const helpEmbed = new MessageEmbed();
-            helpEmbed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).color : defaultPrimaryColor);
+            helpEmbed.setColor((ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).color : defaultPrimaryColor);
             helpEmbed.setTitle('Help For Commands\n');
             helpEmbed.setURL(process.env.WEBSITE);
 
             commands.forEach(function (value, key) {
 
                 if (value.category === Section) {
-                    let syntax = "";
-                    syntax += `${prefix}${value.name} `;
+                    if (key === value.name) {
+                        let syntax = value.syntax;
+                        syntax = syntax.replace(/{prefix}/gi, `${prefix}`);
+                        syntax = syntax.replace(/{name}/gi, `${value.name}`);
 
-                    value.options.forEach(function (option, index) {
-                        syntax += ` <${option.name}> `;
-                    });
-
-                    syntax = `\`${syntax}\``;
-
-                    helpEmbed.addField(key, `${value.description} \n Syntax: ${syntax} \n`, false);
+                        helpEmbed.addField(key, `Description: ${value.description} \n Syntax: \`${syntax}\``, false);
+                    }
                 }
 
             })
@@ -51,7 +70,7 @@ module.exports = {
             return helpEmbed;
         }
 
-        const sections = ['General', 'Moderation', 'Music','Fun'];
+        const sections = ['General', 'Moderation', 'Music', 'Fun'];
 
         const options = [];
 
@@ -80,7 +99,7 @@ module.exports = {
 
 
 
-        const message = await reply(ctx, { embeds: [buildHelpEmbed(sections[0])], components: [MenuRow] });
+        const message = await reply(ctx, { embeds: [buildHelpEmbed(sections[0])], components: [MenuRow], fetchReply: true });
 
         if (message) {
 
@@ -88,7 +107,7 @@ module.exports = {
             helpCollector.resetTimer({ time: 15000 });
             helpCollector.generateEmbed = buildHelpEmbed;
             helpCollector.owner = (ctx.author !== null && ctx.author !== undefined) ? ctx.author.id : ctx.user.id;
-            
+
 
             helpCollector.on('collect', async (selector) => {
                 try {
@@ -96,7 +115,7 @@ module.exports = {
                         return reply(ctx, { ephemeral: true, content: "why must thou choose violence ?" });
                     }
 
-                    const sections = ['General', 'Moderation', 'Music','Fun'];
+                    const sections = ['General', 'Moderation', 'Music', 'Fun'];
 
                     const options = [];
 
@@ -125,7 +144,7 @@ module.exports = {
 
                     await selector.update({ embeds: [helpCollector.generateEmbed(selector.values[0])], components: [MenuRow] });
                 } catch (error) {
-                    console.log(error);
+                    log(`\x1b[31mError In Help Message Collector\x1b[0m\n`, error);
                 }
 
             });
@@ -133,15 +152,14 @@ module.exports = {
             helpCollector.on('end', (collected, reason) => {
                 try {
 
-
                     helpCollector.options.message.fetch().then((message) => {
                         if (message) {
-
-                            message.edit({ embeds: [message.embeds[0]], components: [] });
+                            message.components[0].components[0].disabled = true
+                            message.edit({ embeds: [message.embeds[0]], components: message.components });
                         }
                     });
                 } catch (error) {
-                    console.log(error);
+                    log(`\x1b[31mError Ending Help Message Collector\x1b[0m\n`, error);
                 }
 
 

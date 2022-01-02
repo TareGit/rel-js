@@ -1,12 +1,13 @@
 
 const { sync, queues } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const { stop } = sync.require(`${process.cwd()}/handlers/handle_music`);
 
 module.exports = {
     name: 'stop',
     category: 'Music',
-    description: 'Stops the current song but doesent play the next song',
+    description: 'Stops the current song and disconnects the bot from the channel',
     ContextMenu: {},
+    syntax : '{prefix}{name}',
     options: [],
     async execute(ctx) {
         
@@ -15,8 +16,8 @@ module.exports = {
             const Queue = queues.get(ctx.member.guild.id);
 
             if (Queue == undefined) return reply(ctx,"Theres no Queue");
-
-            Queue.stop(ctx);
+            
+            await stop(ctx,Queue);
         
 
     }

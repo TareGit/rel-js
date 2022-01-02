@@ -1,34 +1,39 @@
 const { sync, queues } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
 
-const {createQueue } = sync.require(`${process.cwd()}/handlers/handle_music`);
+
+const {createQueue,parseInput } = sync.require(`${process.cwd()}/handlers/handle_music`);
 
 
 module.exports = {
     name: 'play',
     category: 'Music',
-    description: 'shows help',
+    description: 'Plays a given song or url',
     ContextMenu: {
         name: 'Add to Queue'
     },
+    syntax : '{prefix}{name} <spotify url | youtube url | search term>',
     options: [
         {
             name: 'url',
             description: 'The song to search for / the link to play',
             type: 3,
-            required: false
+            required: true
         }
     ],
     async execute(ctx) {
-            if (!ctx.guild || !ctx.member.voice.channel) return reply(ctx,"You need to be in a voice channel to use this command");
+            if (!ctx.guild || !ctx.member.voice.channel) return reply(ctx,"You need to be in a voice channel to use this command.");
 
+            if(!ctx.guild.me.permissions.has('CONNECT')) return reply(ctx,"I dont have permissions to join voice channels.");
+
+            if(!ctx.guild.me.permissions.has('SPEAK')) return reply(ctx,"I dont have permissions to speak in voice channels (play music).");
+            
             let Queue = queues.get(ctx.member.guild.id);
 
             if (Queue == undefined) {
                 Queue = await createQueue(ctx);
             }
 
-            Queue.parseInput(ctx);
+            await parseInput(ctx,Queue);
     
 
     }

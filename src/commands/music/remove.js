@@ -1,16 +1,17 @@
 const { sync, queues } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const { remove } = sync.require(`${process.cwd()}/handlers/handle_music`);
 
 module.exports = {
     name: 'remove',
     category: 'Music',
-    description: 'removes a song in the queue',
+    description: 'Removes a song from the queue',
     ContextMenu: {},
+    syntax : '{prefix}{name} <song index>',
     options: [
         {
-            name: 'item',
-            description: "The song to remove or its index",
-            type: 3,
+            name: 'index',
+            description: "The index of the song in the queue",
+            type: 4,
             required: true
         }
     ],
@@ -22,7 +23,7 @@ module.exports = {
 
             if (Queue == undefined) return reply(ctx,"Theres no Queue");
 
-            Queue.remove(ctx);
+            await remove(ctx,Queue);
         
 
     }

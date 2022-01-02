@@ -1,7 +1,7 @@
 const { MessageEmbed } = require('discord.js');
 
-const { sync, perGuildData, bot } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const { sync, perGuildSettings, bot } = require(`${process.cwd()}/passthrough.js`);
+
 const axios = require("axios");
 const { version, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.json`);
 
@@ -10,9 +10,17 @@ const { version, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.j
 module.exports = {
     name: 'movie',
     category: 'Fun',
-    description: 'gets basic information about a movie',
+    description: 'Gets basic information about a movie',
     ContextMenu: {},
-    options: [],
+    syntax : '{prefix}{name} <movie name>',
+    options: [
+        {
+            name : "movie",
+            description : "The movie to search for",
+            type : 3,
+            required : true
+          }
+    ],
     async execute(ctx) {
 
 
@@ -24,7 +32,7 @@ module.exports = {
         let response = undefined;
 
         const Embed = new MessageEmbed();
-        Embed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).color : defaultPrimaryColor);
+        Embed.setColor((ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).color : defaultPrimaryColor);
 
         try {
 
@@ -58,7 +66,7 @@ module.exports = {
             Embed.setFooter("Movie Not Found");
 
             reply(ctx, { embeds: [Embed] });
-            console.log(error);
+            log(`\x1b[31mError Searching for Movie\x1b[0m\n`,error);
         }
 
     }

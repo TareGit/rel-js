@@ -1,12 +1,13 @@
 
 const { sync, queues } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const { resumeSong } = sync.require(`${process.cwd()}/handlers/handle_music`);
 
 module.exports = {
     name: 'resume',
     category: 'Music',
-    description: 'resumes the current song',
+    description: 'Resumes the current song',
     ContextMenu: {},
+    syntax : '{prefix}{name}',
     options: [],
     async execute(ctx) {
         
@@ -16,7 +17,7 @@ module.exports = {
 
             if (Queue == undefined) return reply(ctx,"Theres no Queue");
 
-            Queue.resumeSong(ctx);
+            await resumeSong(ctx,Queue);
         
 
     }

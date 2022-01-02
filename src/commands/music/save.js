@@ -1,18 +1,19 @@
 
 const { sync, queues } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const { saveQueue } = sync.require(`${process.cwd()}/handlers/handle_music`);
 
 module.exports = {
     name: 'save',
     category: 'Music',
     description: 'Saves the current queue',
     ContextMenu: {},
+    syntax : '{prefix}{name} <name to save as>',
     options: [
         {
             name: 'name',
             description: "The name to save the queue as",
             type: 3,
-            required: false
+            required: true
         }
     ],
     async execute(ctx) {
@@ -23,6 +24,6 @@ module.exports = {
 
             if (Queue == undefined) return reply(ctx,"Theres no Queue");
 
-            Queue.saveQueue(ctx);
+            await saveQueue(ctx,Queue);
     }
 }

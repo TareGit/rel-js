@@ -1,20 +1,15 @@
-const { bot, sync, perGuildData, commands,modulesLastReloadTime,disabledCategories } = require(`${process.cwd()}/passthrough`);
-
-const { ifError } = require('assert');
+const { bot, sync, perGuildSettings, commands,modulesLastReloadTime,disabledCategories } = require(`${process.cwd()}/passthrough`);
 const { Interaction } = require('discord.js');
 const fs = require('fs');
 
 const { defaultPrefix } = sync.require(`${process.cwd()}/config.json`);
 
-
-
-
 module.exports.parseMessage = async (message) => {
 
     const content = message.content;
-    const guildData = (message.member !== null) ? perGuildData.get(message.member.guild.id) : undefined;
+    const guildData = (message.member !== null) ? perGuildSettings.get(message.member.guild.id) : undefined;
 
-    const prefix = (message.member !== null && guildData !== undefined) ? perGuildData.get(message.member.guild.id).prefix : defaultPrefix;
+    const prefix = (message.member !== null && guildData !== undefined) ? perGuildSettings.get(message.member.guild.id).prefix : defaultPrefix;
 
     if (!content.startsWith(prefix)) {
         return undefined
@@ -62,12 +57,20 @@ module.exports.parseInteractionCommand = async (interaction) => {
 }
 
 
-console.log('\x1b[32mCommands Module loaded\x1b[0m');
+
 
 if(modulesLastReloadTime.commands !== undefined)
 {
-    
+    log('\x1b[32mCommands Module Reloaded\x1b[0m');
+}
+else
+{
+    log('\x1b[32mCommands Module Loaded\x1b[0m');
 }
 
-modulesLastReloadTime.commands = bot.uptime;
+if(bot)
+{
+    modulesLastReloadTime.commands = bot.uptime;
+}
+
 

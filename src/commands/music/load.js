@@ -1,18 +1,18 @@
 const { sync } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
-const { createQueue } = sync.require(`${process.cwd()}/handlers/handle_music`);
+const { createQueue, loadQueue } = sync.require(`${process.cwd()}/handlers/handle_music`);
 
 module.exports = {
     name: 'load',
     category: 'Music',
-    description: 'loads a saved Queue',
+    description: 'Loads a saved Queue',
+    syntax : '{prefix}{name} <playlist name>',
     ContextMenu: {},
     options: [
         {
             name: 'name',
-            description: "the name of the playlist to load",
+            description: "The name of the playlist to load",
             type: 3,
-            required: false
+            required: true
         }
     ],
     async execute(ctx) {
@@ -25,7 +25,7 @@ module.exports = {
                 Queue = await createQueue(ps.bot, ctx);
             }
 
-            Queue.loadQueue(ctx);
+            await loadQueue(ctx,Queue);
         
 
     }

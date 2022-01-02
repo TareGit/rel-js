@@ -1,11 +1,13 @@
 const { sync, queues } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const { showQueue } = sync.require(`${process.cwd()}/handlers/handle_music`);
+
 
 module.exports = {
     name: 'queue',
     category: 'Music',
     description: 'Shows the current Queue',
     ContextMenu: {},
+    syntax : '{prefix}{name}',
     options: [],
     async execute(ctx) {
         
@@ -15,8 +17,7 @@ module.exports = {
 
             if (Queue == undefined) return reply(ctx,"Theres no Queue");
 
-            Queue.showQueue(ctx);
+            await showQueue(ctx,Queue);
         
-
     }
 }

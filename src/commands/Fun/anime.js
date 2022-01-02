@@ -1,8 +1,9 @@
 const { MessageEmbed } = require('discord.js');
 
-const { sync, perGuildData, bot } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const { sync, perGuildSettings, bot } = require(`${process.cwd()}/passthrough.js`);
+
 const axios = require("axios");
+
 const { version, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.json`);
 
 
@@ -10,9 +11,17 @@ const { version, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.j
 module.exports = {
   name: 'anime',
   category: 'Fun',
-  description: 'gets basic information about an anime',
+  description: 'Gets basic information about an anime',
   ContextMenu: {},
-  options: [],
+  syntax : '{prefix}{name} <anime name>',
+  options: [
+    {
+      name : "anime",
+      description : "The anime to search for",
+      type : 3,
+      required : true
+    }
+  ],
   async execute(ctx) {
 
 
@@ -27,7 +36,7 @@ module.exports = {
     let response = undefined;
 
     const Embed = new MessageEmbed();
-            Embed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).color : defaultPrimaryColor);
+            Embed.setColor((ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).color : defaultPrimaryColor);
             
             
 
@@ -54,7 +63,7 @@ module.exports = {
 
       Embed.setFooter("Anime Not Found");
       reply(ctx,{ embeds: [Embed] });
-      console.log(error);
+      log(`\x1b[31mError Fetching Anime Data\x1b[0m`,error);
     }
 
   }

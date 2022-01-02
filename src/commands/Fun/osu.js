@@ -1,8 +1,9 @@
 const { MessageEmbed } = require('discord.js');
 
-const { sync, perGuildData, bot } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const { sync, perGuildSettings, bot } = require(`${process.cwd()}/passthrough.js`);
+
 const axios = require("axios");
+
 const { version, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.json`);
 
 
@@ -10,9 +11,17 @@ const { version, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.j
 module.exports = {
     name: 'osu',
     category: 'Fun',
-    description: 'gets basic information about an Osu! player',
+    description: 'Gets basic information about an Osu! player',
     ContextMenu: {},
-    options: [],
+    syntax : '{prefix}{name} <osu id | osu username>',
+    options: [
+        {
+            name : "player",
+            description : "The username or ID of the player to search for",
+            type : 3,
+            required : true
+          }
+    ],
     async execute(ctx) {
 
 
@@ -22,7 +31,7 @@ module.exports = {
 
         const Embed = new MessageEmbed();
         
-        Embed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).color : defaultPrimaryColor);
+        Embed.setColor((ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).color : defaultPrimaryColor);
 
         try {
 
@@ -32,8 +41,6 @@ module.exports = {
                 }
             };
             response = (await axios.get(`${process.env.OSU_API}/users/${searchTerm.replace(/\s+/g, '')}`, request)).data;
-
-            console.log(response);
 
             const user = response;
 
@@ -51,7 +58,7 @@ module.exports = {
 
             Embed.setThumbnail(user.avatar_url);
 
-            Embed.addField("Rank", `#${user.statistics.global_rank}`);
+            Embed.addField("Rank", `#${user.statistics.global_rank || 'Unknown'}`);
 
             Embed.addField("Accuracy", `${user.statistics.hit_accuracy}%`);
 
@@ -66,7 +73,7 @@ module.exports = {
 
             reply(ctx, { embeds: [Embed] });
             
-            console.log(error);
+            log(`\x1b[31mError fetching Osu Data\x1b[0m`,error);
         }
 
     }

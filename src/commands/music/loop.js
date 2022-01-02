@@ -1,18 +1,33 @@
 
 const { sync, queues } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const { setLooping } = sync.require(`${process.cwd()}/handlers/handle_music`);
 
 module.exports = {
     name: 'loop',
     category: 'Music',
-    description: 'set the loop state of the Queue to on or off',
+    description: 'Set the loop state of the Queue',
+    syntax : '{prefix}{name} <off | song | queue>',
     ContextMenu: {},
     options: [
         {
-            name: 'newLoopState',
-            description: '\'on\' to loop and \'off\' to not loop',
+            name: 'state',
+            description: 'The new loop state (off, song, queue)',
             type: 3,
-            required: false
+            required: true,
+            choices: [
+                {
+                    "name": "Off",
+                    "value": "off"
+                },
+                {
+                    "name": "Song",
+                    "value": "song"
+                },
+                {
+                    "name": "Queue",
+                    "value": "queue"
+                }
+            ]
         }
     ],
     async execute(ctx) {
@@ -23,7 +38,7 @@ module.exports = {
 
             if (Queue == undefined) return reply(ctx,"Theres no Queue");
 
-            Queue.setLooping(ctx);
+            await setLooping(ctx,Queue);
         
 
     }

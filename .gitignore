@@ -25,6 +25,8 @@ hs_err_pid*
 
 /node_modules
 
+src/puppeterUserData/*
+
 src/secretes
 
 # env files

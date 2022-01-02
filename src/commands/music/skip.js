@@ -1,12 +1,14 @@
 
 const { sync, queues } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const { skipSong } = sync.require(`${process.cwd()}/handlers/handle_music`);
+
 
 module.exports = {
     name: 'skip',
     category: 'Music',
     description: 'skips the current song',
     ContextMenu: {},
+    syntax : '{prefix}{name}',
     options: [],
     async execute(ctx) {
         
@@ -16,7 +18,7 @@ module.exports = {
 
             if (Queue == undefined) return reply(ctx,"Theres no Queue");
 
-            Queue.skipSong(ctx);
+            await skipSong(ctx,Queue);
         
 
     }

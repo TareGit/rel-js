@@ -1,6 +1,5 @@
 const ps = require(`${process.cwd()}/passthrough.js`);
-const { sync, bot, socket, socketEvents, modulesLastReloadTime, perGuildData } = require(`${process.cwd()}/passthrough.js`);
-const { logError } = sync.require(`${process.cwd()}/utils.js`);
+const { sync, bot, socket, socketEvents, modulesLastReloadTime, perGuildSettings } = require(`${process.cwd()}/passthrough.js`);
 
 const fs = require('fs');
 
@@ -10,27 +9,29 @@ let socketRef = socket;
 
 // On connect to the server
 function onConnect() {
-    console.log('Connected to server');
+    log('Connected to Main Server');
     socketRef.emit('identify', { id: 'Umeko', guilds: Array.from(bot.guilds.cache.keys()) });
 }
 
 // On disconnect from the server
 function onDisconnect() {
-    console.log('Disconnected from server');
+    log('Disconnected from Main Server');
 }
 
 
-// handle an event from the server to invalidate local date( make the data dirty so we pull a new version from the db)
-function onUpdate({ guild, field, value }) {
-    if (perGuildData.get(guild) !== undefined) {
-        if (perGuildData.get(guild)[field] !== undefined) {
-            perGuildData.get(guild)[field] = value;
-        }
+// handle an event from the server to update local data
+function onUpdate({ guild, update }) {
+    if (perGuildSettings.get(guild) !== undefined) {
+        perGuildSettings.set(guild,update)
     }
 }
 
 function onGetGuild(guildId) {
-    socketRef.emit('guildData', bot.guilds.cache.get(guildId));
+    socketRef.emit('guild', bot.guilds.cache.get(guildId));
+}
+
+function onGetGuildSettings(guildId) {
+    socketRef.emit('guildSettings', perGuildSettings.get(guildId));
 }
 
 // array of possible events (done like this for heatsync reloading)
@@ -38,17 +39,18 @@ const newSocketEvents = [
     { id: 'connect', event: onConnect },
     { id: 'disconnect', event: onDisconnect },
     { id: 'update', event: onUpdate },
-    { id: 'getGuild', event: onGetGuild }
+    { id: 'getGuild', event: onGetGuild },
+    { id: 'getGuildSettings', event: onGetGuildSettings }
 ]
 
 
 if (socket === undefined) {
 
-    const newSocket = io('https://rel-js-server.oyintareebelo.repl.co');
+    const newSocket = io(process.argv.includes('alpha') ? 'http://localhost:8080' : 'https://rel-js-server.oyintareebelo.repl.co');
 
     newSocket.emit('identify', { id: 'Umeko', guilds: Array.from(bot.guilds.cache.keys()) });
 
-    console.log('Socket connection created');
+    log('Socket connection created');
     
     Object.assign(ps, { socket: newSocket });
 
@@ -58,7 +60,7 @@ if (socket === undefined) {
         try {
             newSocket.on(socketEvent.id, socketEvent.event);
         } catch (error) {
-            logError(`Error binding event "${socketEvent.id}" to socket`,error);
+            log(`\x1b[31mError binding event "${socketEvent.id}" to socket\x1b[0m\n`,error);
         }
     });
 
@@ -66,7 +68,7 @@ if (socket === undefined) {
 
 
 
-console.log('\x1b[32mSocket Module Loaded\x1b[0m');
+
 
 if (modulesLastReloadTime.socket !== undefined) {
 
@@ -77,7 +79,7 @@ if (modulesLastReloadTime.socket !== undefined) {
                 try {
                     socketRef.removeListener(socketEvent.id, socketEvent.event);
                 } catch (error) {
-                    logError(`Error unbinding event "${socketEvent.id}" to socket`,error);
+                    log(`\x1b[31mError unbinding event "${socketEvent.id}" to socket\x1b[0m\n`,error);
                 }
             });
 
@@ -87,13 +89,23 @@ if (modulesLastReloadTime.socket !== undefined) {
             try {
                 socketRef.on(socketEvent.id, socketEvent.event);
             } catch (error) {
-                logError(`Error binding event "${socketEvent.id}" to socket`,error);
+                log(`\x1b[31mError binding event "${socketEvent.id}" to socket\x1b[0m\n`,error);
             }
         });
 
         Object.assign(ps, { socketEvents: newSocketEvents });
     }
 
+    log('\x1b[32mSocket Module Reloaded\x1b[0m');
+
+}
+else
+{
+    log('\x1b[32mSocket Module Loaded\x1b[0m');
 }
 
-modulesLastReloadTime.socket = bot.uptime;
+if(bot)
+{
+    modulesLastReloadTime.socket = bot.uptime;
+}
+

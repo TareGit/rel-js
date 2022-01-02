@@ -1,11 +1,12 @@
 const { sync, queues } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const { showQueue } = sync.require(`${process.cwd()}/handlers/handle_music`);
 
 module.exports = {
     name: 'playlists',
     category: 'Music',
     description: 'Shows all saved playlists',
     ContextMenu: {},
+    syntax : '{prefix}{name}',
     options: [],
     async execute(ctx) {
         
@@ -15,7 +16,7 @@ module.exports = {
 
             if (Queue == undefined) return reply(ctx,"Theres no Queue");
 
-            Queue.showQueue(ctx);
+            await reply(ctx,"Command not yet implemented")
         
 
     }

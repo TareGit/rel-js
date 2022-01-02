@@ -1,15 +1,123 @@
 {
-    "queueTimeout" : 300000,
-    "queueItemsPerPage" : 10,
-    "maxQueueFetchTime" : 5000,
-    "defaultPrimaryColor":"#00FF00",
-    "defaultPrefix":"?",
-    "defaultLanguage" : "en",
-    "defaultNickname" : "Umeko",
-    "defaultWelcomeMessage" : "Welcome to the server $user",
-    "defaultVolumeMultiplier" : 0.05,
-    "maxRawVolume" : 150,
+    "queueTimeout": 300000,
+    "queueItemsPerPage": 10,
+    "maxQueueFetchTime": 5000,
+    "defaultPrimaryColor": "#00FF00",
+    "defaultPrefix": "?",
+    "defaultLanguage": "en",
+    "defaultNickname": "Umeko",
+    "defaultVolumeMultiplier": 0.05,
+    "maxRawVolume": 150,
     "version": 3.0,
-    "leftArrowEmoji" : "922308918917615676",
-    "rightArrowEmoji" : "922308931966091274"
+    "leftArrowEmoji": "922308918917615676",
+    "rightArrowEmoji": "922308931966091274",
+    "defaultWelcomeMessage" : "Welcome to the server {user}",
+    "defaultTwitchMessage" : "{username} just went live, check them out :{link} .",
+    "defaultLevelingMessage" : "Congrats on reaching level {level} {user} !",
+    "guildSettingsTableFormat": {
+        "name": "guild_settings",
+        "rows": [
+            {
+                "name": "id",
+                "type": "TEXT",
+                "option": "PRIMARY KEY"
+            },
+            {
+                "name": "color",
+                "type": "TEXT",
+                "option": "DEFAULT '#00FF00'"
+            },
+            {
+                "name": "prefix",
+                "type": "TEXT",
+                "option": "DEFAULT '?'"
+            },
+            {
+                "name": "nickname",
+                "type": "TEXT",
+                "option": "DEFAULT 'Umeko'"
+            },
+            {
+                "name": "language",
+                "type": "TEXT",
+                "option": "DEFAULT 'en'"
+            },
+            {
+                "name": "welcome_message",
+                "type": "TEXT",
+                "option": "DEFAULT 'Welcome to the server {user}'"
+            },
+            {
+                "name": "welcome_message_options",
+                "type": "TEXT",
+                "option": "DEFAULT ''"
+            },
+            {
+                "name": "twitch_message",
+                "type": "TEXT",
+                "option": "DEFAULT '{username} just went live, check them out :{link} .'"
+            },
+            {
+                "name": "twitch_message_options",
+                "type": "TEXT",
+                "option": "DEFAULT ''"
+            },
+            {
+                "name": "leveling_message",
+                "type": "TEXT",
+                "option": "DEFAULT 'Congrats on reaching level {level} {user} !'"
+            },
+            {
+                "name": "leveling_options",
+                "type": "TEXT",
+                "option": "DEFAULT ''"
+            },
+            {
+                "name": "leveling_role_options",
+                "type": "TEXT",
+                "option": "DEFAULT ''"
+            }
+        ]
+    },
+    "guildLevelingTableFormat": {
+        "name": "guild_leveling_",
+        "rows": [
+            {
+                "name": "userId",
+                "type": "TEXT",
+                "option": "PRIMARY KEY"
+            },
+            {
+                "name": "level",
+                "type": "INTEGER",
+                "option": "DEFAULT 0"
+            },
+            {
+                "name": "xp_current",
+                "type": "INTEGER",
+                "option": "DEFAULT 0"
+            }
+        ]
+    },
+    "guildCommandsTableFormat": {
+        "name": "guild_commands_",
+        "rows": [
+            {
+                "name": "commandId",
+                "type": "TEXT",
+                "option": "PRIMARY KEY"
+            },
+            {
+                "name": "role_overiddes",
+                "type": "TEXT",
+                "option": "DEFAULT ''"
+            },
+            {
+                "name": "channel_overiddes",
+                "type": "TEXT",
+                "option": "DEFAULT ''"
+            }
+        ]
+    },
+    "xpUpdateThreshold" : 100
 }

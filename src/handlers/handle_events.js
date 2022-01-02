@@ -1,6 +1,5 @@
 const ps = require(`${process.cwd()}/passthrough.js`);
-const { sync, bot,modulesLastReloadTime} = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const { sync, bot,modulesLastReloadTime, perGuildSettings, commands} = require(`${process.cwd()}/passthrough.js`);
 
 const parser = sync.require('./handle_commands');
 const guildDataModule = sync.require('./handle_guild_data');
@@ -8,18 +7,19 @@ const guildDataModule = sync.require('./handle_guild_data');
 const fs = require('fs');
 
 
-
-const serviceAccountCredentials = JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS));
-
 async function onMessageCreate(message) {
     if (message.author.id === bot.user.id) return;
 
-    const commandToExecute = await parser.parseMessage(message).catch((error) => logError(`Error parsing message`,error));
+    if (message.mentions.has(bot.user)) {
+        message.args = ['']
+        return commands.get('help').execute(message);
+    }
+
+    const commandToExecute = await parser.parseMessage(message).catch((error) => log(`\x1b[31mError parsing message\x1b[0m\n`,error));
 
     if (commandToExecute !== undefined) {
         commandToExecute.execute(message).catch((error) => {
-            console.log(`\nError Executing Message Command\n`)
-            console.log(error);
+            log(`\x1b[31mError Executing Message Command\x1b[0m\n`,error)
         });
     }
 }
@@ -29,15 +29,14 @@ async function onInteractionCreate(interaction) {
         return;
     }
 
-    const commandToExecute = await parser.parseInteractionCommand(interaction).catch((error) => logError(`Error parsing interaction`,error));
+    const commandToExecute = await parser.parseInteractionCommand(interaction).catch((error) => log(`\x1b[31mError parsing interaction\x1b[0m\n`,error));
 
     if (commandToExecute == undefined) {
         interaction.reply("Command not yet implemented");
     }
     else {
         commandToExecute.execute(interaction).catch((error) => {
-            console.log(`\nError Executing Interaction Command\n`)
-            console.log(error);
+            log(`\x1b[31mError Executing Interaction Command\x1b[0m\n`,error)
         });
 
     }
@@ -58,6 +57,11 @@ async function onGuildCreate(guild) {
 }
 
 async function onPresenceUpdate(oldPresence, newPresence) {
+
+    const options = new URLSearchParams(perGuildSettings.get(newPresence.guild.id).twitch_message_options);
+
+    if(!options.get('enabled') || options.get('enabled') !== 'true') return;
+
     if(newPresence.activities.length === 0) return;
 
     const relevantActivities = newPresence.activities.filter((activity) => activity.name === 'Twitch');
@@ -66,10 +70,10 @@ async function onPresenceUpdate(oldPresence, newPresence) {
 
     const targetActivity = relevantActivities[0];
 
-    // we only check the first one because afaik you cant have more than 1 twitch activity
+    // we only check the first one because afaik a user can't have more than 1 twitch activity
     if(oldPresence.activities.filter((activity) => activity.id === targetActivity.id).length !== 0) return;
 
-    console.log(targetActivity)
+    // Twitch online message here
 }
 
 
@@ -90,7 +94,7 @@ if(bot !== undefined)
             try {
                 bot.removeListener(botEvent.id, botEvent.event);
             } catch (error) {
-                logError(`Error unbinding event ${botEvent.id} from bot`,error);
+                log(`\x1b[31mError unbinding event ${botEvent.id} from bot\x1b[0m\n`,error);
             }
         });
     
@@ -100,21 +104,29 @@ if(bot !== undefined)
         try {
             bot.on(botEvent.id, botEvent.event);
         } catch (error) {
-            logError(`Error binding event ${botEvent.id} to bot`,error);
+            log(`\x1b[31mError binding event ${botEvent.id} to bot\x1b[0m\n`,error);
         }
     });
     
     ps.botEvents = botEvents;
 }
 
-console.log('\x1b[32mEvents Module Online\x1b[0m');
+
 
 if(modulesLastReloadTime.events !== undefined)
 {
-    
+    log('\x1b[32mEvents Module Reloaded\x1b[0m');
+}
+else
+{
+    log('\x1b[32mEvents Module Loaded\x1b[0m');
 }
 
-modulesLastReloadTime.events = bot.uptime;
+if(bot)
+{
+    modulesLastReloadTime.events = bot.uptime;
+}
+
 
 
 

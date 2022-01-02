@@ -1,16 +1,17 @@
 const { MessageEmbed } = require('discord.js');
 const ps = require(`${process.cwd()}/passthrough.js`);
 const { sync, bot } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+
 
 module.exports = {
     name: 'eval',
     category: 'Development',
     description: 'You may look, but you may not touch!',
     ContextMenu: {},
+    syntax : '{prefix}{name} <expression>',
     options: [
         {
-            name: 'Expression',
+            name: 'expression',
             description: "The Expression to Eval",
             type: 3,
             required: true
@@ -30,8 +31,7 @@ module.exports = {
            reply(ctx,response);
        } catch (error) {
             reply(ctx,"\`Error Executing Evaluation\`");
-            console.log(`Error Executing Evaluation \n ${ctx.pureContent} \n`);
-            console.log(error)
+            log(`\x1b[31mError Executing Evaluation "${ctx.pureContent}"`,error);
        }
     }
 }

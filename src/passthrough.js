@@ -1,14 +1,15 @@
 
 // ram, Never reload
 const passthrough = {
-    perGuildData : new Map(),
+    perGuildSettings : new Map(),
     colors: new Map(),
     prefixes: new Map(),
     queues : new Map(),
     commands : new Map(),
     commandsPaths : new Map(),
     modulesLastReloadTime : {},
-    disabledCategories : []
+    disabledCategories : [],
+    perGuildLeveling : new Map()
 }
 
 module.exports = passthrough;

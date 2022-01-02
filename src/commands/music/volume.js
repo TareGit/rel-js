@@ -1,18 +1,20 @@
 
 const { sync, queues } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const { setVolume } = sync.require(`${process.cwd()}/handlers/handle_music`);
+
 
 module.exports = {
     name: 'volume',
     category: 'Music',
-    description: 'sets the music volume',
+    description: 'Sets the music volume',
     ContextMenu: {},
+    syntax : '{prefix}{name} <new volume level 1 - 100>',
     options: [
         {
-            name: 'Ammount',
+            name: 'volume',
             description: "The new volume value",
             type: 4,
-            required: false
+            required: true
         }
     ],
     async execute(ctx) {
@@ -23,7 +25,7 @@ module.exports = {
 
             if (Queue == undefined) return reply(ctx,"Theres no Queue");
 
-            Queue.setVolume(ctx);
+            setVolume(ctx,Queue);
         
 
     }

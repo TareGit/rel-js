@@ -1,43 +1,23 @@
-const { sync, bot, queues, perGuildData, LavaManager, modulesLastReloadTime, db, commands } = require(`${process.cwd()}/passthrough.js`);
+const { sync, bot, queues, perGuildSettings, LavaManager, modulesLastReloadTime, db, commands } = require(`${process.cwd()}/passthrough.js`);
 
-const { reply, reloadCommandCategory, logError } = sync.require(`${process.cwd()}/utils.js`);
 const { queueTimeout, queueItemsPerPage, maxQueueFetchTime, maxRawVolume, defaultVolumeMultiplier, leftArrowEmoji, rightArrowEmoji } = sync.require(`${process.cwd()}/config.json`);
 
 const { MessageEmbed, MessageActionRow, MessageButton, InteractionCollector, Interaction } = require('discord.js');
+
 const { createAudioPlayer, createAudioResource, joinVoiceChannel, NoSubscriberBehavior, AudioPlayerState, AudioPlayerStatus, getVoiceConnection } = require('@discordjs/voice');
+
 const EventEmitter = require("events");
-
-
-
 const axios = require('axios');
 
-const { URLSearchParams } = require("url");
-
-
-module.exports.createQueue = async function (ctx) {
-
-    if (queues.get(ctx.member.guild.id) == undefined) {
-
-        return createNewQueue(ctx);
-    }
-    else {
-        return queues.get(ctx.member.guild.id);
-    }
-
-}
-
-function createNewQueue(ctx) {
-    const newQueue = new Queue(ctx);
-
-    queues.set(ctx.member.guild.id, newQueue);
-
-    return newQueue;
-}
-
-function checkLink(link) {
+/**
+ * Checks the url specified and returns its type.
+ * @param {String} url The url to check.
+ * @returns The result of the check as an object {type , id if spotify type}.
+ */
+function checkUrl(url) {
     try {
         const spotifyExpression = /^(?:spotify:|(?:https?:\/\/(?:open|play)\.spotify\.com\/)(?:embed)?\/?(track|album|playlist)(?::|\/)((?:[0-9a-zA-Z]){22}))/;
-        const spMatch = link.match(spotifyExpression);
+        const spMatch = url.match(spotifyExpression);
 
         if (spMatch) {
             const type = spMatch[1]
@@ -48,13 +28,18 @@ function checkLink(link) {
 
         return { type: 'search' };
     } catch (error) {
-        logError(`Error validating play url "${link}"`,error);
+        log(`\x1b[31mError validating play url "${url}"`, error);
         return { type: 'search' };
     }
 
 
 }
 
+/**
+ * Fetches a track from the spofity API.
+ * @param check The check object returned from running the 'check' function 
+ * @returns The data from the API.
+ */
 async function fetchSpotifyTrack({ id }) {
     const headers = {
         'Authorization': `Bearer ${process.env.SPOTIFY_API_TOKEN}`
@@ -65,6 +50,11 @@ async function fetchSpotifyTrack({ id }) {
     return data;
 }
 
+/**
+ * Fetches an albumn from the spotify API.
+ * @param check The check object returned from running the 'check' function 
+ * @returns The data from the API.
+ */
 async function fetchSpotifyAlbumTracks({ id }) {
 
     const headers = {
@@ -77,6 +67,11 @@ async function fetchSpotifyAlbumTracks({ id }) {
 
 }
 
+/**
+ * Fetches a playlist from the spofity API.
+ * @param check The check object returned from running the 'check' function 
+ * @returns The data from the API.
+ */
 async function fetchSpotifyPlaylistTracks({ id }) {
 
     const headers = {
@@ -84,12 +79,19 @@ async function fetchSpotifyPlaylistTracks({ id }) {
     }
 
     const data = (await axios.get(`${process.env.SPOTIFY_API}/playlists/${id}/tracks?fields=items(track(artists,name))`, { headers: headers })).data;
-    
+
     return data.items;
 }
 
-// function to create a song class (for the sake of consistency and sanity)
-const createSong = function (songData, songRequester, songGroupURL = "") {
+
+/**
+ * Creates a song object.
+ * @param {LavalinkTrackData} songData The track data returned from the music provider.
+ * @param songRequester The user that requested the song.
+ * @param {String} songGroupURL The grouping url for queue song (i.e. the spotify albumn link).
+ * @returns A song object.
+ */
+function createSong(songData, songRequester, songGroupURL = "") {
     return {
         id: songData.info.identifier,
         track: songData.track,
@@ -101,6 +103,12 @@ const createSong = function (songData, songRequester, songGroupURL = "") {
     }
 }
 
+/**
+ * Creates a song from a search term and user object
+ * @param {String} search The term to search for
+ * @param user The user that requested the song.
+ * @returns A song object || undefined if the search term returned no results.
+ */
 async function getSong(search, user) {
     try {
         const node = LavaManager.idealNodes[0];
@@ -113,23 +121,34 @@ async function getSong(search, user) {
 
         const songData = data.tracks[0];
 
-        if(songData === undefined) return undefined;
+        if (songData === undefined) return undefined;
 
         if (songData.info === undefined) return undefined;
 
         return createSong(songData, user, songData.info.uri);
     } catch (error) {
-        logError(`Error fetching song for "${search}"`,error);
+        log(`\x1b[31mError fetching song for "${search}"\x1b[0m\n`, error);
         return undefined;
     }
 
 }
 
+/**
+ * Times out after the specified number of seconds
+ * @param ms The number of seconds before the function times out (i.e. returns a rejected promise);
+ * @returns A rejected promise.
+ */
 function trackFetchTimeout(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-const convertSpotifyToSong = async function (ctx, trackData, songList) {
+/**
+ * Converts a spotify track from the API into a song and pushes it into the specified Array.
+ * @param ctx The command that initiated queue action.
+ * @param {SpotifyApiTrack} trackData The spofity track data from the API.
+ * @param {Array} songArray The Array to push the converted song into.
+ */
+async function convertSpotifyToSong(ctx, trackData, songArray) {
 
     let artists = "";
 
@@ -141,44 +160,51 @@ const convertSpotifyToSong = async function (ctx, trackData, songList) {
 
     if (song === undefined) return;
 
-    songList.push(song);
+    if (songArray === undefined) return;
+
+    songArray.push(song);
 }
 
-const createNowPlayingMessage = async function (ref, targetChannel = undefined) {
+/**
+ * Generates a now playing message
+ * @param {Queue} queue The queue to generate the message for
+ * @param targetChannel Optional parameter to specify a channel for the message
+ */
+async function createNowPlayingMessage(queue, targetChannel = undefined) {
 
-    const channel = targetChannel == undefined ? ref.channel : targetChannel;
+    const channel = targetChannel == undefined ? queue.channel : targetChannel;
 
-    let song = ref.currentSong;
+    let song = queue.currentSong;
 
-    if (ref.isCreatingNowPlaying) return undefined;
+    if (queue.isCreatingNowPlaying) return undefined;
 
-    ref.isCreatingNowPlaying = true;
+    queue.isCreatingNowPlaying = true;
 
 
     if (song == undefined) {
         // wait for half a second
         await new Promise(r => setTimeout(r, 500));
 
-        song = ref.currentSong;
+        song = queue.currentSong;
 
         if (song == undefined) {
-            ref.isCreatingNowPlaying = false;
+            queue.isCreatingNowPlaying = false;
             return;
         }
     }
 
     // remove previous NowPlaying
-    if (ref.nowPlayingMessage != undefined) {
-        ref.nowPlayingMessage.stop('EndOfLife');
-        ref.nowPlayingMessage = undefined;
+    if (queue.nowPlayingMessage != undefined) {
+        queue.nowPlayingMessage.stop('EndOfLife');
+        queue.nowPlayingMessage = undefined;
     }
 
     const Embed = new MessageEmbed();
-    Embed.setColor(perGuildData.get(ref.Id).color);
+    Embed.setColor(perGuildSettings.get(queue.Id).color);
     Embed.setTitle(`**${song.title}**`);
     Embed.setURL(`${song.uri}`);
-    Embed.setDescription(`**Volume** : **${parseInt(ref.volume * 100)}%**`);
-    Embed.setFooter(`${song.requester.displayName}`, song.requester.displayAvatarURL({ format: 'png', size: 32 }));
+    Embed.setDescription(`**Volume** : **${parseInt(queue.volume * 100)}%** | **loop mode** : **${queue.loopType}**`);
+    Embed.setFooter({ text: `${song.requester.displayName}`, iconURL: song.requester.displayAvatarURL({ format: 'png', size: 32 }) });
     const nowButtons = new MessageActionRow()
         .addComponents(
             new MessageButton()
@@ -186,8 +212,8 @@ const createNowPlayingMessage = async function (ref, targetChannel = undefined) 
                 .setLabel('Skip')
                 .setStyle('PRIMARY'),
             new MessageButton()
-                .setCustomId(ref.isPaused() ? 'resume' : 'pause')
-                .setLabel(ref.isPaused() ? 'Resume' : 'Pause')
+                .setCustomId(isPaused(queue) ? 'resume' : 'pause')
+                .setLabel(isPaused(queue) ? 'Resume' : 'Pause')
                 .setStyle(`SUCCESS`),
             new MessageButton()
                 .setCustomId('stop')
@@ -199,11 +225,11 @@ const createNowPlayingMessage = async function (ref, targetChannel = undefined) 
                 .setStyle('SECONDARY'),
         );
 
-    const message = await channel.send({ embeds: [Embed], components: [nowButtons] });
+    const message = await channel.send({ embeds: [Embed], components: [nowButtons], fetchReply: true });
     if (message) {
 
         const nowPlayingCollector = new InteractionCollector(bot, { message: message, componentType: 'BUTTON' });
-        nowPlayingCollector.queue = ref;
+        nowPlayingCollector.queue = queue;
 
 
         nowPlayingCollector.on('collect', async (button) => {
@@ -212,27 +238,28 @@ const createNowPlayingMessage = async function (ref, targetChannel = undefined) 
 
             button.cType = 'COMMAND';
 
-            button.forceChannelReply = true;
+            Object.assign(button, { forceChannelReply: true });
+
 
             switch (button.customId) {
                 case 'pause':
-                    if(commands.get('pause') !== undefined) await commands.get('pause').execute(button);
+                    if (commands.get('pause') !== undefined) await commands.get('pause').execute(button);
                     break;
 
                 case 'resume':
-                    if(commands.get('resume') !== undefined) await commands.get('resume').execute(button);
+                    if (commands.get('resume') !== undefined) await commands.get('resume').execute(button);
                     break;
 
                 case 'queue':
-                    if(commands.get('queue') !== undefined) await commands.get('queue').execute(button);
+                    if (commands.get('queue') !== undefined) await commands.get('queue').execute(button);
                     break;
 
                 case 'skip':
-                    if(commands.get('skip') !== undefined) await commands.get('skip').execute(button);
+                    if (commands.get('skip') !== undefined) await commands.get('skip').execute(button);
                     break;
 
                 case 'stop':
-                    if(commands.get('stop') !== undefined) await commands.get('stop').execute(button);
+                    if (commands.get('stop') !== undefined) await commands.get('stop').execute(button);
                     break;
             }
 
@@ -245,8 +272,8 @@ const createNowPlayingMessage = async function (ref, targetChannel = undefined) 
                         .setLabel('Skip')
                         .setStyle('PRIMARY'),
                     new MessageButton()
-                        .setCustomId(nowPlayingCollector.queue.isPaused() ? 'resume' : 'pause')
-                        .setLabel(nowPlayingCollector.queue.isPaused() ? 'Resume' : 'Pause')
+                        .setCustomId(isPaused(nowPlayingCollector.queue) ? 'resume' : 'pause')
+                        .setLabel(isPaused(nowPlayingCollector.queue) ? 'Resume' : 'Pause')
                         .setStyle(`SUCCESS`),
                     new MessageButton()
                         .setCustomId('stop')
@@ -271,8 +298,8 @@ const createNowPlayingMessage = async function (ref, targetChannel = undefined) 
                         .setStyle('PRIMARY')
                         .setDisabled(true),
                     new MessageButton()
-                        .setCustomId(nowPlayingCollector.queue.isPaused() ? 'resume' : 'pause')
-                        .setLabel(nowPlayingCollector.queue.isPaused() ? 'Resume' : 'Pause')
+                        .setCustomId(isPaused(nowPlayingCollector.queue) ? 'resume' : 'pause')
+                        .setLabel(isPaused(nowPlayingCollector.queue) ? 'Resume' : 'Pause')
                         .setStyle(`SUCCESS`)
                         .setDisabled(true),
                     new MessageButton()
@@ -292,23 +319,29 @@ const createNowPlayingMessage = async function (ref, targetChannel = undefined) 
             });
         });
 
-        ref.nowPlayingMessage = nowPlayingCollector;
+        queue.nowPlayingMessage = nowPlayingCollector;
 
     }
 
-    ref.isCreatingNowPlaying = false;
+    queue.isCreatingNowPlaying = false;
 
 }
 
-const generateQueueEmbed = function (page, ref) {
+/**
+ * Generates a current queue message
+ * @param {Queue} queue The queue to generate the message for.
+ * @param {Number} page The page to generate the embed for.
+ * @return [The Embed Created, The total number of pages]
+ */
+function generateQueueEmbed(queue, page) {
 
-    const currentQueueLenth = ref.queue.length;
+    const currentQueueLenth = queue.songs.length;
     const itemsPerPage = queueItemsPerPage;
     const prevCurrentPages = Math.ceil((currentQueueLenth / itemsPerPage))
     const currentPages = prevCurrentPages < 1 ? 1 : prevCurrentPages;
 
     const Embed = new MessageEmbed();
-    Embed.setColor(perGuildData.get(ref.Id).color);
+    Embed.setColor(perGuildSettings.get(queue.Id).color);
     Embed.setTitle(`${currentQueueLenth} in Queue`);
     Embed.setURL(process.env.WEBSITE);
 
@@ -317,35 +350,644 @@ const generateQueueEmbed = function (page, ref) {
     const startIndex = max > itemsPerPage ? (max - itemsPerPage) : 0;
 
     for (let i = startIndex; i < max; i++) {
-        let currentSong = ref.queue[i];
+        let currentSong = queue.songs[i];
 
         if (currentSong != undefined) Embed.addField(`${i}) \`${currentSong.title}\``, `**Requested by** ${currentSong.requester} \n`, false);
 
     }
 
-    Embed.setFooter(`Page ${page} of ${currentPages}`);
+    Embed.setFooter({ text: `Page ${page} of ${currentPages}` });
 
 
     return [Embed, currentPages];
 }
 
+/**
+ * Pushes voice state updates from the websocket to the music provider
+ * @param {WebsocketPayload} data The payload from the websocket
+ */
+function voiceStateUpdate(data) {
+    if (data.guild_id === this.Id && data.user_id === bot.user.id) {
+        if (data.channel_id === null && !this.isSwitchingChannels) {
+            const boundDestroy = destroyQueue.bind(this);
+            boundDestroy();
+        }
+    }
+}
+
+/**
+ * Ensures a queue is still playing incase something goes wrong
+ */
+async function ensurePlay() {
+    if (!isPlaying(queue) && !isPaused(queue) && queue.songs.length > 0) {
+        playNextSong(queue);
+    }
+}
+
+/**
+ * Handles the end of a song
+ * @param {MusicProviderPayload} data The payload from the music provider.
+ */
+
+function onSongEnd(data) {
+    if (data.reason === "REPLACED") return; // Ignore REPLACED reason to prevent skip loops
+
+    this.emit('state', 'Finished');
+
+    if (this.nowPlayingMessage != undefined) {
+        this.nowPlayingMessage.stop('EndOfLife');
+        this.nowPlayingMessage = undefined;
+    }
+
+    switch (this.loopType) {
+        case 'song':
+            this.songs.unshift(this.currentSong);
+            break;
+
+        case 'queue':
+            this.songs.push(this.currentSong);
+            break;
+    }
+
+    playNextSong(this);
+}
+
+/**
+ * Plays the next song in a queue
+ * @param {Queue} queue The queue specified.
+ */
+async function playNextSong(queue) {
+
+    if (queue.timeout != undefined) {
+        clearTimeout(queue.timeout);
+        queue.timeout = undefined;
+    }
+
+    if (queue.songs.length == 0) {
+        queue.timeout = setTimeout(destroyQueue.bind(queue), queueTimeout);
+        queue.isIdle = true;
+        queue.emit('state', 'Idle');
+        return;
+    }
+
+    try {
+
+        const song = queue.songs[0];
+
+        queue.currentSong = song;
+
+        if (queue.isFirstPlay) {
+            queue.player.play(song.track, { "volume": queue.volume * maxRawVolume });
+            queue.isFirstPlay = false;
+        }
+        else {
+            queue.player.play(song.track);
+        }
 
 
-class Queue extends EventEmitter {
+        createNowPlayingMessage(queue);
+
+        queue.songs.shift();
+
+        queue.emit('state', 'Playing');
+
+    } catch (error) {
+
+        log(`\x1b[31mError playing song\x1b[0m\n`, error);
+
+        queue.songs.shift();
+
+        playNextSong(queue);
+        return
+    }
+
+
+}
+
+/**
+ * Parses a command for the specified queue
+ * @param ctx The command.
+ * @param {Queue} queue The queue specified.
+ */
+module.exports.parseInput = async function (ctx, queue) {
+
+    let url = "";
+
+    if (ctx.cType != "MESSAGE") await ctx.deferReply(); // defer because queue might take a while
+
+    if (queue.player === undefined) {
+
+        queue.player = await LavaManager.join({
+            guild: ctx.member.guild.id, // Guild id
+            channel: ctx.member.voice.channel.id, // Channel id
+            node: "1", // lavalink node id, based on array of nodes
+        });
+
+        const playerEndBind = onSongEnd.bind(queue);
+        queue.player.on('end', playerEndBind);
+        queue.boundEvents.push({ owner: queue.player, event: 'end', function: playerEndBind })
+    }
+
+    // handle different command types
+    switch (ctx.cType) {
+        case 'MESSAGE':
+            url = ctx.pureContent;
+            break;
+        case 'COMMAND':
+            url = ctx.options.getString('url');
+            break;
+        case 'CONTEXT_MENU':
+            const contextMessage = ctx.options.getMessage('message');
+            if (contextMessage.embeds[0] !== undefined) {
+                url = contextMessage.embeds[0].url;
+            }
+            else if (contextMessage.content !== '') {
+                const contentLow = contextMessage.content.toLowerCase();
+                url = contextMessage.content;
+            }
+            break;
+    }
+
+
+    if (url.length == 0) return await reply(ctx, 'What even is that ?');
+
+
+    let newSongs = [];
+
+
+    const check = checkUrl(url);
+
+    // Fetch song data
+    try {
+        // Simple yt video shit
+        if (check.type === "search") // handle just a regular search term
+        {
+            const song = await getSong(url, ctx.member, false);
+
+            if (song) newSongs.push(song);
+        }
+        else if (check.type == 'spotify-track') {
+            const spotifyData = await fetchSpotifyTrack(check)
+
+            const song = await convertSpotifyToSong(ctx, spotifyData, newSongs);
+        }
+        else if (check.type == 'spotify-album') {
+            const tracks = await fetchSpotifyAlbumTracks(check);
+
+            const promisesToAwait = [];
+
+            tracks.forEach(data => {
+                promisesToAwait.push(convertSpotifyToSong(ctx, data, newSongs));
+            });
+
+            await Promise.all(promisesToAwait);
+
+        }
+        else if (check.type == 'spotify-playlist') {
+            const tracks = await fetchSpotifyPlaylistTracks(check);
+
+            const promisesToAwait = [];
+
+            tracks.forEach(data => {
+                promisesToAwait.push(convertSpotifyToSong(ctx, data.track, newSongs));
+            });
+
+            await Promise.all(promisesToAwait);
+        }
+    }
+    catch (error) {
+        log(`\x1b[31mError fetching song for url "${url}"\x1b[0m\n`, error);
+
+    }
+
+    queue.songs.push.apply(queue.songs, newSongs);
+
+
+    if (queue.isIdle) {
+        queue.isIdle = false;
+
+        playNextSong(queue);
+
+        if (newSongs[0] == undefined) return await reply(ctx, "The music could not be loaded");
+
+
+        if (ctx.cType !== "MESSAGE") await reply(ctx, "Playing");
+
+    }
+    else {
+        const Embed = new MessageEmbed();
+
+        Embed.setColor(perGuildSettings.get(queue.Id).color);
+        Embed.setFooter({ text: `Added to the Queue`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
+
+        if (newSongs.length > 1) {
+            Embed.setTitle(`${newSongs.length} Songs`);
+            Embed.setURL(`${url}`);
+        }
+        else {
+            if (newSongs[0] == undefined) return await reply(ctx, "The music could not be loaded");
+
+            Embed.setTitle(`${newSongs[0].title}`);
+            Embed.setURL(`${newSongs[0].uri}`)
+
+        }
+
+        await reply(ctx, { embeds: [Embed] })
+    }
+
+
+}
+
+/**
+ * Pauses a song
+ * @param ctx The command.
+ * @param {Queue} queue The queue specified.
+ */
+module.exports.pauseSong = async function (ctx, queue) {
+    if (isPlaying(queue) && !isPaused(queue)) {
+        queue.emit('state', 'Paused');
+
+        await queue.player.pause(true);
+
+        const Embed = new MessageEmbed();
+        Embed.setColor(perGuildSettings.get(queue.Id).color);
+        Embed.setURL(process.env.WEBSITE);
+        Embed.setFooter({ text: `${ctx.member.displayName} paused the music`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
+
+        await reply(ctx, { embeds: [Embed] })
+    }
+}
+
+/**
+ * Resumes a song
+ * @param ctx The command.
+ * @param {Queue} queue The queue specified.
+ */
+module.exports.resumeSong = async function (ctx, queue) {
+    if (isPaused(queue)) {
+        queue.emit('state', 'Resumed');
+
+        await queue.player.pause(false);
+
+        const Embed = new MessageEmbed();
+        Embed.setColor(perGuildSettings.get(queue.Id).color);
+        Embed.setURL(process.env.WEBSITE);
+        Embed.setFooter({ text: `${ctx.member.displayName} Un-Paused the music`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
+
+        await reply(ctx, { embeds: [Embed] })
+    }
+}
+
+/**
+ * Removes a song from the specified queue
+ * @param ctx The command.
+ * @param {Queue} queue The queue specified.
+ */
+module.exports.removeSong = async function (ctx, queue) {
+
+}
+
+/**
+ * Displays the "NowPlaying" Message
+ * @param ctx The command.
+ * @param {Queue} queue The queue specified.
+ */
+module.exports.showNowPlaying = async function (ctx, queue) {
+
+    if (isPlaying(queue)) {
+        if (queue.nowPlayingMessage != undefined) {
+            queue.nowPlayingMessage.stop('EndOfLife');
+            queue.nowPlayingMessage = undefined;
+        }
+        await createNowPlayingMessage(queue, ctx.channel);
+    }
+}
+
+/**
+ * Sets the looping state of the queue
+ * @param ctx The command.
+ * @param {Queue} queue The queue specified.
+ */
+module.exports.setLooping = async function (ctx, queue) {
+
+    if (ctx.cType === 'MESSAGE' && ctx.args[0] === undefined) return await reply(ctx, commands.get('loop').description);
+
+    const Embed = new MessageEmbed();
+
+    Embed.setColor(perGuildSettings.get(queue.Id).color);
+
+    Embed.setURL(process.env.WEBSITE);
+    Embed.setFooter({ text: `${ctx.member.displayName}`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
+
+    const option = ctx.cType === 'COMMAND' ? ctx.options.getString('state') : ctx.args[0];
+
+    if (option.toLowerCase() === 'off') {
+
+        queue.loopType = 'off';
+        Embed.setFooter({ text: `Looping Off`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
+    } else if (option.toLowerCase() === 'song') {
+
+        queue.loopType = 'song';
+        Embed.setFooter({ text: `Looping Current Song`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
+    } else if (option.toLowerCase() === 'queue') {
+
+        queue.loopType = 'queue';
+        Embed.setFooter({ text: `Looping Queue`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
+    } else {
+        await commands.get('help').execute(ctx,'loop');
+        return
+    }
+
+    await reply(ctx, { embeds: [Embed] })
+
+}
+
+/**
+ * Displays the current song list
+ * @param ctx The command.
+ * @param {Queue} queue The queue specified.
+ */
+module.exports.showQueue = async function (ctx, queue) {
+
+    if (queue.songs.length > queueItemsPerPage) {
+        const showQueueButtons = new MessageActionRow()
+            .addComponents(
+                new MessageButton()
+                    .setCustomId('previous')
+                    .setStyle('PRIMARY')
+                    .setEmoji(leftArrowEmoji)
+                    .setDisabled(true),
+                new MessageButton()
+                    .setCustomId('next')
+                    .setEmoji(rightArrowEmoji)
+                    .setStyle(`PRIMARY`),
+            );
+
+        const message = await reply(ctx, { embeds: [generateQueueEmbed(queue, 1)[0]], components: [showQueueButtons], fetchReply: true });
+        if (message) {
+
+            const queueCollector = new InteractionCollector(bot, { message: message, componentType: 'BUTTON', idle: 7000 });
+            queueCollector.resetTimer({ time: 7000 });
+            queueCollector.currentPage = 1;
+            queueCollector.queue = queue;
+            queueCollector.owner = (ctx.author !== null && ctx.author !== undefined) ? ctx.author.id : ctx.user.id;
+
+            queueCollector.on('collect', async (button) => {
+
+                if (button.user.id !== queueCollector.owner) {
+                    return await reply(button, { content: "why must thou choose violence ?", ephemeral: true });
+                }
+
+                await button.deferUpdate();
+
+                const newButtons = new MessageActionRow()
+                    .addComponents(
+                        new MessageButton()
+                            .setCustomId('previous')
+                            .setEmoji(leftArrowEmoji)
+                            .setStyle('PRIMARY'),
+                        new MessageButton()
+                            .setCustomId('next')
+                            .setEmoji(rightArrowEmoji)
+                            .setStyle(`PRIMARY`),
+                    );
+
+
+                if (button.customId == 'previous') {
+                    queueCollector.currentPage--;
+                }
+
+                if (button.customId == 'next') {
+                    queueCollector.currentPage++;
+                }
+
+                const generatedData = generateQueueEmbed(queueCollector.queue, queueCollector.currentPage);
+
+                const newEmbed = generatedData[0];
+
+                if (queueCollector.currentPage == 1) newButtons.components[0].setDisabled(true);
+                if (queueCollector.currentPage == generatedData[1]) newButtons.components[1].setDisabled(true);
+
+                queueCollector.resetTimer({ time: 7000 });
+
+                await button.editReply({ embeds: [newEmbed], components: [newButtons] });
+            });
+
+            queueCollector.on('end', (collected, reason) => {
+
+                const newButtons = new MessageActionRow()
+                    .addComponents(
+                        new MessageButton()
+                            .setCustomId('previous')
+                            .setEmoji(leftArrowEmoji)
+                            .setStyle('PRIMARY')
+                            .setDisabled(true),
+                        new MessageButton()
+                            .setCustomId('next')
+                            .setEmoji(rightArrowEmoji)
+                            .setStyle(`PRIMARY`)
+                            .setDisabled(true),
+                    );
+
+                queueCollector.options.message.fetch().then((message) => {
+                    if (message) message.edit({ embeds: [message.embeds[0]], components: [newButtons] });
+                });
+            });
+
+        }
+        else {
+
+            await reply(ctx, { embeds: [generateQueueEmbed(queue, 1)[0]] });
+        }
+
+
+    }
+    else {
+        await reply(ctx, { embeds: [generateQueueEmbed(queue, 1)[0]] });
+    }
+
+}
+
+/**
+ * Saves the song list of the queue to the Database
+ * @param ctx The command.
+ * @param {Queue} queue The queue specified.
+ */
+module.exports.saveQueue = async function (ctx, queue) {
+
+}
+
+/**
+ * loads the song list into the specified queue or into a new queue
+ * @param ctx The command.
+ * @param {Queue} queue The queue specified.
+ */
+module.exports.loadQueue = async function (ctx, queue) {
+}
+
+/**
+ * Sets the volume of the specified queue
+ * @param ctx The command.
+ * @param {Queue} queue The queue specified.
+ */
+module.exports.setVolume = async function (ctx, queue) {
+    if (ctx.args[0] == undefined) return await reply(ctx, 'IDK what song you wanna set the volume to.');
+
+
+    const volume = parseInt(ctx.args[0]);
+
+    if (volume !== volume) {
+        await reply(ctx, 'Bruh is that even a number ?.');
+        return;
+    }
+
+    if (volume < 1 || volume > 100) {
+        await reply(ctx, 'Please use a value between 1 and 100.');
+        return;
+    }
+
+    queue.volume = (volume / 100);
+
+    queue.player.volume(queue.volume * maxRawVolume);
+
+
+    const Embed = new MessageEmbed();
+    Embed.setColor(perGuildSettings.get(queue.Id).color);
+    Embed.setURL(process.env.WEBSITE);
+    Embed.setFooter({ text: `${ctx.member.displayName} Changed the volume to ${parseInt(queue.volume * 100)}`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
+
+    await reply(ctx, { embeds: [Embed] })
+}
+
+/**
+ * Skips the current song in the specified queue
+ * @param ctx The command.
+ * @param {Queue} queue The queue specified.
+ */
+module.exports.skipSong = async function (ctx, queue) {
+
+    if (queue.songs.length != 0 || (isPlaying(queue) && queue.loopType !== 'off')) {
+
+        const Embed = new MessageEmbed();
+        Embed.setColor(perGuildSettings.get(queue.Id).color);
+        Embed.setURL(process.env.WEBSITE);
+        Embed.setFooter({ text: `${ctx.member.displayName} Skipped the song`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
+
+        await queue.player.stop();
+
+
+        await reply(ctx, { embeds: [Embed] });
+
+
+    }
+    else {
+
+        if (isPlaying(queue)) {
+            return await queue.stop(ctx);
+        }
+
+        const Embed = new MessageEmbed();
+        Embed.setColor(perGuildSettings.get(queue.Id).color);
+        Embed.setURL(process.env.WEBSITE);
+        Embed.setFooter({ text: `The Queue is empty`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
+
+        await reply(ctx, { embeds: [Embed] });
+    }
+
+}
+
+/**
+ * Stops the specified queue and disconnects the bot from the voice channel
+ * @param ctx The command.
+ * @param {Queue} queue The queue specified.
+ */
+module.exports.stop = async function (ctx, queue) {
+
+    const Embed = new MessageEmbed();
+    Embed.setColor(perGuildSettings.get(queue.Id).color);
+    Embed.setURL(process.env.WEBSITE);
+    Embed.setFooter({ text: `${ctx.member.displayName} Disconnected Me`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
+
+
+    await reply(ctx, { embeds: [Embed] });
+
+    const boundDestroy = destroyQueue.bind(queue);
+
+    boundDestroy();
+}
+
+/**
+ * Checks if the queue specified is currently active (i.e. playing or paused)
+ * @param {Queue} queue The queue specified.
+ * @returns boolean
+ */
+function isPlaying(queue) {
+    return queue.player.playing || queue.player.paused;
+}
+
+/**
+ * Checks if the queue specified is paused
+ * @param {Queue} queue The queue specified.
+ * @returns boolean
+ */
+function isPaused(queue) {
+    return queue.player.paused;
+}
+
+/**
+ * Destroys the queue the function is bound to
+ */
+async function destroyQueue() {
+
+    if (this.isDisconnecting) return
+
+    this.isDisconnecting = true;
+
+    if (this.nowPlayingMessage != undefined) {
+        this.nowPlayingMessage.stop('EndOfLife');
+        this.nowPlayingMessage = undefined;
+    }
+
+    if (this.timeout != undefined) {
+        clearTimeout(this.timeout);
+        this.timeout = undefined;
+    }
+
+    this.queue = [];
+    this.loopType = 'off';
+
+    this.boundEvents.forEach(function (boundEvent) {
+
+        if (boundEvent.owner && boundEvent.function) {
+            boundEvent.owner.removeListener(boundEvent.event, boundEvent.function);
+        }
+    })
+
+    this.emit('state', 'Destroyed');
+
+    LavaManager.leave(this.Id);
+
+    queues.delete(this.Id);
+}
+
+
+/**
+ * @Class A Wrapper class for song queues 
+ */
+module.exports.Queue = class Queue extends EventEmitter {
 
     constructor(ctx) {
         super();
 
         if (ctx === undefined) return;
 
-        this.voiceStateUpdateBind = this.voiceStateUpdate.bind(this);
-        this.songEndBind = this.songEnd.bind(this);
+        this.boundEvents = [];
 
         if (ctx.__proto__.constructor.name === 'Queue') {
-            
+
             const properties = Object.getOwnPropertyNames(ctx);
 
-            const propertiesToCopyIfFound = ['Id', 'channel', 'voiceChannel', 'player', 'queue', 'nowPlayingMessage', 'currentSong', 'volume', 'isIdle', 'isLooping', 'isCreatingNowPlaying', 'isFirstPlay', 'isSwitchingChannels', 'isDisconnecting']
+            const propertiesToCopyIfFound = ['Id', 'channel', 'voiceChannel', 'player', 'songs', 'nowPlayingMessage', 'currentSong', 'volume', 'isIdle', 'loopType', 'isCreatingNowPlaying', 'isFirstPlay', 'isSwitchingChannels', 'isDisconnecting']
 
             const currentQueue = this;
 
@@ -354,13 +996,13 @@ class Queue extends EventEmitter {
                 if (properties.includes(property)) {
 
                     currentQueue[property] = ctx[property];
-                    
                 }
             });
 
             if (this.player !== undefined) {
-
-                this.player.on("end", this.songEndBind);
+                const playerEndBind = onSongEnd.bind(this);
+                this.player.on('end', playerEndBind);
+                this.boundEvents.push({ owner: this.player, event: 'end', function: playerEndBind })
             }
 
 
@@ -373,12 +1015,12 @@ class Queue extends EventEmitter {
 
 
         if (this.player === undefined) this.player = undefined;
-        if (this.queue === undefined) this.queue = []
+        if (this.songs === undefined) this.songs = []
         if (this.nowPlayingMessage === undefined) this.nowPlayingMessage = undefined;
         if (this.currentSong === undefined) this.currentSong = undefined
         if (this.volume === undefined) this.volume = defaultVolumeMultiplier;
         if (this.isIdle === undefined) this.isIdle = true;
-        if (this.isLooping === undefined) this.isLooping = false;
+        if (this.loopType === undefined) this.loopType = false;
         if (this.isCreatingNowPlaying === undefined) this.isCreatingNowPlaying = false;
         if (this.isFirstPlay === undefined) this.isFirstPlay = true;
         if (this.isSwitchingChannels === undefined) this.isSwitchingChannels = false;
@@ -386,517 +1028,34 @@ class Queue extends EventEmitter {
         this.ensurePlayTimeout = undefined;
 
 
-        this.timeout = setTimeout(this.destroyQueue, queueTimeout, this);
-        bot.ws.on("VOICE_STATE_UPDATE", this.voiceStateUpdateBind);
+
+
+        this.timeout = setTimeout(destroyQueue.bind(this), queueTimeout);
+
+        const voiceStateUpdateBind = voiceStateUpdate.bind(this);
+        bot.ws.on('VOICE_STATE_UPDATE', voiceStateUpdateBind);
+
+        this.boundEvents.push({ owner: bot.ws, event: 'VOICE_STATE_UPDATE', function: voiceStateUpdateBind })
 
     }
-
-    voiceStateUpdate(data) {
-        if (data.guild_id === this.Id && data.user_id === bot.user.id) {
-            if (data.channel_id === null && !this.isSwitchingChannels) {
-                this.destroyQueue(this);
-            }
-        }
-    }
-
-    async ensurePlay(ref) {
-        if (!ref.isPlaying() && !ref.isPaused() && ref.queue.length > 0) {
-            ref.playNextSong();
-        }
-    }
-
-    async songEnd(data) {
-        if (data.reason === "REPLACED") return; // Ignore REPLACED reason to prevent skip loops
-
-        this.emit('state', 'Finished');
-
-        if (this.nowPlayingMessage != undefined) {
-            this.nowPlayingMessage.stop('EndOfLife');
-            this.nowPlayingMessage = undefined;
-        }
-
-        if (this.isLooping) {
-            this.queue.push(this.currentSong);
-        }
-
-        this.playNextSong();
-    }
-
-    async playNextSong() {
-
-        if (this.timeout != undefined) {
-            clearTimeout(this.timeout);
-            this.timeout = undefined;
-        }
-
-        if (this.queue.length == 0) {
-            this.timeout = setTimeout(this.destroyQueue, queueTimeout, this);
-            this.isIdle = true;
-            this.emit('state', 'Idle');
-            return;
-        }
-
-        try {
-
-            const song = this.queue[0];
-
-            this.currentSong = song;
-
-            if (this.isFirstPlay) {
-                this.player.play(song.track, { "volume": this.volume * maxRawVolume });
-                this.isFirstPlay = false;
-            }
-            else {
-                this.player.play(song.track);
-            }
-
-
-            createNowPlayingMessage(this);
-
-            this.queue.shift();
-
-            this.emit('state', 'Playing');
-
-        } catch (error) {
-
-            logError(`Error playing song `,error);
-
-            this.queue.shift();
-
-            this.playNextSong();
-
-            return
-        }
-
-
-    }
-
-    async parseInput(ctx) {
-
-        let url = "";
-
-        if (ctx.cType != "MESSAGE") await ctx.deferReply(); // defer because this might take a while
-
-        if (this.player === undefined) {
-
-            this.player = await LavaManager.join({
-                guild: ctx.member.guild.id, // Guild id
-                channel: ctx.member.voice.channel.id, // Channel id
-                node: "1", // lavalink node id, based on array of nodes
-            });
-
-            this.player.on("end", this.songEndBind);
-        }
-
-        // handle different command types
-        switch (ctx.cType) {
-            case 'MESSAGE':
-                url = ctx.pureContent;
-                break;
-            case 'COMMAND':
-                url = ctx.options.getString('url');
-                break;
-            case 'CONTEXT_MENU':
-                const contextMessage = ctx.options.getMessage('message');
-                if (contextMessage.embeds[0] !== undefined) {
-                    url = contextMessage.embeds[0].url;
-                }
-                else if (contextMessage.content !== '') {
-                    const contentLow = contextMessage.content.toLowerCase();
-                    url = contextMessage.content;
-                }
-                break;
-        }
-
-
-        if (url.length == 0) return reply(ctx, 'What even is that ?');
-
-
-        let newSongs = [];
-
-
-        const check = checkLink(url);
-
-        // Fetch song data
-        try {
-            // Simple yt video shit
-            if (check.type === "search") // handle just a regular search term
-            {
-                const song = await getSong(url, ctx.member, false);
-
-                if (song) newSongs.push(song);
-            }
-            else if (check.type == 'spotify-track') {
-                const spotifyData = await fetchSpotifyTrack(check)
-
-                const song = await convertSpotifyToSong(ctx, spotifyData, newSongs);
-            }
-            else if (check.type == 'spotify-album') {
-                const tracks = await fetchSpotifyAlbumTracks(check);
-
-                const promisesToAwait = [];
-
-                tracks.forEach(data => {
-                    promisesToAwait.push(convertSpotifyToSong(ctx, data, newSongs));
-                });
-
-                await Promise.all(promisesToAwait);
-
-            }
-            else if (check.type == 'spotify-playlist') {
-                const tracks = await fetchSpotifyPlaylistTracks(check);
-
-                const promisesToAwait = [];
-
-                tracks.forEach(data => {
-                    promisesToAwait.push(convertSpotifyToSong(ctx, data.track, newSongs));
-                });
-
-                await Promise.all(promisesToAwait);
-            }
-        } 
-        catch (error) {
-            logError(`Error fetching song for url "${url}"`,error);
-
-            }
-
-        this.queue.push.apply(this.queue, newSongs);
-
-
-        if (this.isIdle) {
-            this.isIdle = false;
-
-            this.playNextSong();
-
-            if (newSongs[0] == undefined) return reply(ctx, "The music could not be loaded");
-
-
-            if (ctx.cType !== "MESSAGE") reply(ctx, "Playing");
-
-        }
-        else {
-            const Embed = new MessageEmbed();
-
-            Embed.setColor(perGuildData.get(this.Id).color);
-            Embed.setFooter(`Added to the Queue`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
-
-            if (newSongs.length > 1) {
-                Embed.setTitle(`${newSongs.length} Songs`);
-                Embed.setURL(`${url}`);
-            }
-            else {
-                if (newSongs[0] == undefined) return reply(ctx, "The music could not be loaded");
-
-                Embed.setTitle(`${newSongs[0].title}`);
-                Embed.setURL(`${newSongs[0].uri}`)
-
-            }
-
-            reply(ctx, { embeds: [Embed] })
-        }
-
-
-    }
-
-    async pauseSong(ctx) {
-        if (this.isPlaying() && !this.isPaused()) {
-            this.emit('state', 'Paused');
-
-            await this.player.pause(true);
-
-            const Embed = new MessageEmbed();
-            Embed.setColor(perGuildData.get(this.Id).color);
-            Embed.setURL(process.env.WEBSITE);
-            Embed.setFooter(`${ctx.member.displayName} paused the music`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
-
-            reply(ctx, { embeds: [Embed] })
-        }
-    }
-
-    async resumeSong(ctx) {
-
-        if (this.isPaused()) {
-            this.emit('state', 'Resumed');
-
-            await this.player.pause(false);
-
-            const Embed = new MessageEmbed();
-            Embed.setColor(perGuildData.get(this.Id).color);
-            Embed.setURL(process.env.WEBSITE);
-            Embed.setFooter(`${ctx.member.displayName} Un-Paused the music`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
-
-            reply(ctx, { embeds: [Embed] })
-        }
-
-
-    }
-
-    async removeSong(ctx) {
-
-    }
-
-    async showNowPlaying(ctx) {
-
-        if (this.isPlaying()) {
-            if (this.nowPlayingMessage != undefined) {
-                this.nowPlayingMessage.stop('EndOfLife');
-                this.nowPlayingMessage = undefined;
-            }
-
-            await createNowPlayingMessage(this, ctx.channel);
-        }
-    }
-
-    async setLooping(ctx) {
-
-
-        if (ctx.args[0] == undefined) return reply(ctx, 'Please use either `loop on` or `loop off`');
-
-        const Embed = new MessageEmbed();
-        Embed.setColor(perGuildData.get(this.Id).color);
-
-        Embed.setURL(process.env.WEBSITE);
-        Embed.setFooter(`${ctx.member.displayName}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
-
-
-
-        if (ctx.args[0].toLowerCase() == 'on') {
-            this.isLooping = true;
-            Embed.setFooter(`Looping On`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
-        } else if (ctx.args[0].toLowerCase() == 'off') {
-            this.isLooping = false;
-            Embed.setFooter(`Looping Off`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
-        } else {
-            reply(ctx, 'Please use either `loop on` or `loop true`');
-            return
-        }
-
-        reply(ctx, { embeds: [Embed] })
-
-    }
-
-    async showQueue(ctx) {
-
-        if (this.queue.length > queueItemsPerPage) {
-            const showQueueButtons = new MessageActionRow()
-                .addComponents(
-                    new MessageButton()
-                        .setCustomId('previous')
-                        .setStyle('PRIMARY')
-                        .setEmoji(leftArrowEmoji)
-                        .setDisabled(true),
-                    new MessageButton()
-                        .setCustomId('next')
-                        .setEmoji(rightArrowEmoji)
-                        .setStyle(`PRIMARY`),
-                );
-
-            const message = await reply(ctx, { embeds: [generateQueueEmbed(1, this)[0]], components: [showQueueButtons] });
-            if (message) {
-
-                const queueCollector = new InteractionCollector(bot, { message: message, componentType: 'BUTTON', idle: 7000 });
-                queueCollector.resetTimer({ time: 7000 });
-                queueCollector.currentPage = 1;
-                queueCollector.queue = this;
-                queueCollector.owner = (ctx.author !== null && ctx.author !== undefined) ? ctx.author.id : ctx.user.id;
-
-                queueCollector.on('collect', async (button) => {
-
-                    if (button.user.id !== queueCollector.owner) {
-                        return reply(button, { ephemeral: true, content: "why must thou choose violence ?" });
-                    }
-
-                    await button.deferUpdate();
-
-                    const newButtons = new MessageActionRow()
-                        .addComponents(
-                            new MessageButton()
-                                .setCustomId('previous')
-                                .setEmoji(leftArrowEmoji)
-                                .setStyle('PRIMARY'),
-                            new MessageButton()
-                                .setCustomId('next')
-                                .setEmoji(rightArrowEmoji)
-                                .setStyle(`PRIMARY`),
-                        );
-
-
-                    if (button.customId == 'previous') {
-                        queueCollector.currentPage--;
-                    }
-
-                    if (button.customId == 'next') {
-                        queueCollector.currentPage++;
-                    }
-
-                    const generatedData = generateQueueEmbed(queueCollector.currentPage, queueCollector.queue);
-
-                    const newEmbed = generatedData[0];
-
-                    if (queueCollector.currentPage == 1) newButtons.components[0].setDisabled(true);
-                    if (queueCollector.currentPage == generatedData[1]) newButtons.components[1].setDisabled(true);
-
-                    queueCollector.resetTimer({ time: 7000 });
-
-                    await button.editReply({ embeds: [newEmbed], components: [newButtons] });
-                });
-
-                queueCollector.on('end', (collected, reason) => {
-
-                    const newButtons = new MessageActionRow()
-                        .addComponents(
-                            new MessageButton()
-                                .setCustomId('previous')
-                                .setEmoji(leftArrowEmoji)
-                                .setStyle('PRIMARY')
-                                .setDisabled(true),
-                            new MessageButton()
-                                .setCustomId('next')
-                                .setEmoji(rightArrowEmoji)
-                                .setStyle(`PRIMARY`)
-                                .setDisabled(true),
-                        );
-
-                    queueCollector.options.message.fetch().then((message) => {
-                        if (message) message.edit({ embeds: [message.embeds[0]], components: [newButtons] });
-                    });
-                });
-
-            }
-            else {
-
-                reply(ctx, { embeds: [generateQueueEmbed(1, this)[0]] });
-            }
-
-
-        }
-        else {
-            reply(ctx, { embeds: [generateQueueEmbed(1, this)[0]] });
-        }
-
-    }
-
-    async saveQueue(ctx) {
-
-    }
-
-    async loadQueue(ctx) {
-    }
-
-    async setVolume(ctx) {
-        if (ctx.args[0] == undefined) return reply(ctx, 'IDK what song you wanna set the volume to');
-
-
-        const volume = parseInt(ctx.args[0]);
-
-        if (volume !== volume) {
-            reply(ctx, 'Bruh is that even a number ?');
-            return;
-        }
-
-        if (volume < 1 || volume > 100) {
-            reply(ctx, 'Please use a value between 1 and 100');
-            return;
-        }
-
-        this.volume = (volume / 100);
-
-        this.player.volume(this.volume * maxRawVolume);
-
-
-        const Embed = new MessageEmbed();
-        Embed.setColor(perGuildData.get(this.Id).color);
-        Embed.setURL(process.env.WEBSITE);
-        Embed.setFooter(`${ctx.member.displayName} Changed the volume to ${parseInt(this.volume * 100)}`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
-
-        reply(ctx, { embeds: [Embed] })
-    }
-
-    async skipSong(ctx) {
-        if (this.queue.length != 0 || (this.isPlaying && this.isLooping === true)) {
-
-            const Embed = new MessageEmbed();
-            Embed.setColor(perGuildData.get(this.Id).color);
-            Embed.setURL(process.env.WEBSITE);
-            Embed.setFooter(`${ctx.member.displayName} Skipped the song`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
-
-            await this.player.stop();
-
-
-            reply(ctx, { embeds: [Embed] });
-
-
-        }
-        else {
-
-            if(this.isPlaying)
-            {
-                return await this.stop(ctx);
-            }
-
-            const Embed = new MessageEmbed();
-            Embed.setColor(perGuildData.get(this.Id).color);
-            Embed.setURL(process.env.WEBSITE);
-            Embed.setFooter(`The Queue is empty`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
-
-            reply(ctx, { embeds: [Embed] });
-        }
-
-
-    }
-
-    async stop(ctx) {
-
-        const Embed = new MessageEmbed();
-        Embed.setColor(perGuildData.get(this.Id).color);
-        Embed.setURL(process.env.WEBSITE);
-        Embed.setFooter(`${ctx.member.displayName} Disconnected Me`, ctx.member.displayAvatarURL({ format: 'png', size: 32 }));
-
-
-        reply(ctx, { embeds: [Embed] })
-
-        this.destroyQueue(this);
-    }
-
-    isPlaying() {
-        return this.player.playing || this.player.paused;
-    }
-
-    isPaused() {
-        return this.player.paused;
-    }
-
-    async destroyQueue(ref) {
-
-        if (ref.isDisconnecting) return
-
-        ref.isDisconnecting = true;
-
-        if (ref.nowPlayingMessage != undefined) {
-            ref.nowPlayingMessage.stop('EndOfLife');
-            ref.nowPlayingMessage = undefined;
-        }
-
-        if (ref.timeout != undefined) {
-            clearTimeout(ref.timeout);
-            ref.timeout = undefined;
-        }
-
-        ref.queue = [];
-        ref.isLooping = false;
-
-        ref.emit('state', 'Destroyed');
-
-        LavaManager.leave(ref.Id);
-
-        queues.delete(ref.Id);
-    }
-
 }
 
-module.exports.Queue = Queue;
+/**
+ * Creates a new queue.
+ * @param ctx The context of the command
+ * @returns A new queue.
+ */
+module.exports.createQueue = function (ctx) {
+    const newQueue = new module.exports.Queue(ctx);
 
-console.log('\x1b[32mMusic Module loaded\x1b[0m');
+    queues.set(ctx.member.guild.id, newQueue);
+
+    return newQueue;
+}
+
+
+
+
 
 if (modulesLastReloadTime.music !== undefined) {
 
@@ -907,13 +1066,14 @@ if (modulesLastReloadTime.music !== undefined) {
 
             const oldQueue = queue;
 
-            const newQueue = new Queue(oldQueue);
+            const newQueue = new module.exports.Queue(oldQueue);
 
-            bot.ws.removeListener("VOICE_STATE_UPDATE", oldQueue.voiceStateUpdateBind);
+            oldQueue.boundEvents.forEach(function (boundEvent) {
 
-            oldQueue.player.removeListener("end", oldQueue.songEndBind);
-
-
+                if (boundEvent.owner && boundEvent.function) {
+                    boundEvent.owner.removeListener(boundEvent.event, boundEvent.function);
+                }
+            })
 
             if (oldQueue.timeout != undefined) {
                 clearTimeout(oldQueue.timeout);
@@ -924,11 +1084,21 @@ if (modulesLastReloadTime.music !== undefined) {
 
             queues.set(key, newQueue);
 
-        })
+        });
+
+
     } catch (error) {
-        logError(`Error transfering old queue data`,error);
+        log(`\x1b[31mError transfering old queue data\x1b[0m\n`, error);
     }
 
+
+    log('\x1b[32mMusic Module Reloaded\x1b[0m');
+}
+else {
+    log('\x1b[32mMusic Module loaded\x1b[0m');
 }
 
-modulesLastReloadTime.music = bot.uptime;
+if (bot) {
+    modulesLastReloadTime.music = bot.uptime;
+}
+

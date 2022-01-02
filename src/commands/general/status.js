@@ -1,7 +1,7 @@
 const { MessageEmbed } = require('discord.js');
 
-const { sync, perGuildData, bot } = require(`${process.cwd()}/passthrough.js`);
-const { reply } = sync.require(`${process.cwd()}/utils.js`);
+const { sync, perGuildSettings, bot } = require(`${process.cwd()}/passthrough.js`);
+
 const {version, defaultPrimaryColor} = sync.require(`${process.cwd()}/config.json`);
 
 const osu = require('node-os-utils');
@@ -9,13 +9,14 @@ const osu = require('node-os-utils');
 module.exports = {
     name: 'status',
     category: 'General',
-    description: 'get the bot status',
+    description: 'Get the bot status',
     ContextMenu: {},
+    syntax : '{prefix}{name}',
     options: [],
     async execute(ctx) {
         
             const Embed = new MessageEmbed();
-            Embed.setColor((ctx.member !== null) ? perGuildData.get(ctx.member.guild.id).color : defaultPrimaryColor);
+            Embed.setColor((ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).color : defaultPrimaryColor);
             Embed.setTitle('Status');
             Embed.setURL(process.env.WEBSITE);
 
