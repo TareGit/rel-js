@@ -1,16 +1,60 @@
 // handle replies
-
-const { tracker } = require("cassandra-driver");
 const axios = require('axios');
-const { sync, commandsPaths, commands } = require("./passthrough");
+const { bot, commandsPaths, commands, modulesLastReloadTime } = require("./passthrough");
 const { response } = require("express");
 
-function logError(message,error) {
-    console.error(`\x1b[31m${message}\x1b[0m`);
-    console.log(error);
+function randomFloatInRange(min, max) {
+    return Math.random() * (max - min) + min;
+}
+
+function randomIntegerInRange(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1) + min); //The maximum is inclusive and the minimum is inclusive
+}
+
+function getXpForNextLevel(currentLevel) {
+    return (currentLevel ** 2) * 3 + 100;
+}
+
+function getTotalXp(currentLevel) {
+    return (0.5 * (currentLevel + 1)) * ((currentLevel ** 2) * 2 + currentLevel + 200);
+}
+
+function time(sep = '') {
+
+    const currentDate = new Date();
+
+    if (sep === '') {
+        return currentDate.toUTCString();
+    }
+
+    const date = ("0" + currentDate.getUTCDate()).slice(-2);
+
+    const month = ("0" + (currentDate.getUTCMonth() + 1)).slice(-2);
+
+    const year = currentDate.getUTCFullYear();
+
+    const hours = ("0" + (currentDate.getUTCHours())).slice(-2);
+
+    const minutes = ("0" + (currentDate.getUTCMinutes())).slice(-2);
+
+    const seconds = ("0" + currentDate.getUTCSeconds()).slice(-2);
+
+    return `${year}${sep}${month}${sep}${date}${sep}${hours}${sep}${minutes}${sep}${seconds}`;
+}
+
+function log(data) {
+
+    const argumentValues = Object.values(arguments);
+
+    argumentValues.unshift(`${time(':')} ::`);
+
+    console.log.apply(null, argumentValues);
 }
 
 const reply = async function (ctx, reply) {
+
 
     try {
         if (ctx.cType === 'MESSAGE') {
@@ -34,7 +78,7 @@ const reply = async function (ctx, reply) {
             }
         }
     } catch (error) {
-        logError(`Error sending message`, error);
+        log(`\x1b[31mError sending message\x1b[0m\n`, error);
     }
 
 }
@@ -46,7 +90,7 @@ const addNewCommand = async function (path) {
     try {
 
 
-        const command = sync.require(`./${path}`);
+        const command = require(`./${path}`);
 
         const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);// remove .js
 
@@ -56,7 +100,7 @@ const addNewCommand = async function (path) {
             commands.set(command.ContextMenu.name, command);
         }
 
-        console.log('Loaded command ' + fileName);
+        log(`Loaded command ${fileName}`);
 
         if (commandsPaths.get(command.category) === undefined) {
 
@@ -68,7 +112,7 @@ const addNewCommand = async function (path) {
     } catch (error) {
         const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
 
-        logError(`Error loading ${fileName}`, error);
+        log(`\x1b[31mError loading ${fileName}\x1b[0m\n`, error);
     }
 }
 
@@ -91,11 +135,44 @@ const reloadCommand = async function (path) {
             commands.set(command.ContextMenu.name, command);
         }
 
+
+
     } catch (error) {
 
         const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
 
-        logError(`Error reloading command ${fileName}`, error);
+        log(`\x1b[31mError reloading command ${fileName}\x1b[0m\n`, error);
+    }
+}
+
+const deleteCommand = async function (path) {
+    const pathAsArray = process.platform === 'linux' ? path.split('/') : path.split('\\');
+
+    try {
+
+        const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
+
+        if (commands.get(fileName)) {
+            const command = commands.get(fileName);
+
+            const categoryPaths = commandsPaths.get(command.category);
+
+            categoryPaths.splice(categoryPaths.indexOf(path), 1);
+            const cachedValue = require.cache[require.resolve(`./${path}`)]
+            if (cachedValue !== undefined) delete require.cache[require.resolve(`./${path}`)];
+
+            if (command.ContextMenu !== undefined && command.ContextMenu.name !== undefined) {
+                commands.delete(command.ContextMenu.name);
+            }
+
+            commands.delete(fileName);
+        }
+
+    } catch (error) {
+
+        const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
+
+        log(`\x1b[31mError deleting command ${fileName}\x1b[0m\n`, error);
     }
 }
 
@@ -110,7 +187,7 @@ const reloadCommandCategory = async function (category) {
             reloadCommand(path);
         });
     } catch (error) {
-        logError(`Error reloading category ${category}`, error);
+        log(`\x1b[31mError reloading category ${category}\x1b[0m\n`, error);
     }
 
 }
@@ -122,11 +199,32 @@ const reloadCommands = async function (category) {
     if (commandsToReload === undefined) return;
 }
 
+const handleCommandDirectoryChanges = async function (event, path) {
+
+    const pathAsArray = process.platform === 'linux' ? path.split('/') : path.split('\\');
+
+    switch (event) {
+
+        case 'add':
+            addNewCommand(path);
+            break;
+
+        case 'change':
+            reloadCommand(path);
+            break;
+
+        case 'unlink':
+            deleteCommand(path);
+            break;
+    }
+
+}
+
 async function getOsuApiToken() {
     const request = {
-        client_id: process.env.OSU_CLIENT_ID, 
-        client_secret: process.env.OSU_CLIENT_SECRETE, 
-        grant_type: "client_credentials", 
+        client_id: process.env.OSU_CLIENT_ID,
+        client_secret: process.env.OSU_CLIENT_SECRETE,
+        grant_type: "client_credentials",
         scope: "public"
     };
 
@@ -134,49 +232,68 @@ async function getOsuApiToken() {
 
     process.env.OSU_API_TOKEN = response.access_token;
 
-    setTimeout(getOsuApiToken,(response.expires_in * 1000) - 200);
-    
-    console.log("Done fetching Osu Api Token");
+    setTimeout(getOsuApiToken, (response.expires_in * 1000) - 200);
+
+    log("Done fetching Osu Api Token");
 }
 
 async function getSpotifyApiToken() {
 
-    const params = new URLSearchParams({ grant_type : 'client_credentials' });
+    const params = new URLSearchParams({ grant_type: 'client_credentials' });
 
     const headers = {
         Authorization: 'Basic ' + (Buffer.from(process.env.SPOTIFY_CLIENT_ID + ':' + process.env.SPOTIFY_CLIENT_SECRETE).toString('base64')),
-        'Content-Type' : 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded'
     }
 
     try {
-        
-    const response = (await axios.post(`${process.env.SPOTIFY_API_AUTH}`, params, {headers : headers})).data;
 
-    process.env.SPOTIFY_API_TOKEN = response.access_token;
+        const response = (await axios.post(`${process.env.SPOTIFY_API_AUTH}`, params, { headers: headers })).data;
 
-    setTimeout(getSpotifyApiToken,(response.expires_in * 1000) - 200);
-    
-    console.log("Done fetching Spotify Api Token");
+        process.env.SPOTIFY_API_TOKEN = response.access_token;
+
+        setTimeout(getSpotifyApiToken, (response.expires_in * 1000) - 200);
+
+        log("Done fetching Spotify Api Token");
     } catch (error) {
-        console.log(error)
+        log(`\x1b[31mError Fetching Spotify Token\n`, error)
     }
-    
+
 }
 
+global.randomFloatInRange = randomFloatInRange;
 
+global.randomIntegerInRange = randomIntegerInRange;
 
-module.exports.reply = reply;
+global.getXpForNextLevel = getXpForNextLevel;
 
-module.exports.addNewCommand = addNewCommand;
+global.getTotalXp = getTotalXp;
 
-module.exports.reloadCommand = reloadCommand;
+global.log = log;
 
-module.exports.reloadCommandCategory = reloadCommandCategory;
+global.reply = reply;
 
-module.exports.reloadCommands = reloadCommands;
+global.reloadCommands = reloadCommands;
 
-module.exports.getOsuApiToken = getOsuApiToken;
+global.handleCommandDirectoryChanges = handleCommandDirectoryChanges;
 
-module.exports.getSpotifyApiToken = getSpotifyApiToken;
+global.getOsuApiToken = getOsuApiToken;
 
-module.exports.logError = logError
+global.getSpotifyApiToken = getSpotifyApiToken;
+
+global.reloadCommandCategory = reloadCommandCategory;
+
+if (modulesLastReloadTime.utils !== undefined) {
+    log('\x1b[32mGlobal Utils Reloaded\x1b[0m');
+}
+else {
+    log('\x1b[32mGlobal Utils Loaded\x1b[0m');
+}
+
+if (bot) {
+    modulesLastReloadTime.utils = bot.uptime;
+
+}
+else {
+    modulesLastReloadTime.utils = 0;
+}
