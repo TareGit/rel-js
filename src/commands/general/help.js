@@ -17,9 +17,11 @@ module.exports = {
             required: false
         }
     ],
-    async execute(ctx, targetCommand = undefined) {
+    async execute(ctx, targetCommand = '') {
 
-        const specificCommand = targetCommand || ctx.cType == "COMMAND" ? ctx.options.getString('command') : ctx.args[0];
+
+        const specificCommand = targetCommand !== '' ? targetCommand : (ctx.cType == "COMMAND" ? ctx.options.getString('command') : ctx.args[0]);
+
 
         if (commands.get(specificCommand)) {
             const command = commands.get(specificCommand);

@@ -18,7 +18,7 @@ async function onMessageCreate(message) {
         const userId = message.member.id;
         const username = message.member.displayName;
 
-        const options = new URLSearchParams(perGuildSettings.get(guildId).levelingOptions);
+        const options = perGuildSettings.get(guildId).leveling_options;
 
         if(!options.get('enabled') || options.get('enabled') !== 'true') return;
 

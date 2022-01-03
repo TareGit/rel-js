@@ -8,7 +8,7 @@
     "defaultNickname": "Umeko",
     "defaultVolumeMultiplier": 0.05,
     "maxRawVolume": 150,
-    "version": 3.0,
+    "version": 4.0,
     "leftArrowEmoji": "922308918917615676",
     "rightArrowEmoji": "922308931966091274",
     "defaultWelcomeMessage" : "Welcome to the server {user}",
@@ -48,7 +48,7 @@
                 "option": "DEFAULT 'Welcome to the server {user}'"
             },
             {
-                "name": "welcome_message_options",
+                "name": "welcome_options",
                 "type": "TEXT",
                 "option": "DEFAULT ''"
             },
@@ -58,7 +58,7 @@
                 "option": "DEFAULT '{username} just went live, check them out :{link} .'"
             },
             {
-                "name": "twitch_message_options",
+                "name": "twitch_options",
                 "type": "TEXT",
                 "option": "DEFAULT ''"
             },
@@ -69,11 +69,6 @@
             },
             {
                 "name": "leveling_options",
-                "type": "TEXT",
-                "option": "DEFAULT ''"
-            },
-            {
-                "name": "leveling_role_options",
                 "type": "TEXT",
                 "option": "DEFAULT ''"
             }

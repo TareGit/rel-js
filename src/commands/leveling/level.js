@@ -22,20 +22,20 @@ module.exports = {
     ],
     async execute(ctx) {
         if (ctx.guild === null) return reply(ctx, `You need to be in a server to use this command`);
-        const options = new URLSearchParams(perGuildSettings.get(ctx.guild.id).levelingOptions);
+        const options = perGuildSettings.get(ctx.guild.id).leveling_options;
 
-        //if(options.get('enabled') === undefined || options.get('enabled') !== 'true') return await reply(ctx,`Leveling is disabled in this server`);
+        if(options.get('enabled') === undefined || options.get('enabled') !== 'true') return await reply(ctx,`Leveling is disabled in this server (and still being worked on ⚆_⚆)`);
+
+        const member =  ctx.cType === 'COMMAND' ? (ctx.options.getMember('user') || ctx.member ) : ( ctx.mentions.members.first() || ctx.member);
 
         const levelingData = perGuildLeveling.get(ctx.guild.id) || {}
-        const levelData = levelingData[ctx.member.id] || {};
+        const levelData = levelingData[member.id] || {};
         const level = levelData.level || 0;
         const currentXp = ((levelData.currentXp || 0.001) / 1000 ).toFixed(2);
 
-        const backgroundUrl = `https://images8.alphacoders.com/942/thumb-1920-942722.jpg`;
+        const backgroundUrl = `https://cdnb.artstation.com/p/marketplace/presentation_assets/000/106/277/large/file.jpg`;
 
         if(ctx.cType === 'COMMAND') await ctx.deferReply();
-
-        const member =  ctx.cType === 'COMMAND' ? (ctx.options.getMember('user') || ctx.member ) : ( ctx.mentions.members.first() || ctx.member);
 
         if(member.user.bot) return await reply(ctx,'Bots are too sweaty to participate in leveling');
 
@@ -224,7 +224,7 @@ module.exports = {
                 <div class="user-profile">
                     <img
                         src="${avatarUrl}" />
-                    <div class="online-status"></div>
+                    
                 </div>
                 <div class="user-rank-info">
                     <div class="user-rank-info-row" pos='top'>
@@ -244,8 +244,10 @@ module.exports = {
         
         </html>`
 
+        //<div class="online-status"></div>
+
         
-        const browser = await puppeteer.launch({ userDataDir: `${process.cwd()}/../puppeter` });
+        const browser = await puppeteer.launch({ headless: true, args:['--no-sandbox'] ,userDataDir: `${process.cwd()}/../puppeter` });
         const page = await browser.newPage();
 
         page.setViewport({width : 1200,height : 400});

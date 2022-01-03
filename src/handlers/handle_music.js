@@ -509,7 +509,7 @@ module.exports.parseInput = async function (ctx, queue) {
     }
 
 
-    if (url.length == 0) return await reply(ctx, 'What even is that ?');
+    if (url.length == 0) return await commands.get('help').execute(ctx,'play');
 
 
     let newSongs = [];
@@ -646,10 +646,10 @@ module.exports.resumeSong = async function (ctx, queue) {
 module.exports.removeSong = async function (ctx, queue) {
     const index = ctx.cType == "COMMAND" ? ctx.options.getInteger('index') : parseInt(ctx.args[0]);
 
-    if (!index) return await reply(ctx, commands.get('help').execute(ctx,'remove'));
+    if (!index) return await commands.get('help').execute(ctx,'remove');
 
     if (index !== index) {
-        await reply(ctx, commands.get('help').execute(ctx,'remove'));
+        await commands.get('help').execute(ctx,'remove');
         return;
     }
 
@@ -858,11 +858,11 @@ module.exports.setVolume = async function (ctx, queue) {
 
     const volume = ctx.cType == "COMMAND" ? ctx.options.getInteger('ammount') : parseInt(ctx.args[0]);
 
-    if (!volume) return await reply(ctx, commands.get('help').execute(ctx,'volume'));
+    if (!volume) return await commands.get('help').execute(ctx,'volume');
 
 
     if (volume !== volume) {
-        await reply(ctx, commands.get('help').execute(ctx,'volume'));
+        await commands.get('help').execute(ctx,'volume');
         return;
     }
 
@@ -1045,7 +1045,7 @@ module.exports.Queue = class Queue extends EventEmitter {
         if (this.currentSong === undefined) this.currentSong = undefined
         if (this.volume === undefined) this.volume = defaultVolumeMultiplier;
         if (this.isIdle === undefined) this.isIdle = true;
-        if (this.loopType === undefined) this.loopType = false;
+        if (this.loopType === undefined) this.loopType = 'off';
         if (this.isCreatingNowPlaying === undefined) this.isCreatingNowPlaying = false;
         if (this.isFirstPlay === undefined) this.isFirstPlay = true;
         if (this.isSwitchingChannels === undefined) this.isSwitchingChannels = false;

@@ -24,7 +24,7 @@ module.exports = {
 
        try {
            const evalFunction = new Function("bot","ctx","ps",ctx.pureContent);
-           const response = "\`" + JSON.stringify(evalFunction(bot,ctx,ps)) + "\`";
+           const response = "```" + JSON.stringify(evalFunction(bot,ctx,ps)) + "```";
            if(response === undefined) return reply(ctx,"\`The result of the evaluation was undefined\`");
            if(response.length === 0) return reply(ctx,"\`The evaluation did not return a result\`");
            
