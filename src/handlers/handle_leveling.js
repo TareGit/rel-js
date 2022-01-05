@@ -1,6 +1,8 @@
 const ps = require(`${process.cwd()}/passthrough.js`);
 const { sync, bot, modulesLastReloadTime, perGuildSettings, perGuildLeveling } = ps;
 
+const utils = sync.require(`${process.cwd()}/utils`);
+
 const parser = sync.require('./handle_commands');
 const guildDataModule = sync.require('./handle_guild_data');
 const { xpUpdateThreshold } = sync.require(`${process.cwd()}/config.json`);
@@ -28,9 +30,9 @@ async function onMessageCreate(message) {
 
         if (levelingData[userId] === undefined) levelingData[userId] = {level : 0, currentXp : 0};
 
-        levelingData[userId].currentXp += randomIntegerInRange(5, 10) * 5;
+        levelingData[userId].currentXp += utils.randomIntegerInRange(5, 10) * 5;
 
-        const nextLevelXp = getXpForNextLevel(levelingData[userId].level)
+        const nextLevelXp = utils.getXpForNextLevel(levelingData[userId].level)
         
         if(levelingData[userId].currentXp >= nextLevelXp)
         {
@@ -50,7 +52,7 @@ async function onMessageCreate(message) {
             if(options.get('channel') && options.get('channel') !== '')
             {
                 if(options.get('channel') === "dm"){
-                    message.author.send(levelUpNotification).catch((error)=>{log('Error sending level up message',error)})
+                    message.author.send(levelUpNotification).catch((error)=>{utils.log('Error sending level up message',error)})
                 }
                 else
                 {
@@ -62,14 +64,14 @@ async function onMessageCreate(message) {
                     else
                     {
                         message.forceChannelReply = true;
-                        reply(message,levelUpNotification);
+                       utils.reply(message,levelUpNotification);
                     }
                 }
             }
             else
             {
                 message.forceChannelReply = true;
-                reply(message,levelUpNotification);
+               utils.reply(message,levelUpNotification);
             }
             
         }
@@ -85,13 +87,13 @@ async function onMessageCreate(message) {
             xp_current : levelingData[userId].currentXp
         }
 
-        log('Updating Backend XP',levelingData[userId]);
+        utils.log('Updating Backend XP',levelingData[userId]);
          
-        axios.post(`${process.env.DB_API}/tables/guild_leveling_${guildId}/rows`,postData,{ headers: {'x-umeko-token': process.env.DB_TOKEN}}).then((levelingUpdateResponse) =>{
-        }).catch((error)=>{log("Error updating back end XP",error.data)});
+        axios.post(`${process.argv.includes('debug') ? process.env.DB_API_DEBUG : process.env.DB_API }/tables/guild_leveling_${guildId}/rows`,postData,{ headers: {'x-umeko-token': process.env.DB_API_TOKEN}}).then((levelingUpdateResponse) =>{
+        }).catch((error)=>{utils.log("Error updating back end XP",error.data)});
 
     } catch (error) {
-        log('Error handeling leveling', error)
+        utils.log('Error handeling leveling', error)
     }
 
 }
@@ -114,7 +116,7 @@ if (bot !== undefined) {
             try {
                 bot.removeListener(levelingEvent.id, levelingEvent.event);
             } catch (error) {
-                log(`\x1b[31mError unbinding event ${levelingEvent.id} from bot\x1b[0m\n`, error);
+                utils.log(`\x1b[31mError unbinding event ${levelingEvent.id} from bot\x1b[0m\n`, error);
             }
         });
 
@@ -124,7 +126,7 @@ if (bot !== undefined) {
         try {
             bot.on(levelingEvent.id, levelingEvent.event);
         } catch (error) {
-            log(`\x1b[31mError binding event ${levelingEvent.id} to bot\x1b[0m\n`, error);
+            utils.log(`\x1b[31mError binding event ${levelingEvent.id} to bot\x1b[0m\n`, error);
         }
     });
 
@@ -134,10 +136,10 @@ if (bot !== undefined) {
 
 
 if (modulesLastReloadTime.leveling !== undefined) {
-    log('\x1b[32mLeveling Module Reloaded\x1b[0m');
+    utils.log('\x1b[32mLeveling Module Reloaded\x1b[0m');
 }
 else {
-    log('\x1b[32mLeveling Module Loaded\x1b[0m');
+    utils.log('\x1b[32mLeveling Module Loaded\x1b[0m');
 }
 
 if(bot)

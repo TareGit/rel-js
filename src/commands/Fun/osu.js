@@ -6,6 +6,8 @@ const axios = require("axios");
 
 const { version, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.json`);
 
+const utils = sync.require(`${process.cwd()}/utils`);
+
 
 
 module.exports = {
@@ -47,7 +49,7 @@ module.exports = {
             if (user === undefined) {
 
                 Embed.setFooter("User Not Found");
-                reply(ctx, { embeds: [Embed] });
+               utils.reply(ctx, { embeds: [Embed] });
 
                 return;
             }
@@ -66,14 +68,14 @@ module.exports = {
 
             Embed.setFooter(`Mode | ${user.playmode}`);
 
-            reply(ctx, { embeds: [Embed] });
+           utils.reply(ctx, { embeds: [Embed] });
 
         } catch (error) {
             Embed.setFooter("User Not Found");
 
-            reply(ctx, { embeds: [Embed] });
+           utils.reply(ctx, { embeds: [Embed] });
             
-            log(`\x1b[31mError fetching Osu Data\x1b[0m`,error);
+            utils.log(`\x1b[31mError fetching Osu Data\x1b[0m`,error);
         }
 
     }

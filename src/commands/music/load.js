@@ -1,6 +1,8 @@
 const { sync } = require(`${process.cwd()}/passthrough.js`);
 const { createQueue, loadQueue } = sync.require(`${process.cwd()}/handlers/handle_music`);
 
+const utils = sync.require(`${process.cwd()}/utils`);
+
 module.exports = {
     name: 'load',
     category: 'Music',
@@ -17,7 +19,7 @@ module.exports = {
     ],
     async execute(ctx) {
         
-            if (!ctx.guild || !ctx.member.voice.channel) return reply(ctx,"You need to be in a voice channel to use this command");
+            if (!ctx.guild || !ctx.member.voice.channel) returnutils.reply(ctx,"You need to be in a voice channel to use this command");
 
             let Queue = ps.queues.get(ctx.member.guild.id);
 

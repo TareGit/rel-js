@@ -2,6 +2,8 @@ const { bot, sync, perGuildSettings, commands,modulesLastReloadTime,disabledCate
 const { Interaction } = require('discord.js');
 const fs = require('fs');
 
+const utils = sync.require(`${process.cwd()}/utils`);
+
 const { defaultPrefix } = sync.require(`${process.cwd()}/config.json`);
 
 module.exports.parseMessage = async (message) => {
@@ -61,11 +63,11 @@ module.exports.parseInteractionCommand = async (interaction) => {
 
 if(modulesLastReloadTime.commands !== undefined)
 {
-    log('\x1b[32mCommands Module Reloaded\x1b[0m');
+    utils.log('\x1b[32mCommands Module Reloaded\x1b[0m');
 }
 else
 {
-    log('\x1b[32mCommands Module Loaded\x1b[0m');
+    utils.log('\x1b[32mCommands Module Loaded\x1b[0m');
 }
 
 if(bot)

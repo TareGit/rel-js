@@ -1,30 +1,22 @@
-const process = require('process');
-
 process.chdir(__dirname);
+
+const Cluster = require("discord-hybrid-sharding");
 
 const ps = require('./passthrough.js');
 
-const Heatsync = require("heatsync");
-
-const sync = new Heatsync();
-
-Object.assign(ps, { sync: sync });
-
-//process.env = sync.require('./secretes/secretes.json');
-
 const { Client, Intents, CommandInteractionOptionResolver } = require('discord.js');
+
+const sync = ps.sync;
+
 const chokidar = require('chokidar');   
 
-// import the Manager class from lavacord
 const { Manager } = require("lavacord");
 
 const fs = require('fs');
 const { defaultPrefix, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.json`);
 
-const utils = sync.require(`./utils`);
-
 // bot Intents
-const botIntents = {
+const clientOptions = {
     intents: [
         Intents.FLAGS.GUILDS,
         Intents.FLAGS.GUILD_MEMBERS,
@@ -33,21 +25,30 @@ const botIntents = {
         Intents.FLAGS.DIRECT_MESSAGES,
         Intents.FLAGS.GUILD_VOICE_STATES
     ],
+    shards: Cluster.data.SHARD_LIST,
+    shardCount: Cluster.data.TOTAL_SHARDS,
 
     partials: ['MESSAGE', 'CHANNEL']
 }
 
 // Setup settings and configs
-const bot = new Client(botIntents);
+const bot = new Client(clientOptions);
+Object.assign(ps, { bot: bot });
+bot.cluster = new Cluster.Client(bot); //Init the Client & So we can also access broadcastEval...
+
+const utils = sync.require(`./utils`);
+
 
 bot.on('ready', async () => {
     
 
-    log('\x1b[32mBot Ready\x1b[0m');
+    
+
+    utils.log('\x1b[32mBot Ready\x1b[0m');
 
     setInterval(() => bot.user.setActivity(`${bot.guilds.cache.size} Servers`,{type: 'WATCHING'}), 20000);
 
-    Object.assign(ps, { bot: bot });
+    
 
     // Volcano nodes
     const nodes = [
@@ -71,9 +72,9 @@ bot.on('ready', async () => {
     try {
         await LavaManager.connect();
         
-        log("\x1b[32mConnected to Music provider\x1b[0m");
+        utils.log("\x1b[32mConnected to Music provider\x1b[0m");
     } catch (error) {
-        log('\x1b[31mError connecting to music provider\x1b[0m\n',error);
+        utils.log('\x1b[31mError connecting to music provider\x1b[0m\n',error);
         ps.disabledCategories.push('Music');
     }
     
@@ -86,7 +87,7 @@ bot.on('ready', async () => {
         });
 
     LavaManager.on("error", (error, node) => {
-        log('\x1b[31mLavalink error\x1b[0m\n',error);
+        utils.log('\x1b[31mLavalink error\x1b[0m\n',error);
     });
 
 
@@ -96,31 +97,26 @@ bot.on('ready', async () => {
         await guildDataModule.load();
 
         const levelingModule = sync.require('./handlers/handle_leveling');
-        const httpModule = sync.require('./handlers/handle_http');
         const eventsModule = sync.require('./handlers/handle_events');
     } catch (error) {
-        log('\x1b[31mError loading modules\x1b[0m\n',error);
+        utils.log('\x1b[31mError loading modules\x1b[0m\n',error);
     }
 
-    await getOsuApiToken();
+    await utils.getOsuApiToken();
 
-    await getSpotifyApiToken();
+    await utils.getSpotifyApiToken();
 
     // Commands loading and reloading
     chokidar.watch('./commands', { persistent: true, usePolling: true }).on('all', (event, path) => {
-        handleCommandDirectoryChanges(event,path);
+        utils.handleCommandDirectoryChanges(event,path);
     });
 
 });
 
 bot.login(process.env.CURRENT_BOT_TOKEN);
 
-if(process.argv.includes('debug'))
-{
-    bot.on('debug', log);
-}
 
-sync.events.on("error", log);
+sync.events.on("error", console.log);
 
 
 

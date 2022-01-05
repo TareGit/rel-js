@@ -4,6 +4,7 @@ const { sync, perGuildSettings, bot } = require(`${process.cwd()}/passthrough.js
 
 const {version, defaultPrimaryColor} = sync.require(`${process.cwd()}/config.json`);
 
+const utils = sync.require(`${process.cwd()}/utils`);
 
 
 module.exports = {
@@ -26,7 +27,7 @@ module.exports = {
 
         Embed.setTimestamp();
 
-        reply(ctx, { embeds: [Embed] });
+       utils.reply(ctx, { embeds: [Embed] });
         
     }
 }

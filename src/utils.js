@@ -1,7 +1,6 @@
 // handle replies
 const axios = require('axios');
 const { bot, commandsPaths, commands, modulesLastReloadTime } = require("./passthrough");
-const { response } = require("express");
 
 function randomFloatInRange(min, max) {
     return Math.random() * (max - min) + min;
@@ -48,6 +47,16 @@ function log(data) {
 
     const argumentValues = Object.values(arguments);
 
+    
+
+    if(bot && bot.cluster) argumentValues.unshift(`Cluster ${bot.cluster.id} ::`);
+
+    const stack = new Error().stack;
+    const pathDelimiter = process.platform === 'linux' ? '/' : '\\';
+    const simplifiedStack = stack.split('\n')[2].split(pathDelimiter);
+    const file = simplifiedStack[simplifiedStack.length - 1].split(')')[0];
+    argumentValues.unshift(`${file} ::`);
+    
     argumentValues.unshift(`${time(':')} ::`);
 
     console.log.apply(null, argumentValues);
@@ -99,8 +108,6 @@ const addNewCommand = async function (path) {
         if (command.ContextMenu !== undefined && command.ContextMenu.name !== undefined) {
             commands.set(command.ContextMenu.name, command);
         }
-
-        log(`Loaded command ${fileName}`);
 
         if (commandsPaths.get(command.category) === undefined) {
 
@@ -261,27 +268,21 @@ async function getSpotifyApiToken() {
 
 }
 
-global.randomFloatInRange = randomFloatInRange;
+module.exports = {
+    randomFloatInRange : randomFloatInRange,
+    randomIntegerInRange : randomIntegerInRange,
+    getXpForNextLevel : getXpForNextLevel,
+    getTotalXp : getTotalXp,
+    log : log,
+    reply : reply,
+    reloadCommands : reloadCommands,
+    handleCommandDirectoryChanges : handleCommandDirectoryChanges,
+    getOsuApiToken : getOsuApiToken,
+    getSpotifyApiToken : getSpotifyApiToken,
+    reloadCommandCategory : reloadCommandCategory
+}
 
-global.randomIntegerInRange = randomIntegerInRange;
 
-global.getXpForNextLevel = getXpForNextLevel;
-
-global.getTotalXp = getTotalXp;
-
-global.log = log;
-
-global.reply = reply;
-
-global.reloadCommands = reloadCommands;
-
-global.handleCommandDirectoryChanges = handleCommandDirectoryChanges;
-
-global.getOsuApiToken = getOsuApiToken;
-
-global.getSpotifyApiToken = getSpotifyApiToken;
-
-global.reloadCommandCategory = reloadCommandCategory;
 
 if (modulesLastReloadTime.utils !== undefined) {
     log('\x1b[32mGlobal Utils Reloaded\x1b[0m');
@@ -292,7 +293,6 @@ else {
 
 if (bot) {
     modulesLastReloadTime.utils = bot.uptime;
-
 }
 else {
     modulesLastReloadTime.utils = 0;

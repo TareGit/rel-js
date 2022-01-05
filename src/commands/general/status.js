@@ -4,6 +4,8 @@ const { sync, perGuildSettings, bot } = require(`${process.cwd()}/passthrough.js
 
 const {version, defaultPrimaryColor} = sync.require(`${process.cwd()}/config.json`);
 
+const utils = sync.require(`${process.cwd()}/utils`);
+
 const osu = require('node-os-utils');
 
 module.exports = {
@@ -45,7 +47,7 @@ module.exports = {
             Embed.addField(`CPU Usage`, `${parseInt(cpu)}%`, false);
             Embed.addField(`Ram In Use`, `${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB`, false);
 
-            reply(ctx,{ embeds: [Embed] });
+           utils.reply(ctx,{ embeds: [Embed] });
 
     }
 }

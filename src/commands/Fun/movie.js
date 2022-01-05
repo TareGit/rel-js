@@ -3,7 +3,10 @@ const { MessageEmbed } = require('discord.js');
 const { sync, perGuildSettings, bot } = require(`${process.cwd()}/passthrough.js`);
 
 const axios = require("axios");
+
 const { version, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.json`);
+
+const utils = sync.require(`${process.cwd()}/utils`);
 
 
 
@@ -60,13 +63,13 @@ module.exports = {
 
             Embed.addField("Release date", movieData.release_date);
 
-            reply(ctx, { embeds: [Embed] });
+           utils.reply(ctx, { embeds: [Embed] });
 
         } catch (error) {
             Embed.setFooter("Movie Not Found");
 
-            reply(ctx, { embeds: [Embed] });
-            log(`\x1b[31mError Searching for Movie\x1b[0m\n`,error);
+           utils.reply(ctx, { embeds: [Embed] });
+            utils.log(`\x1b[31mError Searching for Movie\x1b[0m\n`,error);
         }
 
     }

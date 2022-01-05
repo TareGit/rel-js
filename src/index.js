@@ -1,17 +1,21 @@
-const { ShardingManager } = require('discord.js');
 
-process.chdir(__dirname);
+const Cluster = require("discord-hybrid-sharding");
+const utils = require(`./utils`);
+process.env = require('./secretes/secretes.json');
+if(process.argv.includes('debug'))
+{
+   process.env.DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN_ALPHA;
+   process.env.DB_API = process.env.DB_API_DEBUG;
+} 
 
-const Heatsync = require("heatsync");
-const sync = new Heatsync();
 
-const utils = sync.require(`./utils`);
-process.env = sync.require('./secretes/secretes.json');
+const manager = new Cluster.Manager(`${__dirname}/bot.js`,{
+                                       totalShards: 'auto',
+                                       shardsPerClusters: 3, 
+                                       mode: "process" ,
+                                       token: process.env.DISCORD_BOT_TOKEN,
+                                    });
 
-process.env.CURRENT_BOT_TOKEN = process.argv.includes('alpha') ? process.env.DISCORD_BOT_TOKEN_ALPHA : process.env.DISCORD_BOT_TOKEN;
+manager.on('clusterCreate', cluster => utils.log(`Launched Cluster ${cluster.id}`));
 
-const manager = new ShardingManager('./bot.js', { token: process.env.CURRENT_BOT_TOKEN });
-
-manager.on('shardCreate', shard => log(`Launched shard ${shard.id}`));
-
-manager.spawn();
+manager.spawn({timeout: -1});

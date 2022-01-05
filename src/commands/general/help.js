@@ -3,6 +3,8 @@ const { MessageEmbed, MessageSelectMenu, MessageSelectOptionData, MessageActionR
 const { bot, sync, perGuildSettings, commands } = require(`${process.cwd()}/passthrough.js`);
 const { defaultPrimaryColor, defaultPrefix } = sync.require(`${process.cwd()}/config.json`);
 
+const utils = sync.require(`${process.cwd()}/utils`);
+
 module.exports = {
     name: 'help',
     category: 'General',
@@ -40,7 +42,7 @@ module.exports = {
             helpEmbed.setDescription(`Description: ${command.description} \n Syntax: \`${syntax}\``);
             helpEmbed.setTimestamp();
 
-            return await reply(ctx, { embeds: [helpEmbed], fetchReply: true });
+            return await utils.reply(ctx, { embeds: [helpEmbed], fetchReply: true });
         }
 
         const buildHelpEmbed = (Section) => {
@@ -101,7 +103,7 @@ module.exports = {
 
 
 
-        const message = await reply(ctx, { embeds: [buildHelpEmbed(sections[0])], components: [MenuRow], fetchReply: true });
+        const message = await utils.reply(ctx, { embeds: [buildHelpEmbed(sections[0])], components: [MenuRow], fetchReply: true });
 
         if (message) {
 
@@ -114,7 +116,7 @@ module.exports = {
             helpCollector.on('collect', async (selector) => {
                 try {
                     if (selector.user.id !== helpCollector.owner) {
-                        return reply(ctx, { ephemeral: true, content: "why must thou choose violence ?" });
+                        returnutils.reply(ctx, { ephemeral: true, content: "why must thou choose violence ?" });
                     }
 
                     const sections = ['General', 'Moderation', 'Music', 'Fun'];
@@ -146,7 +148,7 @@ module.exports = {
 
                     await selector.update({ embeds: [helpCollector.generateEmbed(selector.values[0])], components: [MenuRow] });
                 } catch (error) {
-                    log(`\x1b[31mError In Help Message Collector\x1b[0m\n`, error);
+                    utils.log(`\x1b[31mError In Help Message Collector\x1b[0m\n`, error);
                 }
 
             });
@@ -161,7 +163,7 @@ module.exports = {
                         }
                     });
                 } catch (error) {
-                    log(`\x1b[31mError Ending Help Message Collector\x1b[0m\n`, error);
+                    utils.log(`\x1b[31mError Ending Help Message Collector\x1b[0m\n`, error);
                 }
 
 

@@ -6,6 +6,8 @@ const axios = require("axios");
 
 const { version, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.json`);
 
+const utils = sync.require(`${process.cwd()}/utils`);
+
 
 
 module.exports = {
@@ -57,13 +59,13 @@ module.exports = {
 
       Embed.addField("Status",`${animeData.status === 'currently_airing' ? 'Airing' : 'Completed'}`);
 
-      reply(ctx,{ embeds: [Embed] });
+     utils.reply(ctx,{ embeds: [Embed] });
 
     } catch (error) {
 
       Embed.setFooter("Anime Not Found");
-      reply(ctx,{ embeds: [Embed] });
-      log(`\x1b[31mError Fetching Anime Data\x1b[0m`,error);
+     utils.reply(ctx,{ embeds: [Embed] });
+      utils.log(`\x1b[31mError Fetching Anime Data\x1b[0m`,error);
     }
 
   }

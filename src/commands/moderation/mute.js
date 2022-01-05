@@ -1,6 +1,7 @@
 
 const { sync } = require(`${process.cwd()}/passthrough.js`);
 
+const utils = sync.require(`${process.cwd()}/utils`);
 
 module.exports = {
     name: 'mute',
@@ -24,6 +25,6 @@ module.exports = {
     ],
     async execute(ctx) {
 
-        reply(ctx,'bruh don\'t be a bitch')
+       utils.reply(ctx,'bruh don\'t be a bitch')
     }
 }

@@ -2,6 +2,7 @@ const { MessageEmbed } = require('discord.js');
 
 const { sync } = require(`${process.cwd()}/passthrough.js`);
 
+const utils = sync.require(`${process.cwd()}/utils`);
 
 module.exports = {
     name: 'clean',
@@ -22,11 +23,11 @@ module.exports = {
 
             const ammount = ctx.cType == "COMMAND" ? ctx.options.getInteger('ammount') : parseInt(ctx.args[0]);
 
-            if (!ctx.guild) return reply(ctx,"You need to be in a server to use this command");
+            if (!ctx.guild) returnutils.reply(ctx,"You need to be in a server to use this command");
 
-            if(!ctx.guild.me.permissions.has('MANAGE_MESSAGES')) return reply(ctx,"I dont have permissions to delete messages");
+            if(!ctx.guild.me.permissions.has('MANAGE_MESSAGES')) returnutils.reply(ctx,"I dont have permissions to delete messages");
             
-            if (ammount == 0 || ammount == NaN || ammount > 100 || ammount < 1) return reply(ctx,"Ammount must be a value between 1 and 100");
+            if (ammount == 0 || ammount == NaN || ammount > 100 || ammount < 1) returnutils.reply(ctx,"Ammount must be a value between 1 and 100");
 
             let deletedMsgs = null;
 

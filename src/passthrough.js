@@ -1,6 +1,8 @@
+const Heatsync = require("heatsync");
 
 // ram, Never reload
 const passthrough = {
+    sync : new Heatsync(),
     perGuildSettings : new Map(),
     colors: new Map(),
     prefixes: new Map(),

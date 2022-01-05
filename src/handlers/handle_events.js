@@ -4,24 +4,28 @@ const { sync, bot, modulesLastReloadTime, perGuildSettings, commands } = require
 const parser = sync.require('./handle_commands');
 const guildDataModule = sync.require('./handle_guild_data');
 
+const utils = sync.require(`${process.cwd()}/utils`);
+
 const fs = require('fs');
 
 
 async function onMessageCreate(message) {
     if (message.author.id === bot.user.id) return;
+    if (message.author.bot) return;
 
-    if (message.mentions.first().id === bot.user.id) {
-        if (message.content.trim() === '' || message.content.trim().toLowerCase() === 'help') {
+    if (message.mentions.users.has(bot.user.id)) {
+        const argument = message.content.split('>')[1].trim().toLowerCase();
+        if (argument === '' || argument === 'help') {
             message.args = ['']
             return commands.get('help').execute(message);
         }
     }
 
-    const commandToExecute = await parser.parseMessage(message).catch((error) => log(`\x1b[31mError parsing message\x1b[0m\n`, error));
+    const commandToExecute = await parser.parseMessage(message).catch((error) => utils.log(`\x1b[31mError parsing message\x1b[0m\n`, error));
 
     if (commandToExecute !== undefined) {
         commandToExecute.execute(message).catch((error) => {
-            log(`\x1b[31mError Executing Message Command\x1b[0m\n`, error)
+            utils.log(`\x1b[31mError Executing Message Command\x1b[0m\n`, error)
         });
     }
 }
@@ -31,14 +35,14 @@ async function onInteractionCreate(interaction) {
         return;
     }
 
-    const commandToExecute = await parser.parseInteractionCommand(interaction).catch((error) => log(`\x1b[31mError parsing interaction\x1b[0m\n`, error));
+    const commandToExecute = await parser.parseInteractionCommand(interaction).catch((error) => utils.log(`\x1b[31mError parsing interaction\x1b[0m\n`, error));
 
     if (commandToExecute == undefined) {
         interaction.reply("Command not yet implemented");
     }
     else {
         commandToExecute.execute(interaction).catch((error) => {
-            log(`\x1b[31mError Executing Interaction Command\x1b[0m\n`, error)
+            utils.log(`\x1b[31mError Executing Interaction Command\x1b[0m\n`, error)
         });
 
     }
@@ -78,8 +82,6 @@ async function onPresenceUpdate(oldPresence, newPresence) {
     if (oldPresence.activities.filter((activity) => activity.id === targetActivity.id).length !== 0) return;
 
     // Twitch online message here
-
-    log(targetActivity)
     let twitchOnlineNotification = perGuildSettings.get(guildId).leveling_message;
 
     twitchOnlineNotification = twitchOnlineNotification.replace(/{user}/gi, `<@${userId}>`);
@@ -88,7 +90,7 @@ async function onPresenceUpdate(oldPresence, newPresence) {
 
     if (options.get('channel') && options.get('channel') !== '') {
         if (options.get('channel') === "dm") {
-            message.author.send(twitchOnlineNotification).catch((error) => { log('Error sending twitch message', error) })
+            message.author.send(twitchOnlineNotification).catch((error) => { utils.log('Error sending twitch message', error) })
         }
         else {
             const channel = await message.guild.channels.fetch(options.get('channel'));
@@ -98,13 +100,13 @@ async function onPresenceUpdate(oldPresence, newPresence) {
             }
             else {
                 message.forceChannelReply = true;
-                reply(message, twitchOnlineNotification);
+               utils.reply(message, twitchOnlineNotification);
             }
         }
     }
     else {
         message.forceChannelReply = true;
-        reply(message, twitchOnlineNotification);
+       utils.reply(message, twitchOnlineNotification);
     }
 }
 
@@ -125,7 +127,7 @@ if (bot !== undefined) {
             try {
                 bot.removeListener(botEvent.id, botEvent.event);
             } catch (error) {
-                log(`\x1b[31mError unbinding event ${botEvent.id} from bot\x1b[0m\n`, error);
+                utils.log(`\x1b[31mError unbinding event ${botEvent.id} from bot\x1b[0m\n`, error);
             }
         });
 
@@ -135,7 +137,7 @@ if (bot !== undefined) {
         try {
             bot.on(botEvent.id, botEvent.event);
         } catch (error) {
-            log(`\x1b[31mError binding event ${botEvent.id} to bot\x1b[0m\n`, error);
+            utils.log(`\x1b[31mError binding event ${botEvent.id} to bot\x1b[0m\n`, error);
         }
     });
 
@@ -145,10 +147,10 @@ if (bot !== undefined) {
 
 
 if (modulesLastReloadTime.events !== undefined) {
-    log('\x1b[32mEvents Module Reloaded\x1b[0m');
+    utils.log('\x1b[32mEvents Module Reloaded\x1b[0m');
 }
 else {
-    log('\x1b[32mEvents Module Loaded\x1b[0m');
+    utils.log('\x1b[32mEvents Module Loaded\x1b[0m');
 }
 
 if (bot) {

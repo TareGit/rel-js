@@ -1,6 +1,6 @@
 const deleteCommands = process.argv.includes('delete');
 const sendGlobalCommands = process.argv.includes('global');
-const isAlpha = process.argv.includes('alpha');
+const isAlpha = process.argv.includes('debug');
 const axios = require('axios');
 const fs = require('fs');
 const util = require('util')
@@ -39,7 +39,7 @@ if (!deleteCommands) {
         rawCommands.push(command);
     });
 
-    log("Emulated dev enviroment and loaded raw commands, count :", rawCommands.length)
+    utils.log("Emulated dev enviroment and loaded raw commands, count :", rawCommands.length)
 
     rawCommands.forEach(rawCommand => {
 
@@ -64,7 +64,7 @@ if (!deleteCommands) {
         }
     });
 
-    log("Converted raw commands into API commands count:", commands.length)
+    utils.log("Converted raw commands into API commands count:", commands.length)
 }
 
 
@@ -78,9 +78,9 @@ const headers = {
 
 
 axios.put(url, deleteCommands ? [] : commands, { headers: headers }).then((response) => {
-    log(`Successfully ${deleteCommands ? "Deleted" : "Updated"} commands`);
+    utils.log(`Successfully ${deleteCommands ? "Deleted" : "Updated"} commands`);
 }).catch((error) => {
-    log(error.response.data);
-    console.log(util.inspect(error.response.data, { showHidden: false, depth: null, colors: true }))
+    utils.log(error.response.data);
+    console.utils.log(util.inspect(error.response.data, { showHidden: false, depth: null, colors: true }))
 });
 

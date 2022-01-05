@@ -6,6 +6,8 @@ const { MessageEmbed, MessageActionRow, MessageButton, InteractionCollector, Int
 
 const { createAudioPlayer, createAudioResource, joinVoiceChannel, NoSubscriberBehavior, AudioPlayerState, AudioPlayerStatus, getVoiceConnection } = require('@discordjs/voice');
 
+const utils = sync.require(`${process.cwd()}/utils`);
+
 const EventEmitter = require("events");
 const axios = require('axios');
 
@@ -28,7 +30,7 @@ function checkUrl(url) {
 
         return { type: 'search' };
     } catch (error) {
-        log(`\x1b[31mError validating play url "${url}"`, error);
+        utils.log(`\x1b[31mError validating play url "${url}"`, error);
         return { type: 'search' };
     }
 
@@ -127,7 +129,7 @@ async function getSong(search, user) {
 
         return createSong(songData, user, songData.info.uri);
     } catch (error) {
-        log(`\x1b[31mError fetching song for "${search}"\x1b[0m\n`, error);
+        utils.log(`\x1b[31mError fetching song for "${search}"\x1b[0m\n`, error);
         return undefined;
     }
 
@@ -453,7 +455,7 @@ async function playNextSong(queue) {
 
     } catch (error) {
 
-        log(`\x1b[31mError playing song\x1b[0m\n`, error);
+        utils.log(`\x1b[31mError playing song\x1b[0m\n`, error);
 
         queue.songs.shift();
 
@@ -556,7 +558,7 @@ module.exports.parseInput = async function (ctx, queue) {
         }
     }
     catch (error) {
-        log(`\x1b[31mError fetching song for url "${url}"\x1b[0m\n`, error);
+        utils.log(`\x1b[31mError fetching song for url "${url}"\x1b[0m\n`, error);
 
     }
 
@@ -568,10 +570,10 @@ module.exports.parseInput = async function (ctx, queue) {
 
         playNextSong(queue);
 
-        if (newSongs[0] == undefined) return await reply(ctx, "The music could not be loaded");
+        if (newSongs[0] == undefined) return await utils.reply(ctx, "The music could not be loaded");
 
 
-        if (ctx.cType !== "MESSAGE") await reply(ctx, "Playing");
+        if (ctx.cType !== "MESSAGE") await utils.reply(ctx, "Playing");
 
     }
     else {
@@ -585,14 +587,14 @@ module.exports.parseInput = async function (ctx, queue) {
             Embed.setURL(`${url}`);
         }
         else {
-            if (newSongs[0] == undefined) return await reply(ctx, "The music could not be loaded");
+            if (newSongs[0] == undefined) return await utils.reply(ctx, "The music could not be loaded");
 
             Embed.setTitle(`${newSongs[0].title}`);
             Embed.setURL(`${newSongs[0].uri}`)
 
         }
 
-        await reply(ctx, { embeds: [Embed] })
+        await utils.reply(ctx, { embeds: [Embed] })
     }
 
 
@@ -614,7 +616,7 @@ module.exports.pauseSong = async function (ctx, queue) {
         Embed.setURL(process.env.WEBSITE);
         Embed.setFooter({ text: `${ctx.member.displayName} paused the music`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
 
-        await reply(ctx, { embeds: [Embed] })
+        await utils.reply(ctx, { embeds: [Embed] })
     }
 }
 
@@ -634,7 +636,7 @@ module.exports.resumeSong = async function (ctx, queue) {
         Embed.setURL(process.env.WEBSITE);
         Embed.setFooter({ text: `${ctx.member.displayName} Un-Paused the music`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
 
-        await reply(ctx, { embeds: [Embed] })
+        await utils.reply(ctx, { embeds: [Embed] })
     }
 }
 
@@ -654,7 +656,7 @@ module.exports.removeSong = async function (ctx, queue) {
     }
 
     if (index < 0 || index > queue.songs.length - 1) {
-        await reply(ctx, `Please select an index from the queue.`);
+        await utils.reply(ctx, `Please select an index from the queue.`);
         await commands.get('queue').execute(ctx);
         return;
     }
@@ -668,7 +670,7 @@ module.exports.removeSong = async function (ctx, queue) {
     Embed.setURL(process.env.WEBSITE);
     Embed.setFooter({ text: `Removed "${song.title}" from the queue`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
 
-    await reply(ctx, { embeds: [Embed] });
+    await utils.reply(ctx, { embeds: [Embed] });
 }
 
 /**
@@ -694,7 +696,7 @@ module.exports.showNowPlaying = async function (ctx, queue) {
  */
 module.exports.setLooping = async function (ctx, queue) {
 
-    if (ctx.cType === 'MESSAGE' && ctx.args[0] === undefined) return await reply(ctx, commands.get('loop').description);
+    if (ctx.cType === 'MESSAGE' && ctx.args[0] === undefined) return await utils.reply(ctx, commands.get('loop').description);
 
     const Embed = new MessageEmbed();
 
@@ -722,7 +724,7 @@ module.exports.setLooping = async function (ctx, queue) {
         return
     }
 
-    await reply(ctx, { embeds: [Embed] })
+    await utils.reply(ctx, { embeds: [Embed] })
 
 }
 
@@ -747,7 +749,7 @@ module.exports.showQueue = async function (ctx, queue) {
                     .setStyle(`PRIMARY`),
             );
 
-        const message = await reply(ctx, { embeds: [generateQueueEmbed(queue, 1)[0]], components: [showQueueButtons], fetchReply: true });
+        const message = await utils.reply(ctx, { embeds: [generateQueueEmbed(queue, 1)[0]], components: [showQueueButtons], fetchReply: true });
         if (message) {
 
             const queueCollector = new InteractionCollector(bot, { message: message, componentType: 'BUTTON', idle: 7000 });
@@ -759,7 +761,7 @@ module.exports.showQueue = async function (ctx, queue) {
             queueCollector.on('collect', async (button) => {
 
                 if (button.user.id !== queueCollector.owner) {
-                    return await reply(button, { content: "why must thou choose violence ?", ephemeral: true });
+                    return await utils.reply(button, { content: "why must thou choose violence ?", ephemeral: true });
                 }
 
                 await button.deferUpdate();
@@ -821,13 +823,13 @@ module.exports.showQueue = async function (ctx, queue) {
         }
         else {
 
-            await reply(ctx, { embeds: [generateQueueEmbed(queue, 1)[0]] });
+            await utils.reply(ctx, { embeds: [generateQueueEmbed(queue, 1)[0]] });
         }
 
 
     }
     else {
-        await reply(ctx, { embeds: [generateQueueEmbed(queue, 1)[0]] });
+        await utils.reply(ctx, { embeds: [generateQueueEmbed(queue, 1)[0]] });
     }
 
 }
@@ -867,7 +869,7 @@ module.exports.setVolume = async function (ctx, queue) {
     }
 
     if (volume < 1 || volume > 100) {
-        await reply(ctx, 'Please use a value between 1 and 100.');
+        await utils.reply(ctx, 'Please use a value between 1 and 100.');
         return;
     }
 
@@ -881,7 +883,7 @@ module.exports.setVolume = async function (ctx, queue) {
     Embed.setURL(process.env.WEBSITE);
     Embed.setFooter({ text: `${ctx.member.displayName} Changed the volume to ${parseInt(queue.volume * 100)}`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
 
-    await reply(ctx, { embeds: [Embed] })
+    await utils.reply(ctx, { embeds: [Embed] })
 }
 
 /**
@@ -901,7 +903,7 @@ module.exports.skipSong = async function (ctx, queue) {
         await queue.player.stop();
 
 
-        await reply(ctx, { embeds: [Embed] });
+        await utils.reply(ctx, { embeds: [Embed] });
 
 
     }
@@ -916,7 +918,7 @@ module.exports.skipSong = async function (ctx, queue) {
         Embed.setURL(process.env.WEBSITE);
         Embed.setFooter({ text: `The Queue is empty`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
 
-        await reply(ctx, { embeds: [Embed] });
+        await utils.reply(ctx, { embeds: [Embed] });
     }
 
 }
@@ -934,7 +936,7 @@ module.exports.stop = async function (ctx, queue) {
     Embed.setFooter({ text: `${ctx.member.displayName} Disconnected Me`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
 
 
-    await reply(ctx, { embeds: [Embed] });
+    await utils.reply(ctx, { embeds: [Embed] });
 
     const boundDestroy = destroyQueue.bind(queue);
 
@@ -1084,7 +1086,7 @@ module.exports.createQueue = function (ctx) {
 
 if (modulesLastReloadTime.music !== undefined) {
 
-    reloadCommandCategory('Music');
+    utils.reloadCommandCategory('Music');
 
     try {
         queues.forEach(function (queue, key) {
@@ -1113,14 +1115,14 @@ if (modulesLastReloadTime.music !== undefined) {
 
 
     } catch (error) {
-        log(`\x1b[31mError transfering old queue data\x1b[0m\n`, error);
+        utils.log(`\x1b[31mError transfering old queue data\x1b[0m\n`, error);
     }
 
 
-    log('\x1b[32mMusic Module Reloaded\x1b[0m');
+    utils.log('\x1b[32mMusic Module Reloaded\x1b[0m');
 }
 else {
-    log('\x1b[32mMusic Module loaded\x1b[0m');
+    utils.log('\x1b[32mMusic Module loaded\x1b[0m');
 }
 
 if (bot) {

@@ -1,14 +1,13 @@
 const { sync, perGuildLeveling, perGuildSettings } = require(`${process.cwd()}/passthrough.js`);
 const { XpRequiredForLevelOne, XpSecreteSauce } = sync.require(`${process.cwd()}/config.json`);
-const path = require('path');
 const { MessageAttachment } = require('discord.js')
 const fs = require('fs');
 const puppeteer = require('puppeteer');
-const { isError } = require('util');
+const utils = sync.require(`${process.cwd()}/utils`);
 
 module.exports = {
     name: 'level',
-    category: 'Leveling',
+    category: 'Fun',
     description: 'Displays your level',
     ContextMenu: {},
     syntax : '{prefix}{name} <specific user mention>',
@@ -21,10 +20,11 @@ module.exports = {
         }
     ],
     async execute(ctx) {
-        if (ctx.guild === null) return reply(ctx, `You need to be in a server to use this command`);
+        if (ctx.guild === null) returnutils.reply(ctx, `You need to be in a server to use this command`);
+
         const options = perGuildSettings.get(ctx.guild.id).leveling_options;
 
-        if(options.get('enabled') === undefined || options.get('enabled') !== 'true') return await reply(ctx,`Leveling is disabled in this server (and still being worked on ⚆_⚆)`);
+        if(options.get('enabled') === undefined || options.get('enabled') !== 'true') return await utils.reply(ctx,`Leveling is disabled in this server (and still being worked on ⚆_⚆)`);
 
         const member =  ctx.cType === 'COMMAND' ? (ctx.options.getMember('user') || ctx.member ) : ( ctx.mentions.members.first() || ctx.member);
 
@@ -33,11 +33,11 @@ module.exports = {
         const level = levelData.level || 0;
         const currentXp = ((levelData.currentXp || 0.001) / 1000 ).toFixed(2);
 
-        const backgroundUrl = `https://cdnb.artstation.com/p/marketplace/presentation_assets/000/106/277/large/file.jpg`;
+        const backgroundUrl = levelData.background || `https://cdnb.artstation.com/p/marketplace/presentation_assets/000/106/277/large/file.jpg`;
 
         if(ctx.cType === 'COMMAND') await ctx.deferReply();
 
-        if(member.user.bot) return await reply(ctx,'Bots are too sweaty to participate in leveling');
+        if(member.user.bot) return await utils.reply(ctx,'Bots are too sweaty to participate in leveling');
 
         const avatarUrl = member.displayAvatarURL({ format: 'png', size: 1024 });
         const displayName = member.displayName;
@@ -260,6 +260,6 @@ module.exports = {
         await browser.close();
 
 
-        await reply(ctx, { files: [{ attachment: imageBuffer }]});
+        await utils.reply(ctx, { files: [{ attachment: imageBuffer }]});
     }
 }
