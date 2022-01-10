@@ -116,7 +116,7 @@ module.exports = {
             helpCollector.on('collect', async (selector) => {
                 try {
                     if (selector.user.id !== helpCollector.owner) {
-                        returnutils.reply(ctx, { ephemeral: true, content: "why must thou choose violence ?" });
+                        return utils.reply(ctx, { ephemeral: true, content: "why must thou choose violence ?" });
                     }
 
                     const sections = ['General', 'Moderation', 'Music', 'Fun'];

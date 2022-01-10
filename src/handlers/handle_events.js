@@ -82,10 +82,16 @@ async function onPresenceUpdate(oldPresence, newPresence) {
     if (oldPresence.activities.filter((activity) => activity.id === targetActivity.id).length !== 0) return;
 
     // Twitch online message here
-    let twitchOnlineNotification = perGuildSettings.get(guildId).leveling_message;
+    let twitchOnlineNotification = perGuildSettings.get(guildId).twitch_message;
+
+    const guildId = newPresence.guild.id;
+    const userId = newPresence.member.id;
+    const username = newPresence.member.displayName;
+    const url = targetActivity.url;
 
     twitchOnlineNotification = twitchOnlineNotification.replace(/{user}/gi, `<@${userId}>`);
     twitchOnlineNotification = twitchOnlineNotification.replace(/{username}/gi, `${username}`);
+    twitchOnlineNotification = twitchOnlineNotification.replace(/{link}/gi, `${url}`);
 
 
     if (options.get('channel') && options.get('channel') !== '') {
@@ -100,13 +106,13 @@ async function onPresenceUpdate(oldPresence, newPresence) {
             }
             else {
                 message.forceChannelReply = true;
-               utils.reply(message, twitchOnlineNotification);
+                utils.reply(message, twitchOnlineNotification);
             }
         }
     }
     else {
         message.forceChannelReply = true;
-       utils.reply(message, twitchOnlineNotification);
+        utils.reply(message, twitchOnlineNotification);
     }
 }
 

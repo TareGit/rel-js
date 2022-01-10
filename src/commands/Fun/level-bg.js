@@ -21,13 +21,13 @@ module.exports = {
         }
     ],
     async execute(ctx) {
-        if (ctx.guild === null) returnutils.reply(ctx, `You need to be in a server to use this command`);
+        if (ctx.guild === null) return utils.reply(ctx, `You need to be in a server to use this command`);
         
         const options = perGuildSettings.get(ctx.guild.id).leveling_options;
 
         if(options.get('enabled') === undefined || options.get('enabled') !== 'true') return await utils.reply(ctx,`Leveling is disabled in this server (and still being worked on ⚆_⚆)`);
 
-        const member =  ctx.cType === 'COMMAND' ? (ctx.options.getMember('user') || ctx.member ) : ( ctx.mentions.members.first() || ctx.member);
+        const member =  ctx.cType === 'COMMAND' ? (ctx.options.getMember('user') || ctx.member) : (ctx.mentions.members.first() || ctx.member);
 
         if (perGuildLeveling.get(ctx.guild.id) === undefined) perGuildLeveling.set(ctx.guild.id, {});
 

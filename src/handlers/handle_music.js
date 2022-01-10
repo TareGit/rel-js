@@ -909,10 +909,6 @@ module.exports.skipSong = async function (ctx, queue) {
     }
     else {
 
-        if (isPlaying(queue)) {
-            return await queue.stop(ctx);
-        }
-
         const Embed = new MessageEmbed();
         Embed.setColor(perGuildSettings.get(queue.Id).color);
         Embed.setURL(process.env.WEBSITE);

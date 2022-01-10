@@ -22,11 +22,11 @@ module.exports = {
         }
     ],
     async execute(ctx) {
-            if (!ctx.guild || !ctx.member.voice.channel) returnutils.reply(ctx,"You need to be in a voice channel to use this command.");
+            if (!ctx.guild || !ctx.member.voice.channel) return utils.reply(ctx,"You need to be in a voice channel to use this command.");
 
-            if(!ctx.guild.me.permissions.has('CONNECT')) returnutils.reply(ctx,"I dont have permissions to join voice channels.");
+            if(!ctx.guild.me.permissions.has('CONNECT')) return utils.reply(ctx,"I dont have permissions to join voice channels.");
 
-            if(!ctx.guild.me.permissions.has('SPEAK')) returnutils.reply(ctx,"I dont have permissions to speak in voice channels (play music).");
+            if(!ctx.guild.me.permissions.has('SPEAK')) return utils.reply(ctx,"I dont have permissions to speak in voice channels (play music).");
             
             let Queue = queues.get(ctx.member.guild.id);
 

@@ -20,7 +20,7 @@ module.exports = {
         }
     ],
     async execute(ctx) {
-        if (ctx.guild === null) returnutils.reply(ctx, `You need to be in a server to use this command`);
+        if (ctx.guild === null) return utils.reply(ctx, `You need to be in a server to use this command`);
 
         const options = perGuildSettings.get(ctx.guild.id).leveling_options;
 

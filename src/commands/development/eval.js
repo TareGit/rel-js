@@ -20,14 +20,14 @@ module.exports = {
     ],
     async execute(ctx) {            
 
-        if(ctx.author.id !== process.env.CREATOR_ID) returnutils.reply(ctx,this.description);
+        if(ctx.author.id !== process.env.CREATOR_ID) return utils.reply(ctx,this.description);
 
 
        try {
            const evalFunction = new Function("bot","ctx","ps",ctx.pureContent);
            const response = "```" + JSON.stringify(evalFunction(bot,ctx,ps)) + "```";
-           if(response === undefined) returnutils.reply(ctx,"\`The result of the evaluation was undefined\`");
-           if(response.length === 0) returnutils.reply(ctx,"\`The evaluation did not return a result\`");
+           if(response === undefined) return utils.reply(ctx,"\`The result of the evaluation was undefined\`");
+           if(response.length === 0) return utils.reply(ctx,"\`The evaluation did not return a result\`");
            
           utils.reply(ctx,response);
        } catch (error) {

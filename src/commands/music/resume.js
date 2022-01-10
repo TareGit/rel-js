@@ -13,11 +13,11 @@ module.exports = {
     options: [],
     async execute(ctx) {
         
-            if (!ctx.guild || !ctx.member.voice.channel) returnutils.reply(ctx,"You need to be in a voice channel to use this command");
+            if (!ctx.guild || !ctx.member.voice.channel) return utils.reply(ctx,"You need to be in a voice channel to use this command");
 
             const Queue = queues.get(ctx.member.guild.id);
 
-            if (Queue == undefined) returnutils.reply(ctx,"Theres no Queue");
+            if (Queue == undefined) return utils.reply(ctx,"Theres no Queue");
 
             await resumeSong(ctx,Queue);
         
