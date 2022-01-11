@@ -54,7 +54,7 @@ function log(data) {
     argumentValues.unshift(`${file} ::`);
 
     if(bot && bot.cluster) argumentValues.unshift(`Cluster ${bot.cluster.id} ::`);
-    s
+    
     argumentValues.unshift(`${time(':')} ::`);
 
     console.log.apply(null, argumentValues);
