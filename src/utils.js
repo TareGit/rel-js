@@ -48,7 +48,7 @@ function log(data) {
     const argumentValues = Object.values(arguments);
     
     const stack = new Error().stack;
-    const pathDelimiter = process.platform === 'linux' ? '/' : '\\';
+    const pathDelimiter = process.platform !== 'win32' ? '/' : '\\';
     const simplifiedStack = stack.split('\n')[2].split(pathDelimiter);
     const file = simplifiedStack[simplifiedStack.length - 1].split(')')[0];
     argumentValues.unshift(`${file} ::`);
@@ -92,7 +92,7 @@ const reply = async function (ctx, reply) {
 
 const addNewCommand = async function (path) {
 
-    const pathAsArray = process.platform === 'linux' ? path.split('/') : path.split('\\');
+    const pathAsArray = process.platform !== 'win32' ? path.split('/') : path.split('\\');
 
     try {
 
@@ -122,7 +122,7 @@ const addNewCommand = async function (path) {
 }
 
 const reloadCommand = async function (path) {
-    const pathAsArray = process.platform === 'linux' ? path.split('/') : path.split('\\');
+    const pathAsArray = process.platform !== 'win32' ? path.split('/') : path.split('\\');
 
     try {
 
@@ -151,7 +151,7 @@ const reloadCommand = async function (path) {
 }
 
 const deleteCommand = async function (path) {
-    const pathAsArray = process.platform === 'linux' ? path.split('/') : path.split('\\');
+    const pathAsArray = process.platform !== 'win32' ? path.split('/') : path.split('\\');
 
     try {
 
@@ -206,7 +206,7 @@ const reloadCommands = async function (category) {
 
 const handleCommandDirectoryChanges = async function (event, path) {
 
-    const pathAsArray = process.platform === 'linux' ? path.split('/') : path.split('\\');
+    const pathAsArray = process.platform !== 'win32' ? path.split('/') : path.split('\\');
 
     switch (event) {
 
