@@ -46,16 +46,14 @@ function time(sep = '') {
 function log(data) {
 
     const argumentValues = Object.values(arguments);
-
     
-
-    if(bot && bot.cluster) argumentValues.unshift(`Cluster ${bot.cluster.id} ::`);
-
     const stack = new Error().stack;
     const pathDelimiter = process.platform === 'linux' ? '/' : '\\';
     const simplifiedStack = stack.split('\n')[2].split(pathDelimiter);
     const file = simplifiedStack[simplifiedStack.length - 1].split(')')[0];
     argumentValues.unshift(`${file} ::`);
+
+    if(bot && bot.cluster) argumentValues.unshift(`Cluster ${bot.cluster.id} ::`);
     
     argumentValues.unshift(`${time(':')} ::`);
 

@@ -11,15 +11,15 @@ const utils = sync.require(`${process.cwd()}/utils`);
 
 
 module.exports = {
-    name: 'movie',
+    name: 'actor',
     category: 'Fun',
-    description: 'Gets basic information about a movie',
+    description: 'Gets basic information about an actor',
     ContextMenu: {},
-    syntax : '{prefix}{name} <movie name>',
+    syntax : '{prefix}{name} <actor name>',
     options: [
         {
-            name : "movie",
-            description : "The movie to search for",
+            name : "actor",
+            description : "The actor to search for",
             type : 3,
             required : true
           }
@@ -45,31 +45,26 @@ module.exports = {
                 },
                 params: params
             };
-            response = (await axios.get(`${process.env.TMDB_API}/search/movie`,request)).data;
+            response = (await axios.get(`${process.env.TMDB_API}/search/person`,request)).data;
 
 
-            const movieData = response.results[0];
+            const actorData = response.results[0];
 
             Embed.setURL(process.env.WEBSITE);
 
-            Embed.setTitle(movieData.title);
+            Embed.setTitle(actorData.name);
 
-            Embed.setDescription(movieData.overview);
+            Embed.setImage(`https://image.tmdb.org/t/p/original${actorData.profile_path}`);
 
-            Embed.setImage(`https://image.tmdb.org/t/p/original${movieData.poster_path}`);
-
-
-            Embed.addField("Rating", `${movieData.vote_average}/10`);
-
-            Embed.addField("Release date", movieData.release_date || "Unknown");
-
-           utils.reply(ctx, { embeds: [Embed] });
+            Embed.addField("Gender", `${actorData.gender === 1 ? "Female" : "Male"}`);
+            
+            utils.reply(ctx, { embeds: [Embed] });
 
         } catch (error) {
-            Embed.setFooter({ text : "Movie Not Found" });
+            Embed.setFooter({ text : "Actor Not Found" });
 
            utils.reply(ctx, { embeds: [Embed] });
-            utils.log(`\x1b[31mError Searching for Movie\x1b[0m\n`,error);
+            utils.log(`\x1b[31mError Searching for Actors\x1b[0m\n`,error);
         }
 
     }

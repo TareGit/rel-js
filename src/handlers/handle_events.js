@@ -49,6 +49,9 @@ async function onInteractionCreate(interaction) {
 }
 
 async function onGuildMemberUpdate(oldMember, newMember) {
+
+    return;
+
     if (newMember.id == bot.user.id) {
 
         if (newMember.displayName.toLowerCase() != 'Umeko') {
@@ -81,10 +84,12 @@ async function onPresenceUpdate(oldPresence, newPresence) {
     // we only check the first one because afaik a user can't have more than 1 twitch activity
     if (oldPresence.activities.filter((activity) => activity.id === targetActivity.id).length !== 0) return;
 
+    const guildId = newPresence.guild.id;
+    
     // Twitch online message here
     let twitchOnlineNotification = perGuildSettings.get(guildId).twitch_message;
 
-    const guildId = newPresence.guild.id;
+    
     const userId = newPresence.member.id;
     const username = newPresence.member.displayName;
     const url = targetActivity.url;
@@ -114,6 +119,8 @@ async function onPresenceUpdate(oldPresence, newPresence) {
         message.forceChannelReply = true;
         utils.reply(message, twitchOnlineNotification);
     }
+
+    log(`${newPresence.member.displayName} Just went live`);
 }
 
 

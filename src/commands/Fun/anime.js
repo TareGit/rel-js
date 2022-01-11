@@ -55,7 +55,7 @@ module.exports = {
 
       Embed.setDescription(animeData.synopsis.replace('[Written by MAL Rewrite]',''));
 
-      Embed.setThumbnail(animeData.main_picture.medium);
+      Embed.setImage(animeData.main_picture.medium);
 
       Embed.addField("Status",`${animeData.status === 'currently_airing' ? 'Airing' : 'Completed'}`);
 
@@ -63,7 +63,7 @@ module.exports = {
 
     } catch (error) {
 
-      Embed.setFooter("Anime Not Found");
+      Embed.setFooter({ text : "Anime Not Found" });
      utils.reply(ctx,{ embeds: [Embed] });
       utils.log(`\x1b[31mError Fetching Anime Data\x1b[0m`,error);
     }

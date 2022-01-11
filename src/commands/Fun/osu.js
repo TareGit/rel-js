@@ -71,7 +71,7 @@ module.exports = {
            utils.reply(ctx, { embeds: [Embed] });
 
         } catch (error) {
-            Embed.setFooter("User Not Found");
+            Embed.setFooter({ text : "User Not Found" });
 
            utils.reply(ctx, { embeds: [Embed] });
             

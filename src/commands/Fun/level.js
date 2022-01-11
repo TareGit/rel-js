@@ -42,7 +42,7 @@ module.exports = {
         const avatarUrl = member.displayAvatarURL({ format: 'png', size: 1024 });
         const displayName = member.displayName;
         const rank = 1;
-        const requiredXp = (getXpForNextLevel(level) / 1000).toFixed(2);
+        const requiredXp = (utils.getXpForNextLevel(level) / 1000).toFixed(2);
 
         const cardAsHtml = `<!DOCTYPE html>
         <html lang="en">

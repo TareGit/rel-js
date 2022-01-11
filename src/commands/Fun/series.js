@@ -13,13 +13,13 @@ const utils = sync.require(`${process.cwd()}/utils`);
 module.exports = {
     name: 'movie',
     category: 'Fun',
-    description: 'Gets basic information about a movie',
+    description: 'Gets basic information about a tv series',
     ContextMenu: {},
-    syntax : '{prefix}{name} <movie name>',
+    syntax : '{prefix}{name} <series name>',
     options: [
         {
-            name : "movie",
-            description : "The movie to search for",
+            name : "series",
+            description : "the series to search for",
             type : 3,
             required : true
           }
@@ -45,31 +45,31 @@ module.exports = {
                 },
                 params: params
             };
-            response = (await axios.get(`${process.env.TMDB_API}/search/movie`,request)).data;
+            response = (await axios.get(`${process.env.TMDB_API}/search/tv`,request)).data;
 
 
-            const movieData = response.results[0];
+            const seriesData = response.results[0];
 
             Embed.setURL(process.env.WEBSITE);
 
-            Embed.setTitle(movieData.title);
+            Embed.setTitle(seriesData.name);
 
-            Embed.setDescription(movieData.overview);
+            Embed.setDescription(seriesData.overview);
 
-            Embed.setImage(`https://image.tmdb.org/t/p/original${movieData.poster_path}`);
+            Embed.setImage(`https://image.tmdb.org/t/p/original${seriesData.poster_path}`);
 
 
-            Embed.addField("Rating", `${movieData.vote_average}/10`);
+            Embed.addField("Rating", `${seriesData.vote_average}/10`);
 
-            Embed.addField("Release date", movieData.release_date || "Unknown");
+            Embed.addField("First Air Date", seriesData.first_air_date || "Unknown");
 
            utils.reply(ctx, { embeds: [Embed] });
 
         } catch (error) {
-            Embed.setFooter({ text : "Movie Not Found" });
+            Embed.setFooter({ text : "Series Not Found" });
 
            utils.reply(ctx, { embeds: [Embed] });
-            utils.log(`\x1b[31mError Searching for Movie\x1b[0m\n`,error);
+            utils.log(`\x1b[31mError Searching for Series\x1b[0m\n`,error);
         }
 
     }

@@ -38,6 +38,10 @@ async function onMessageCreate(message) {
         {
             levelingData[userId].level += 1;
             levelingData[userId].currentXp = levelingData[userId].currentXp - nextLevelXp;
+
+            if(levelingData[userId].level === 5 && message.guild.id === "669640893745201168"){
+                message.member.roles.add('930280652115443712','Level up');
+            }
             
             let levelUpNotification = perGuildSettings.get(guildId).leveling_message;
 
