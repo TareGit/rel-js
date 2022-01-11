@@ -295,3 +295,5 @@ if (bot) {
 else {
     modulesLastReloadTime.utils = 0;
 }
+
+log(process.platform);

@@ -27,7 +27,7 @@ module.exports = {
     async execute(ctx) {
 
 
-        const searchTerm = ctx.pureContent;
+        const searchTerm = ctx.cType == "COMMAND" ? ctx.options.getString('player') : ctx.pureContent;
 
         let response = undefined;
 

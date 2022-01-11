@@ -27,7 +27,7 @@ module.exports = {
   async execute(ctx) {
 
 
-    const searchTerm = ctx.pureContent;
+    const searchTerm = ctx.cType == "COMMAND" ? ctx.options.getString('anime') : ctx.pureContent;
 
     const params = new URLSearchParams();
     params.append("q", searchTerm);
@@ -38,10 +38,7 @@ module.exports = {
     let response = undefined;
 
     const Embed = new MessageEmbed();
-            Embed.setColor((ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).color : defaultPrimaryColor);
-            
-            
-
+    Embed.setColor((ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).color : defaultPrimaryColor);
             
     try {
       response = (await axios.get(`${process.env.MAL_API}/anime?`, { headers: { 'X-MAL-CLIENT-ID': process.env.MAL_API_KEY }, params: params })).data;

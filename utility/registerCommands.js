@@ -65,6 +65,8 @@ if (!deleteCommands) {
     });
 
     utils.log("Converted raw commands into API commands count:", commands.length)
+
+    utils.log(commands)
 }
 
 
@@ -81,6 +83,6 @@ axios.put(url, deleteCommands ? [] : commands, { headers: headers }).then((respo
     utils.log(`Successfully ${deleteCommands ? "Deleted" : "Updated"} commands`);
 }).catch((error) => {
     utils.log(error.response.data);
-    console.utils.log(util.inspect(error.response.data, { showHidden: false, depth: null, colors: true }))
+    utils.log(util.inspect(error.response.data, { showHidden: false, depth: null, colors: true }))
 });
 
