@@ -29,14 +29,14 @@ module.exports = {
 
         if(user.id === bot.user.id) return utils.reply(ctx,`I see what you did there 👀.`);
 
-        if(!ctx.guild.me.permissions.has('MOVE_MEMBERS')) return utils.reply(ctx,"I dont have permissions to delete messages");
+        if(!ctx.guild.me.permissions.has('MOVE_MEMBERS')) return utils.reply(ctx,"I dont have permissions to disconnect people");
 
         ctx.reply(`<@${user.id}> 🤡`);
 
         try {
             user.voice.disconnect('Banter');
         } catch (error) {
-            utils.log(`\x1b[31mError Disconnecting User\x1b[0m\n`,error);
+            utils.log(`Error Disconnecting User`,error);
         }
         
     }
