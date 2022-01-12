@@ -11,7 +11,7 @@ const utils = sync.require(`${process.cwd()}/utils`);
 
 
 module.exports = {
-    name: 'movie',
+    name: 'series',
     category: 'Fun',
     description: 'Gets basic information about a tv series',
     ContextMenu: {},
@@ -27,10 +27,10 @@ module.exports = {
     async execute(ctx) {
 
 
-        const searchTerm = ctx.pureContent;
+        const searchTerm = ctx.cType == "COMMAND" ? ctx.options.getString('series') : ctx.pureContent;
 
         const params = new URLSearchParams();
-        params.append("query", ctx.pureContent);
+        params.append("query", searchTerm);
 
         let response = undefined;
 

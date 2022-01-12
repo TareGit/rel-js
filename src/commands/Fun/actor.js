@@ -27,10 +27,10 @@ module.exports = {
     async execute(ctx) {
 
 
-        const searchTerm = ctx.pureContent;
+        const searchTerm = ctx.cType == "COMMAND" ? ctx.options.getString('actor') : ctx.pureContent;
 
         const params = new URLSearchParams();
-        params.append("query", ctx.pureContent);
+        params.append("query", searchTerm);
 
         let response = undefined;
 
