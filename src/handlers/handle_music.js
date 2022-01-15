@@ -172,9 +172,9 @@ async function convertSpotifyToSong(ctx, trackData, songArray) {
  * @param {Queue} queue The queue to generate the message for
  * @param targetChannel Optional parameter to specify a channel for the message
  */
-async function createNowPlayingMessage(queue, targetChannel = undefined) {
+async function createNowPlayingMessage(queue, ctx = undefined) {
 
-    const channel = targetChannel == undefined ? queue.channel : targetChannel;
+    const channel = queue.channel;
 
     let song = queue.currentSong;
 
@@ -226,8 +226,20 @@ async function createNowPlayingMessage(queue, targetChannel = undefined) {
                 .setLabel('Queue')
                 .setStyle('SECONDARY'),
         );
+    
+    let messsage = undefined;
 
-    const message = await channel.send({ embeds: [Embed], components: [nowButtons], fetchReply: true });
+    if(ctx)
+    {
+        utils.log('CTX REPLY MF');
+        message = await utils.reply(ctx,{ embeds: [Embed], components: [nowButtons], fetchReply: true });
+    }
+    else
+    {
+        message = await channel.send({ embeds: [Embed], components: [nowButtons], fetchReply: true });
+    }
+
+    
     if (message) {
 
         const nowPlayingCollector = new InteractionCollector(bot, { message: message, componentType: 'BUTTON' });
@@ -685,7 +697,7 @@ module.exports.showNowPlaying = async function (ctx, queue) {
             queue.nowPlayingMessage.stop('EndOfLife');
             queue.nowPlayingMessage = undefined;
         }
-        await createNowPlayingMessage(queue, ctx.channel);
+        await createNowPlayingMessage(queue, ctx);
     }
 }
 
@@ -858,7 +870,7 @@ module.exports.loadQueue = async function (ctx, queue) {
  */
 module.exports.setVolume = async function (ctx, queue) {
 
-    const volume = ctx.cType == "COMMAND" ? ctx.options.getInteger('ammount') : parseInt(ctx.args[0]);
+    const volume = ctx.cType == "COMMAND" ? ctx.options.getInteger('volume') : parseInt(ctx.args[0]);
 
     if (!volume) return await commands.get('help').execute(ctx,'volume');
 
