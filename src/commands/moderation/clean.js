@@ -29,9 +29,12 @@ module.exports = {
             
             if (ammount == 0 || ammount == NaN || ammount > 100 || ammount < 1) return utils.reply(ctx,"Ammount must be a value between 1 and 100");
 
-            let deletedMsgs = null;
-
-            deletedMsgs = await ctx.channel.bulkDelete(ammount);
+            try {
+                await ctx.channel.bulkDelete(ammount);
+            } catch (error) {
+                utils.log('Error deleting messages',error);
+            }
+            
         
 
     }
