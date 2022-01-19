@@ -5,7 +5,7 @@ const axios = require('axios');
 const fs = require('fs');
 const util = require('util')
 const Path = require('path');
-process.env = require('../src/secretes/secretes.json');
+process.env = require('../secretes.json');
 
 function readDirR(dir) {
     return fs.statSync(dir).isDirectory()
@@ -57,7 +57,7 @@ if (!deleteCommands) {
         if (rawCommand.ContextMenu && rawCommand.ContextMenu.name) {
             const contextCommandForAPi = {
                 name: rawCommand.ContextMenu.name,
-                type: 2
+                type: 3
             }
 
             commands.push(contextCommandForAPi);

@@ -1,23 +1,44 @@
-// handle replies
 const axios = require('axios');
 const { bot, commandsPaths, commands, modulesLastReloadTime } = require("./passthrough");
 
+/**
+ * Generates a random float (inclusive)
+ * @param {Number}min
+ * @param {Number}max
+ * @returns {Number} The random float
+ */
 function randomFloatInRange(min, max) {
     return Math.random() * (max - min) + min;
 }
 
+/**
+ * Generates a random integer (inclusive)
+ * @param {Number}min
+ * @param {Number}max
+ * @returns {Number} The random integer
+ */
 function randomIntegerInRange(min, max) {
     min = Math.ceil(min);
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min + 1) + min); //The maximum is inclusive and the minimum is inclusive
 }
 
-function getXpForNextLevel(currentLevel) {
-    return (currentLevel ** 2) * 3 + 100;
+/**
+ * Calculates the xp required to get to the next level
+ * @param {Number}level The current level
+ * @returns {Number}The xp required
+ */
+function getXpForNextLevel(level) {
+    return (level ** 2) * 3 + 100;
 }
 
-function getTotalXp(currentLevel) {
-    return (0.5 * (currentLevel + 1)) * ((currentLevel ** 2) * 2 + currentLevel + 200);
+/**
+ * Calculates the total xp at a specific level
+ * @param {Number}level The level to get the xp for
+ * @returns {Number}The total xp
+ */
+function getTotalXp(level) {
+    return (0.5 * (level + 1)) * ((level ** 2) * 2 + level + 200);
 }
 
 function time(sep = '') {
@@ -43,7 +64,11 @@ function time(sep = '') {
     return `${year}${sep}${month}${sep}${date}${sep}${hours}${sep}${minutes}${sep}${seconds}`;
 }
 
-function log(data) {
+/**
+ * Logs stuff
+ * @param args What to log
+ */
+function log() {
 
     const argumentValues = Object.values(arguments);
     
@@ -60,28 +85,45 @@ function log(data) {
     console.log.apply(null, argumentValues);
 }
 
-const reply = async function (ctx, reply) {
-
+/**
+ * Replies a message/command
+ * @param ctx The message/command
+ * @param payload The content to send
+ * @returns {Message} The reply
+ */
+async function reply(ctx, payload) {
 
     try {
+
+        if(!ctx) return undefined;
+
+        if(!ctx.channel.permissionsFor(ctx.guild.me).has("SEND_MESSAGES")){
+            log("CANT SEND")
+            if(ctx.author) return await ctx.author.send(payload);
+            return undefined;
+        }
+
         if (ctx.cType === 'MESSAGE') {
-            return await ctx.reply(reply);
+            return await ctx.reply(payload);
         }
         else {
             if (ctx.forceChannelReply !== undefined) {
-                if (ctx.forceChannelReply === true) return await ctx.channel.send(reply);
+                if (ctx.forceChannelReply === true)
+                {
+                    return await ctx.channel.send(payload);
+                } 
             }
 
             if (ctx.deferred !== undefined) {
 
-                if (ctx.replied) return await ctx.channel.send(reply);
+                if (ctx.replied) return await ctx.channel.send(payload);
 
-                if (ctx.deferred) return await ctx.editReply(reply);
+                if (ctx.deferred) return await ctx.editReply(payload);
 
-                return await ctx.reply(reply);
+                return await ctx.reply(payload);
             }
             else {
-                return await ctx.reply(reply);
+                return await ctx.reply(payload);
             }
         }
     } catch (error) {
@@ -295,5 +337,3 @@ if (bot) {
 else {
     modulesLastReloadTime.utils = 0;
 }
-
-log(process.platform);

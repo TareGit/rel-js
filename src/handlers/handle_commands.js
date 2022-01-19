@@ -1,11 +1,16 @@
 const { bot, sync, perGuildSettings, commands,modulesLastReloadTime,disabledCategories } = require(`${process.cwd()}/passthrough`);
-const { Interaction } = require('discord.js');
+const { Interaction, BaseCommandInteraction, CommandInteraction } = require('discord.js');
 const fs = require('fs');
 
 const utils = sync.require(`${process.cwd()}/utils`);
 
 const { defaultPrefix } = sync.require(`${process.cwd()}/config.json`);
 
+/**
+ * Tries to derive a command from a message
+ * @param {Message}message The message to parse
+ * @returns {Command} A command or undefined if the message could not be parsed
+ */
 module.exports.parseMessage = async (message) => {
 
     const content = message.content;
@@ -38,6 +43,11 @@ module.exports.parseMessage = async (message) => {
     return commands.get(actualAlias);
 }
 
+/**
+ * Tries to derive a command from an interaction command
+ * @param {CommandInteraction}interaction The interaction to parse
+ * @returns {Command} A command or undefined if the interaction could not be parsed
+ */
 module.exports.parseInteractionCommand = async (interaction) => {
 
     if(interaction.isContextMenu())

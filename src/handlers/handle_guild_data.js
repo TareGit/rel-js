@@ -1,28 +1,25 @@
 const EventEmitter = require("events");
+const { log } = require("util");
 
 const { sync, bot, db, perGuildSettings, modulesLastReloadTime, socket, perGuildLeveling } = require(`${process.cwd()}/passthrough.js`);
-const { defaultPrefix, defaultPrimaryColor, defaultLanguage, defaultNickname, defaultWelcomeMessage, defaultTwitchMessage, defaultLevelingMessage, guildSettingsTableFormat, guildLevelingTableFormat, guildCommandsTableFormat } = sync.require(`${process.cwd()}/config.json`);
+const { defaultPrefix, defaultPrimaryColor, defaultLanguage, defaultNickname, defaultWelcomeMessage, defaultTwitchMessage, defaultLevelingMessage, guildSettingsTableFormat, guildLevelingTableFormat, guildCommandsTableFormat, userSettingsTableFormat } = sync.require(`${process.cwd()}/config.json`);
 
 const utils = sync.require(`${process.cwd()}/utils`);
-
-const axios = require("axios");
 
 async function loadLevelingAndUserData(guildId) {
 
     try {
-        const leveling_data_response = (await axios.get(`${process.env.DB_API}/tables/guild_leveling_${guildId}/rows`, { headers: { 'x-umeko-token': process.env.DB_API_TOKEN } })).data;
+        const leveling_data_response = (await db.get(`/tables/guild_leveling_${guildId}/rows`)).data;
 
         if (leveling_data_response.error) {
 
             let levelingTable = Object.assign({}, guildLevelingTableFormat);;
             levelingTable.name += guildId;
 
-            await axios.post(`${process.env.DB_API}/tables`, levelingTable, { headers: { 'x-umeko-token': process.env.DB_API_TOKEN } });
+            await db.post(`/tables`, levelingTable);
         }
         else {
-
-            utils.log(leveling_data_response)
-
+            // handle the leveling data recieved
             const rows = leveling_data_response.data;
 
             rows.forEach(function (userLevelingData) {
@@ -53,17 +50,17 @@ async function loadLevelingAndUserData(guildId) {
 
     try {
 
-        const commands_data_response = (await axios.get(`${process.env.DB_API}/tables/guild_commands_${guildId}/rows`, { headers: { 'x-umeko-token': process.env.DB_API_TOKEN } })).data;
+        const commands_data_response = (await db.get(`/tables/guild_commands_${guildId}/rows`)).data;
 
         if (commands_data_response.error) {
 
             let commandsTable = Object.assign({}, guildCommandsTableFormat);;
             commandsTable.name += guildId;
 
-            await axios.post(`${process.env.DB_API}/tables`, commandsTable, { headers: { 'x-umeko-token': process.env.DB_API_TOKEN } });
+            await db.post(`/tables`, commandsTable);
         }
         else {
-            utils.log(commands_data_response)
+            // handle commands permission data here
         }
     } catch (error) {
         if(error.isAxiosError)
@@ -79,7 +76,7 @@ async function loadLevelingAndUserData(guildId) {
 
 async function pushGuildToDatabase(guild_setting_data) {
     try {
-        await axios.post(`${process.env.DB_API}/tables/guild_settings/rows`, guild_setting_data,{headers: {'x-umeko-token': process.env.DB_API_TOKEN}})
+        await db.post(`/tables/guild_settings/rows`, guild_setting_data);
     } catch (error) {
         if(error.isAxiosError)
         {
@@ -134,6 +131,26 @@ module.exports.joinedNewGuild = async function (guild) {
 
 module.exports.load = async function () {
 
+    try {
+        const user_settings_response = await db.get('/tables/user_settings');
+        if(user_settings_response.data && user_settings_response.data.error)
+        {
+            utils.log('Creating user settings table as it does not exist.');
+
+            await db.post('/tables',userSettingsTableFormat)
+
+            utils.log('User settings table created');
+        }
+    } catch (error) {
+        if(error.isAxiosError)
+        {
+            utils.log('Error making API request : ',error.data || error.message);
+        }
+        else
+        {
+            utils.log(error)
+        }
+    }
     const guilds = Array.from(bot.guilds.cache.keys());
 
     let whereStatement = '';
@@ -146,23 +163,16 @@ module.exports.load = async function () {
 
     params.append('where', whereStatement);
 
-    const request = {
-        headers: {
-            'x-umeko-token': process.env.DB_API_TOKEN
-        },
-
-        params: params
-    }
-
+    utils.log(params.toString());
     try {
-        const guild_settings_response = await axios.get(`${process.env.DB_API}/tables/guild_settings/rows`, request);
+        const guild_settings_response = await db.get('/tables/guild_settings/rows',{ params : params});
 
         const guild_settings_data = guild_settings_response.data;
 
         if (guild_settings_data.error) {
             utils.log(`\x1b[31mError Fetching Guild Settings "${guild_settings_data.error}" \x1b[0m`);
 
-            await axios.post(`${process.env.DB_API}/tables`, guildSettingsTableFormat, { headers: { 'x-umeko-token': process.env.DB_API_TOKEN } })
+            await db.post('/tables',guildSettingsTableFormat);
         }
         else {
 

@@ -74,6 +74,41 @@
             }
         ]
     },
+    "userSettingsTableFormat": {
+        "name": "user_settings",
+        "rows": [
+            {
+                "name": "id",
+                "type": "TEXT",
+                "option": "PRIMARY KEY"
+            },
+            {
+                "name": "color",
+                "type": "TEXT",
+                "option": "DEFAULT '#87ceeb'"
+            },
+            {
+                "name": "card_bg_id",
+                "type": "TEXT",
+                "option": "DEFAULT ''"
+            },
+            {
+                "name": "card_bg_url",
+                "type": "TEXT",
+                "option": "DEFAULT ''"
+            },
+            {
+                "name": "afk_message",
+                "type": "TEXT",
+                "option": "DEFAULT 'Im sleeping or something'"
+            },
+            {
+                "name": "afk_options",
+                "type": "TEXT",
+                "option": "DEFAULT ''"
+            }
+        ]
+    },
     "guildLevelingTableFormat": {
         "name": "guild_leveling_",
         "rows": [
