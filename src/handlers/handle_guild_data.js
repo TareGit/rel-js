@@ -163,7 +163,6 @@ module.exports.load = async function () {
 
     params.append('where', whereStatement);
 
-    utils.log(params.toString());
     try {
         const guild_settings_response = await db.get('/tables/guild_settings/rows',{ params : params});
 
