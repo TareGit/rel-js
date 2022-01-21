@@ -98,6 +98,11 @@
                 "option": "DEFAULT ''"
             },
             {
+                "name": "card_opacity",
+                "type": "REAL",
+                "option": "DEFAULT 0.8"
+            },
+            {
                 "name": "afk_message",
                 "type": "TEXT",
                 "option": "DEFAULT 'Im sleeping or something'"
