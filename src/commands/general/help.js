@@ -1,6 +1,6 @@
 const { MessageEmbed, MessageSelectMenu, MessageSelectOptionData, MessageActionRow, InteractionCollector } = require('discord.js');
 
-const { bot, sync, perGuildSettings, commands } = require(`${process.cwd()}/passthrough.js`);
+const { bot, sync, perGuildSettings, commands } = require(`${process.cwd()}/dataBus.js`);
 const { defaultPrimaryColor, defaultPrefix } = sync.require(`${process.cwd()}/config.json`);
 
 const utils = sync.require(`${process.cwd()}/utils`);
@@ -148,7 +148,7 @@ module.exports = {
 
                     await selector.update({ embeds: [helpCollector.generateEmbed(selector.values[0])], components: [MenuRow] });
                 } catch (error) {
-                    utils.log(`\x1b[31mError In Help Message Collector\x1b[0m\n`, error);
+                    utils.log(`Error In Help Message Collector\x1b[0m\n`, error);
                 }
 
             });
@@ -163,7 +163,7 @@ module.exports = {
                         }
                     });
                 } catch (error) {
-                    utils.log(`\x1b[31mError Ending Help Message Collector\x1b[0m\n`, error);
+                    utils.log(`Error Ending Help Message Collector\x1b[0m\n`, error);
                 }
 
 

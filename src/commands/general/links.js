@@ -1,6 +1,6 @@
 const { MessageEmbed } = require('discord.js');
 
-const { sync, perGuildSettings, bot } = require(`${process.cwd()}/passthrough.js`);
+const { sync, perGuildSettings, bot } = require(`${process.cwd()}/dataBus.js`);
 
 const {version, defaultPrimaryColor} = sync.require(`${process.cwd()}/config.json`);
 
@@ -22,7 +22,7 @@ module.exports = {
         Embed.setTitle('Links');
         Embed.setURL(process.env.WEBSITE);
 
-        Embed.addField("Website", process.env.WEBSITE , false);
+        Embed.addField("Dashboard", process.env.WEBSITE , false);
         Embed.addField("Support Server","https://discord.gg/qx7eUVwTGY", false);
 
         Embed.setTimestamp();

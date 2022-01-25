@@ -1,6 +1,6 @@
 const { MessageEmbed } = require('discord.js');
 
-const { sync, perGuildSettings, bot } = require(`${process.cwd()}/passthrough.js`);
+const { sync, perGuildSettings, bot } = require(`${process.cwd()}/dataBus.js`);
 
 const axios = require("axios");
 
@@ -69,7 +69,7 @@ module.exports = {
             Embed.setFooter({ text : "Series Not Found" });
 
            utils.reply(ctx, { embeds: [Embed] });
-            utils.log(`\x1b[31mError Searching for Series\x1b[0m\n`,error);
+            utils.log(`Error Searching for Series\x1b[0m\n`,error);
         }
 
     }

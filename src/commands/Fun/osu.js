@@ -1,6 +1,6 @@
 const { MessageEmbed } = require('discord.js');
 
-const { sync, perGuildSettings, bot } = require(`${process.cwd()}/passthrough.js`);
+const { sync, perGuildSettings, bot } = require(`${process.cwd()}/dataBus.js`);
 
 const axios = require("axios");
 
@@ -75,7 +75,7 @@ module.exports = {
 
            utils.reply(ctx, { embeds: [Embed] });
             
-            utils.log(`\x1b[31mError fetching Osu Data\x1b[0m`,error);
+            utils.log(`Error fetching Osu Data\x1b[0m`,error);
         }
 
     }

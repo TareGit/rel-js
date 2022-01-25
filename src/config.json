@@ -1,4 +1,5 @@
 {
+    "dataUpdateInterval" : 30,
     "queueTimeout": 300000,
     "queueItemsPerPage": 10,
     "maxQueueFetchTime": 5000,
@@ -14,6 +15,7 @@
     "defaultWelcomeMessage" : "Welcome to the server {user}",
     "defaultTwitchMessage" : "{username} just went live, check them out :{link} .",
     "defaultLevelingMessage" : "Congrats on reaching level {level} {user} !",
+    "defaultLeaveMessage" : "Sad to see you go {username}",
     "guildSettingsTableFormat": {
         "name": "guild_settings",
         "rows": [
@@ -49,6 +51,16 @@
             },
             {
                 "name": "welcome_options",
+                "type": "TEXT",
+                "option": "DEFAULT ''"
+            },
+            {
+                "name": "leave_message",
+                "type": "TEXT",
+                "option": "DEFAULT 'Sad to see you go {username}'"
+            },
+            {
+                "name": "leave_options",
                 "type": "TEXT",
                 "option": "DEFAULT ''"
             },

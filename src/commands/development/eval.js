@@ -1,6 +1,6 @@
 const { MessageEmbed } = require('discord.js');
-const ps = require(`${process.cwd()}/passthrough.js`);
-const { sync, bot } = require(`${process.cwd()}/passthrough.js`);
+const dataBus = require(`${process.cwd()}/dataBus.js`);
+const { sync, bot } = require(`${process.cwd()}/dataBus.js`);
 const utils = sync.require(`${process.cwd()}/utils`);
 
 
@@ -24,15 +24,15 @@ module.exports = {
 
 
        try {
-           const evalFunction = new Function("bot","ctx","ps","utils",ctx.pureContent);
-           const response = "```" + JSON.stringify(evalFunction(bot,ctx,ps,utils)) + "```";
-           if(response === undefined) return utils.reply(ctx,"\`The result of the evaluation was undefined\`");
-           if(response.length === 0) return utils.reply(ctx,"\`The evaluation did not return a result\`");
+           const evalFunction = new Function("bot","ctx","dataBus","utils",ctx.pureContent);
+           const response = "```" + JSON.stringify(evalFunction(bot,ctx,dataBus,utils)) + "```";
+           if(!response) return utils.reply(ctx,"\`The result of the evaluation was undefined\`");
+           if(!response.length) return utils.reply(ctx,"\`The evaluation did not return a result\`");
            
           utils.reply(ctx,response);
        } catch (error) {
            utils.reply(ctx,"\`Error Executing Evaluation\`");
-            utils.log(`\x1b[31mError Executing Evaluation "${ctx.pureContent}"`,error);
+            utils.log(`Error Executing Evaluation "${ctx.pureContent}"`,error);
        }
     }
 }

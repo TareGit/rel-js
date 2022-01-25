@@ -1,10 +1,144 @@
+const { default: axios } = require("axios");
 const EventEmitter = require("events");
 const { log } = require("util");
 
-const { sync, bot, db, perGuildSettings, modulesLastReloadTime, socket, perGuildLeveling } = require(`${process.cwd()}/passthrough.js`);
-const { defaultPrefix, defaultPrimaryColor, defaultLanguage, defaultNickname, defaultWelcomeMessage, defaultTwitchMessage, defaultLevelingMessage, guildSettingsTableFormat, guildLevelingTableFormat, guildCommandsTableFormat, userSettingsTableFormat } = sync.require(`${process.cwd()}/config.json`);
+const { sync, bot, db, perGuildSettings,perUserData, modulesLastReloadTime, socket, perGuildLeveling, guildsPendingUpdate,usersPendingUpdate, intervals } = require(`${process.cwd()}/dataBus.js`);
+const { dataUpdateInterval ,defaultPrefix, defaultPrimaryColor, defaultLanguage, defaultNickname, defaultWelcomeMessage, defaultLeaveMessage, defaultTwitchMessage, defaultLevelingMessage, guildSettingsTableFormat, guildLevelingTableFormat, guildCommandsTableFormat, userSettingsTableFormat } = sync.require(`${process.cwd()}/config.json`);
 
 const utils = sync.require(`${process.cwd()}/utils`);
+
+
+async function updateGuilds(){
+    if(!guildsPendingUpdate.length)
+    {
+        setTimeout(updateGuilds,dataUpdateInterval * 1000);
+        return;
+    }
+
+    let whereStatement = '';
+
+    guildsPendingUpdate.forEach(function (guild) {
+        whereStatement += `id='${guild}'${guild !== guildsPendingUpdate[guildsPendingUpdate.length - 1] ? ' OR ' : ''}`;
+    });
+
+    const params = new URLSearchParams();
+
+    params.append('where', whereStatement);
+
+    try {
+        const guild_settings_response = await db.get('/tables/guild_settings/rows',{ params : params});
+
+        const guild_settings_data = guild_settings_response.data;
+
+        if (guild_settings_data.error) {
+            utils.log(`Error Updating Pending Guilds : "${guild_settings_data.error}" \x1b[0m`);
+
+            if(guild_settings_data.error === 'Table does not exist') await db.post('/tables',guildSettingsTableFormat);
+        }
+        else {
+
+            const promises = [];
+
+            const rows = guild_settings_data.data;
+
+            rows.forEach(function (dbSetting, index) {
+
+                const setting = {
+                    id: dbSetting.id,
+                    color: dbSetting.color,
+                    prefix: dbSetting.prefix,
+                    nickname: dbSetting.nickname,
+                    language: dbSetting.language,
+                    welcome_message: dbSetting.welcome_message,
+                    welcome_options: new URLSearchParams(dbSetting.welcome_options),
+                    leave_message: dbSetting.leave_message,
+                    leave_options: new URLSearchParams(dbSetting.leave_options),
+                    twitch_message: dbSetting.twitch_message,
+                    twitch_options: new URLSearchParams(dbSetting.twitch_options),
+                    leveling_message: dbSetting.leveling_message,
+                    leveling_options: new URLSearchParams(dbSetting.leveling_options)
+                }
+
+                perGuildSettings.set(setting.id, setting);
+
+                guildsPendingUpdate.splice(guildsPendingUpdate.indexOf(setting.id), 1);
+
+                utils.log(`Updated Settings for Guild ${setting.id}`);
+            });
+        }
+
+    } catch (error) {
+        if(error.isAxiosError)
+        {
+            utils.log('Error Updating Pending Guilds : ',error.data || error.message);
+        }
+        else
+        {
+            utils.log(error)
+        }
+    }
+
+    setTimeout(updateGuilds,dataUpdateInterval * 1000);
+}
+
+async function updateUsers(){
+    if(!usersPendingUpdate.length)
+    {
+        setTimeout(updateUsers,dataUpdateInterval * 1000);
+        return;
+    }
+
+    let whereStatement = '';
+
+    usersPendingUpdate.forEach(function (user) {
+        whereStatement += `id='${user}'${user !== usersPendingUpdate[usersPendingUpdate.length - 1] ? ' OR ' : ''}`;
+    });
+
+    const params = new URLSearchParams();
+
+    params.append('where', whereStatement);
+
+    try {
+        const user_settings_response = await db.get('/tables/user_settings/rows',{ params : params});
+
+        const user_settings_data = user_settings_response.data;
+
+        if (user_settings_data.error) {
+            utils.log(`Error Updating Pending Users : "${user_settings_data.error}" \x1b[0m`);
+
+            if(user_settings_data.error === 'Table does not exist') await db.post('/tables',userSettingsTableFormat);
+        }
+        else {
+
+            const promises = [];
+
+            const rows = user_settings_data.data;
+
+            rows.forEach(function (dbSetting, index) {
+
+                perUserData.set(dbSetting.id,dbSetting);
+
+                perUserData.get(dbSetting.id).afk_options = new URLSearchParams(perUserData.get(dbSetting.id).afk_options);
+
+                usersPendingUpdate.splice(usersPendingUpdate.indexOf(dbSetting.id), 1);
+
+                utils.log(`Updated Settings for User ${dbSetting.id}`);
+            });
+        }
+
+    } catch (error) {
+        if(error.isAxiosError)
+        {
+            utils.log('Error Updating Pending Userss : ',error.data || error.message);
+        }
+        else
+        {
+            utils.log(error)
+        }
+    }
+
+    setTimeout(updateUsers,dataUpdateInterval * 1000);
+}
 
 async function loadLevelingAndUserData(guildId) {
 
@@ -16,25 +150,41 @@ async function loadLevelingAndUserData(guildId) {
             let levelingTable = Object.assign({}, guildLevelingTableFormat);;
             levelingTable.name += guildId;
 
-            await db.post(`/tables`, levelingTable);
+            if(leveling_data_response.error === 'Table does not exist') await db.post(`/tables`, levelingTable);
         }
         else {
             // handle the leveling data recieved
             const rows = leveling_data_response.data;
 
+            if (perGuildLeveling.get(guildId) === undefined) perGuildLeveling.set(guildId, { ranking : []});
+
+            const levelingData = perGuildLeveling.get(guildId);
+
+            const usersToTrack = [];
+
             rows.forEach(function (userLevelingData) {
 
-                if (perGuildLeveling.get(guildId) === undefined) perGuildLeveling.set(guildId, {});
+                
 
-                const levelingData = perGuildLeveling.get(guildId);
+                if (levelingData[userLevelingData.id] === undefined) levelingData[userLevelingData.id] = { level: 0, currentXp: 0 };
 
-                if (levelingData[userLevelingData.userId] === undefined) levelingData[userLevelingData.userId] = { level: 0, currentXp: 0 };
+                levelingData[userLevelingData.id].level = userLevelingData.level;
 
-                levelingData[userLevelingData.userId].level = userLevelingData.level;
+                levelingData[userLevelingData.id].currentXp = userLevelingData.xp_current;
 
-                levelingData[userLevelingData.userId].currentXp = userLevelingData.xp_current;
+                levelingData.ranking.push(userLevelingData.id);
 
+                usersToTrack.push(userLevelingData.id);
             })
+
+            //axios.post(`${process.env.SERVER_API}/notifications-user`,{ op: 'add' , data : usersToTrack, target : `${process.env.CLUSTER_API}/user-update`}).catch((error)=>log('Error making request to server',error.message));
+
+            if(levelingData.ranking)
+            {
+                levelingData.ranking.sort(function(userA,userB){
+                    return  levelingData[userA].level < levelingData[userB].level;
+                });
+            }
         }
     } catch (error) {
         if(error.isAxiosError)
@@ -57,7 +207,7 @@ async function loadLevelingAndUserData(guildId) {
             let commandsTable = Object.assign({}, guildCommandsTableFormat);;
             commandsTable.name += guildId;
 
-            await db.post(`/tables`, commandsTable);
+            if(commands_data_response.error === 'Table does not exist') await db.post(`/tables`, commandsTable);
         }
         else {
             // handle commands permission data here
@@ -135,11 +285,7 @@ module.exports.load = async function () {
         const user_settings_response = await db.get('/tables/user_settings');
         if(user_settings_response.data && user_settings_response.data.error)
         {
-            utils.log('Creating user settings table as it does not exist.');
-
-            await db.post('/tables',userSettingsTableFormat)
-
-            utils.log('User settings table created');
+            if(user_settings_response.data.error === 'Table does not exist') await db.post('/tables',userSettingsTableFormat)
         }
     } catch (error) {
         if(error.isAxiosError)
@@ -151,12 +297,15 @@ module.exports.load = async function () {
             utils.log(error)
         }
     }
-    const guilds = Array.from(bot.guilds.cache.keys());
+
+    guildsPendingUpdate.push.apply(guildsPendingUpdate,Array.from(bot.guilds.cache.keys()));
+
+    //axios.post(`${process.env.SERVER_API}/notifications-guild`,{ op: 'add' , data : guildsPendingUpdate, target : `${process.env.CLUSTER_API}/guild-update`}).catch((error)=>log('Error making request to main server',error.message));;
 
     let whereStatement = '';
 
-    guilds.forEach(function (guild) {
-        whereStatement += `id='${guild}'${guild !== guilds[guilds.length - 1] ? ' OR ' : ''}`;
+    guildsPendingUpdate.forEach(function (guild) {
+        whereStatement += `id='${guild}'${guild !== guildsPendingUpdate[guildsPendingUpdate.length - 1] ? ' OR ' : ''}`;
     });
 
     const params = new URLSearchParams();
@@ -169,9 +318,9 @@ module.exports.load = async function () {
         const guild_settings_data = guild_settings_response.data;
 
         if (guild_settings_data.error) {
-            utils.log(`\x1b[31mError Fetching Guild Settings "${guild_settings_data.error}" \x1b[0m`);
+            utils.log(`Error Fetching Guild Settings "${guild_settings_data.error}" \x1b[0m`);
 
-            await db.post('/tables',guildSettingsTableFormat);
+            if(guild_settings_data.error === 'Table does not exist') await db.post('/tables',guildSettingsTableFormat);
         }
         else {
 
@@ -189,6 +338,8 @@ module.exports.load = async function () {
                     language: dbSetting.language,
                     welcome_message: dbSetting.welcome_message,
                     welcome_options: new URLSearchParams(dbSetting.welcome_options),
+                    leave_message: dbSetting.leave_message,
+                    leave_options: new URLSearchParams(dbSetting.leave_options),
                     twitch_message: dbSetting.twitch_message,
                     twitch_options: new URLSearchParams(dbSetting.twitch_options),
                     leveling_message: dbSetting.leveling_message,
@@ -197,7 +348,7 @@ module.exports.load = async function () {
 
                 perGuildSettings.set(setting.id, setting);
 
-                guilds.splice(guilds.indexOf(setting.id), 1);
+                guildsPendingUpdate.splice(guildsPendingUpdate.indexOf(setting.id), 1);
 
                 promises.push(loadLevelingAndUserData(dbSetting.id));
             });
@@ -217,11 +368,11 @@ module.exports.load = async function () {
 
 
 
-    utils.log(`Guilds Not In Database [${guilds}]`);
+    utils.log(`Guilds Not In Database [${guildsPendingUpdate}]`);
 
     const promises = [];
 
-    guilds.forEach(function (guild, index) {
+    guildsPendingUpdate.forEach(function (guild, index) {
 
         const setting = {
             id: guild,
@@ -231,6 +382,8 @@ module.exports.load = async function () {
             language: defaultLanguage,
             welcome_message: defaultWelcomeMessage,
             welcome_options: new URLSearchParams(),
+            leave_message: defaultLeaveMessage,
+            leave_options: new URLSearchParams(),
             twitch_message: defaultTwitchMessage,
             twitch_options: new URLSearchParams(),
             leveling_message: defaultLevelingMessage,
@@ -247,6 +400,8 @@ module.exports.load = async function () {
             language: defaultLanguage,
             welcome_message: defaultWelcomeMessage,
             welcome_options: '',
+            leave_message: defaultLeaveMessage,
+            leave_options: '',
             twitch_message: defaultTwitchMessage,
             twitch_options: '',
             leveling_message: defaultLevelingMessage,
@@ -256,7 +411,15 @@ module.exports.load = async function () {
         promises.push(pushGuildToDatabase(dbSetting));
     });
 
+    guildsPendingUpdate.splice(0,guildsPendingUpdate.length)
+
     await Promise.all(promises);
+
+    // update guilds every 10 seconds
+    setTimeout(updateGuilds,dataUpdateInterval * 1000);
+
+    // update users every 10 seconds
+    setTimeout(updateUsers,dataUpdateInterval * 1000);
 }
 
 

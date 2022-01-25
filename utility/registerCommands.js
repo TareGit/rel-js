@@ -17,14 +17,14 @@ const commandsPaths = deleteCommands ? [] : readDirR(`${process.cwd()}/src/comma
 
 process.chdir(`${process.cwd()}/src`);
 
-const ps = require(`${process.cwd()}/passthrough.js`);
+const dataBus = require(`${process.cwd()}/dataBus.js`);
 
 const Heatsync = require("heatsync");
 const { options, proc } = require('node-os-utils');
 
 const sync = new Heatsync();
 
-Object.assign(ps, { sync: sync });
+Object.assign(dataBus, { sync: sync });
 
 const utils = sync.require(`${process.cwd()}/utils`);
 

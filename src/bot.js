@@ -2,11 +2,26 @@ process.chdir(__dirname);
 
 const Cluster = require("discord-hybrid-sharding");
 
-const ps = require('./passthrough.js');
+const dataBus = require('./dataBus.js');
+
+Object.assign(dataBus,{
+    perGuildSettings : new Map(),
+    perUserData : new Map(),
+    colors: new Map(),
+    prefixes: new Map(),
+    queues : new Map(),
+    commands : new Map(),
+    commandsPaths : new Map(),
+    disabledCategories : [],
+    perGuildLeveling : new Map(),
+    guildsPendingUpdate : [],
+    usersPendingUpdate : [],
+    intervals : {}
+})
 
 const { Client, Intents, CommandInteractionOptionResolver } = require('discord.js');
 
-const sync = ps.sync;
+const sync = dataBus.sync;
 
 const chokidar = require('chokidar');   
 
@@ -33,8 +48,10 @@ const clientOptions = {
 
 // Setup settings and configs
 const bot = new Client(clientOptions);
-Object.assign(ps, { bot: bot });
+Object.assign(dataBus, { bot: bot });
+
 bot.cluster = new Cluster.Client(bot); //Init the Client & So we can also access broadcastEval...
+bot.dataBus = dataBus;
 
 const utils = sync.require(`./utils`);
 
@@ -67,27 +84,27 @@ bot.on('ready', async () => {
         }
     });
 
-    Object.assign(ps, { LavaManager: LavaManager });
+    Object.assign(dataBus, { LavaManager: LavaManager });
 
     try {
         await LavaManager.connect();
         
         utils.log("\x1b[32mConnected to Music provider\x1b[0m");
     } catch (error) {
-        utils.log('\x1b[31mError connecting to music provider\x1b[0m\n',error);
-        ps.disabledCategories.push('Music');
+        utils.log('Error connecting to music provider\x1b[0m\n',error);
+        dataBus.disabledCategories.push('Music');
     }
     
 
     bot.ws
-        .on("VOICE_SERVER_UPDATE", ps.LavaManager.voiceServerUpdate.bind(ps.LavaManager))
-        .on("VOICE_STATE_UPDATE", ps.LavaManager.voiceStateUpdate.bind(ps.LavaManager))
+        .on("VOICE_SERVER_UPDATE", dataBus.LavaManager.voiceServerUpdate.bind(dataBus.LavaManager))
+        .on("VOICE_STATE_UPDATE", dataBus.LavaManager.voiceStateUpdate.bind(dataBus.LavaManager))
         .on("GUILD_CREATE", async data => {
-            for (const state of data.voice_states) await ps.LavaManager.voiceStateUpdate({ ...state, guild_id: data.id });
+            for (const state of data.voice_states) await dataBus.LavaManager.voiceStateUpdate({ ...state, guild_id: data.id });
         });
 
     LavaManager.on("error", (error, node) => {
-        utils.log('\x1b[31mLavalink error\x1b[0m\n',error);
+        utils.log('Lavalink error\x1b[0m\n',error);
     });
 
 
@@ -95,11 +112,10 @@ bot.on('ready', async () => {
         // Loads other modules once done
         const guildDataModule = sync.require('./handlers/handle_guild_data');
         await guildDataModule.load();
-
         const levelingModule = sync.require('./handlers/handle_leveling');
         const eventsModule = sync.require('./handlers/handle_events');
     } catch (error) {
-        utils.log('\x1b[31mError loading modules\x1b[0m\n',error);
+        utils.log('Error loading modules\x1b[0m\n',error);
     }
 
     await utils.getOsuApiToken();

@@ -1,6 +1,6 @@
 const { MessageEmbed } = require('discord.js');
 
-const { sync, perGuildSettings, bot } = require(`${process.cwd()}/passthrough.js`);
+const { sync, perGuildSettings, bot } = require(`${process.cwd()}/dataBus.js`);
 
 const {version, defaultPrimaryColor} = sync.require(`${process.cwd()}/config.json`);
 

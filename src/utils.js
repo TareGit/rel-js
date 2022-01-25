@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { bot, commandsPaths, commands, modulesLastReloadTime } = require("./passthrough");
+const { bot, commandsPaths, commands, modulesLastReloadTime } = require("./dataBus");
 
 /**
  * Generates a random float (inclusive)
@@ -78,7 +78,12 @@ function log() {
     const file = simplifiedStack[simplifiedStack.length - 1].split(')')[0];
     argumentValues.unshift(`${file} ::`);
 
-    if(bot && bot.cluster) argumentValues.unshift(`Cluster ${bot.cluster.id} ::`);
+    if(bot && bot.cluster){
+        argumentValues.unshift(`Cluster ${bot.cluster.id} ::`);
+    }
+    else{
+        argumentValues.unshift(`Manager ::`);
+    } 
     
     argumentValues.unshift(`${time(':')} ::`);
 
@@ -98,8 +103,7 @@ async function reply(ctx, payload) {
         if(!ctx) return undefined;
 
         if(!ctx.channel.permissionsFor(ctx.guild.me).has("SEND_MESSAGES")){
-            log("CANT SEND")
-            if(ctx.author) return await ctx.author.send(payload);
+            if(ctx.author) return await ctx.author.send(payload).catch((error)=>log('Error sending message',error));
             return undefined;
         }
 
@@ -110,24 +114,24 @@ async function reply(ctx, payload) {
             if (ctx.forceChannelReply !== undefined) {
                 if (ctx.forceChannelReply === true)
                 {
-                    return await ctx.channel.send(payload);
+                    return await ctx.channel.send(payload).catch((error)=>log('Error sending message',error));
                 } 
             }
 
             if (ctx.deferred !== undefined) {
 
-                if (ctx.replied) return await ctx.channel.send(payload);
+                if (ctx.replied) return await ctx.channel.send(payload).catch((error)=>log('Error sending message',error));
 
-                if (ctx.deferred) return await ctx.editReply(payload);
+                if (ctx.deferred) return await ctx.editReply(payload).catch((error)=>log('Error sending message',error));
 
-                return await ctx.reply(payload);
+                return await ctx.reply(payload).catch((error)=>log('Error sending message',error));
             }
             else {
-                return await ctx.reply(payload);
+                return await ctx.reply(payload).catch((error)=>log('Error sending message',error));
             }
         }
     } catch (error) {
-        log(`\x1b[31mError sending message\x1b[0m\n`, error);
+        log(`Error sending message\x1b[0m\n`, error);
     }
 
 }
@@ -159,7 +163,7 @@ const addNewCommand = async function (path) {
     } catch (error) {
         const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
 
-        log(`\x1b[31mError loading ${fileName}\x1b[0m\n`, error);
+        log(`Error loading ${fileName}\x1b[0m\n`, error);
     }
 }
 
@@ -188,7 +192,7 @@ const reloadCommand = async function (path) {
 
         const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
 
-        log(`\x1b[31mError reloading command ${fileName}\x1b[0m\n`, error);
+        log(`Error reloading command ${fileName}\x1b[0m\n`, error);
     }
 }
 
@@ -219,7 +223,7 @@ const deleteCommand = async function (path) {
 
         const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
 
-        log(`\x1b[31mError deleting command ${fileName}\x1b[0m\n`, error);
+        log(`Error deleting command ${fileName}\x1b[0m\n`, error);
     }
 }
 
@@ -234,7 +238,7 @@ const reloadCommandCategory = async function (category) {
             reloadCommand(path);
         });
     } catch (error) {
-        log(`\x1b[31mError reloading category ${category}\x1b[0m\n`, error);
+        log(`Error reloading category ${category}\x1b[0m\n`, error);
     }
 
 }
@@ -303,7 +307,7 @@ async function getSpotifyApiToken() {
 
         log("Done fetching Spotify Api Token");
     } catch (error) {
-        log(`\x1b[31mError Fetching Spotify Token\n`, error)
+        log(`Error Fetching Spotify Token\n`, error)
     }
 
 }

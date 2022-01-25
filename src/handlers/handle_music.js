@@ -1,4 +1,4 @@
-const { sync, bot, queues, perGuildSettings, LavaManager, modulesLastReloadTime, db, commands } = require(`${process.cwd()}/passthrough.js`);
+const { sync, bot, queues, perGuildSettings, LavaManager, modulesLastReloadTime, db, commands } = require(`${process.cwd()}/dataBus.js`);
 
 const { queueTimeout, queueItemsPerPage, maxQueueFetchTime, maxRawVolume, defaultVolumeMultiplier, leftArrowEmoji, rightArrowEmoji } = sync.require(`${process.cwd()}/config.json`);
 
@@ -30,7 +30,7 @@ function checkUrl(url) {
 
         return { type: 'search' };
     } catch (error) {
-        utils.log(`\x1b[31mError validating play url "${url}"`, error);
+        utils.log(`Error validating play url "${url}"`, error);
         return { type: 'search' };
     }
 
@@ -129,7 +129,7 @@ async function getSong(search, user) {
 
         return createSong(songData, user, songData.info.uri);
     } catch (error) {
-        utils.log(`\x1b[31mError fetching song for "${search}"\x1b[0m\n`, error);
+        utils.log(`Error fetching song for "${search}"\x1b[0m\n`, error);
         return undefined;
     }
 
@@ -329,6 +329,7 @@ async function createNowPlayingMessage(queue, ctx = undefined) {
                 );
 
             nowPlayingCollector.options.message.fetch().then((message) => {
+                utils.log('Fetched Message');
                 if (message) message.edit({ embeds: [message.embeds[0]], components: [editedNowButtons] });
             });
         });
@@ -467,7 +468,7 @@ async function playNextSong(queue) {
 
     } catch (error) {
 
-        utils.log(`\x1b[31mError playing song\x1b[0m\n`, error);
+        utils.log(`Error playing song\x1b[0m\n`, error);
 
         queue.songs.shift();
 
@@ -570,7 +571,7 @@ module.exports.parseInput = async function (ctx, queue) {
         }
     }
     catch (error) {
-        utils.log(`\x1b[31mError fetching song for url "${url}"\x1b[0m\n`, error);
+        utils.log(`Error fetching song for url "${url}"\x1b[0m\n`, error);
 
     }
 
@@ -1123,7 +1124,7 @@ if (modulesLastReloadTime.music !== undefined) {
 
 
     } catch (error) {
-        utils.log(`\x1b[31mError transfering old queue data\x1b[0m\n`, error);
+        utils.log(`Error transfering old queue data\x1b[0m\n`, error);
     }
 
 

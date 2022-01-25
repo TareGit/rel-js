@@ -2,17 +2,9 @@ const Heatsync = require("heatsync");
 const axios = require("axios");
 
 // ram, Never reload
-const passthrough = {
+const dataBus = {
     sync : new Heatsync(),
-    perGuildSettings : new Map(),
-    colors: new Map(),
-    prefixes: new Map(),
-    queues : new Map(),
-    commands : new Map(),
-    commandsPaths : new Map(),
     modulesLastReloadTime : {},
-    disabledCategories : [],
-    perGuildLeveling : new Map(),
     db : axios.create({
         baseURL: process.env.DB_API,
         headers: {
@@ -21,4 +13,4 @@ const passthrough = {
     })
 }
 
-module.exports = passthrough;
+module.exports = dataBus;

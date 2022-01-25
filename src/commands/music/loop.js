@@ -1,5 +1,5 @@
 
-const { sync, queues } = require(`${process.cwd()}/passthrough.js`);
+const { sync, queues } = require(`${process.cwd()}/dataBus.js`);
 const { setLooping } = sync.require(`${process.cwd()}/handlers/handle_music`);
 
 const utils = sync.require(`${process.cwd()}/utils`);

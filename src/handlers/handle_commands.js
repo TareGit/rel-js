@@ -1,4 +1,4 @@
-const { bot, sync, perGuildSettings, commands,modulesLastReloadTime,disabledCategories } = require(`${process.cwd()}/passthrough`);
+const { bot, sync, perGuildSettings, commands,modulesLastReloadTime,disabledCategories } = require(`${process.cwd()}/dataBus`);
 const { Interaction, BaseCommandInteraction, CommandInteraction } = require('discord.js');
 const fs = require('fs');
 

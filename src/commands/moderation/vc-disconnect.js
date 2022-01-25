@@ -1,4 +1,4 @@
-const { bot,sync } = require(`${process.cwd()}/passthrough.js`);
+const { bot,sync } = require(`${process.cwd()}/dataBus.js`);
 
 const utils = sync.require(`${process.cwd()}/utils`);
 

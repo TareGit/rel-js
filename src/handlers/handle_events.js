@@ -1,5 +1,5 @@
-const ps = require(`${process.cwd()}/passthrough.js`);
-const { sync, bot, modulesLastReloadTime, perGuildSettings, commands } = require(`${process.cwd()}/passthrough.js`);
+const dataBus = require(`${process.cwd()}/dataBus.js`);
+const { sync, bot, modulesLastReloadTime, perGuildSettings, commands } = require(`${process.cwd()}/dataBus.js`);
 
 const parser = sync.require('./handle_commands');
 const guildDataModule = sync.require('./handle_guild_data');
@@ -13,7 +13,7 @@ async function onMessageCreate(message) {
     if (message.author.id === bot.user.id) return;
     if (message.author.bot) return;
 
-    if (message.mentions.users.has(bot.user.id)) {
+    if (message.mentions.users.has(bot.user.id) && message.content && message.content.split('>')[1]) {
         const argument = message.content.split('>')[1].trim().toLowerCase();
         if (argument === '' || argument === 'help') {
             message.args = ['']
@@ -21,11 +21,11 @@ async function onMessageCreate(message) {
         }
     }
 
-    const commandToExecute = await parser.parseMessage(message).catch((error) => utils.log(`\x1b[31mError parsing message\x1b[0m\n`, error));
+    const commandToExecute = await parser.parseMessage(message).catch((error) => utils.log(`Error parsing message\x1b[0m\n`, error));
 
     if (commandToExecute !== undefined) {
         commandToExecute.execute(message).catch((error) => {
-            utils.log(`\x1b[31mError Executing Message Command\x1b[0m\n`, error)
+            utils.log(`Error Executing Message Command\x1b[0m\n`, error)
         });
     }
 }
@@ -35,30 +35,21 @@ async function onInteractionCreate(interaction) {
         return;
     }
 
-    const commandToExecute = await parser.parseInteractionCommand(interaction).catch((error) => utils.log(`\x1b[31mError parsing interaction\x1b[0m\n`, error));
+    const commandToExecute = await parser.parseInteractionCommand(interaction).catch((error) => utils.log(`Error parsing interaction\x1b[0m\n`, error));
 
     if (commandToExecute == undefined) {
         interaction.reply("Command not yet implemented");
     }
     else {
         commandToExecute.execute(interaction).catch((error) => {
-            utils.log(`\x1b[31mError Executing Interaction Command\x1b[0m\n`, error)
+            utils.log(`Error Executing Interaction Command\x1b[0m\n`, error)
         });
 
     }
 }
 
 async function onGuildMemberUpdate(oldMember, newMember) {
-
-    return;
-
-    if (newMember.id == bot.user.id) {
-
-        if (newMember.displayName.toLowerCase() != 'Umeko') {
-            newMember.setNickname('Umeko');
-        }
-
-    }
+    
 }
 
 async function onGuildCreate(guild) {
@@ -133,14 +124,14 @@ const botEvents = [
 ]
 
 if (bot !== undefined) {
-    if (ps.botEvents !== undefined) {
-        const previousEvents = ps.botEvents;
+    if (dataBus.botEvents !== undefined) {
+        const previousEvents = dataBus.botEvents;
 
         previousEvents.forEach(function (botEvent, index) {
             try {
                 bot.removeListener(botEvent.id, botEvent.event);
             } catch (error) {
-                utils.log(`\x1b[31mError unbinding event ${botEvent.id} from bot\x1b[0m\n`, error);
+                utils.log(`Error unbinding event ${botEvent.id} from bot\x1b[0m\n`, error);
             }
         });
 
@@ -150,11 +141,11 @@ if (bot !== undefined) {
         try {
             bot.on(botEvent.id, botEvent.event);
         } catch (error) {
-            utils.log(`\x1b[31mError binding event ${botEvent.id} to bot\x1b[0m\n`, error);
+            utils.log(`Error binding event ${botEvent.id} to bot\x1b[0m\n`, error);
         }
     });
 
-    ps.botEvents = botEvents;
+    dataBus.botEvents = botEvents;
 }
 
 

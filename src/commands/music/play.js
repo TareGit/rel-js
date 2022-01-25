@@ -1,4 +1,4 @@
-const { sync, queues } = require(`${process.cwd()}/passthrough.js`);
+const { sync, queues } = require(`${process.cwd()}/dataBus.js`);
 
 
 const {createQueue,parseInput } = sync.require(`${process.cwd()}/handlers/handle_music`);

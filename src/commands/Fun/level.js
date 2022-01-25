@@ -1,4 +1,4 @@
-const { sync, perGuildLeveling, perGuildSettings } = require(`${process.cwd()}/passthrough.js`);
+const { sync, perGuildLeveling, perGuildSettings, db , perUserData } = require(`${process.cwd()}/dataBus.js`);
 const { XpRequiredForLevelOne, XpSecreteSauce } = sync.require(`${process.cwd()}/config.json`);
 const { MessageAttachment } = require('discord.js')
 const fs = require('fs');
@@ -10,7 +10,7 @@ module.exports = {
     category: 'Fun',
     description: 'Displays your level',
     ContextMenu: {},
-    syntax : '{prefix}{name} <specific user mention>',
+    syntax: '{prefix}{name} <specific user mention>',
     options: [
         {
             name: 'user',
@@ -24,25 +24,60 @@ module.exports = {
 
         const options = perGuildSettings.get(ctx.guild.id).leveling_options;
 
-        if(options.get('enabled') === undefined || options.get('enabled') !== 'true') return await utils.reply(ctx,`Leveling is disabled in this server (and still being worked on ⚆_⚆)`);
+        if (options.get('enabled') === undefined || options.get('enabled') !== 'true') return await utils.reply(ctx, `Leveling is disabled in this server (and still being worked on ⚆_⚆)`);
 
-        const member =  ctx.cType === 'COMMAND' ? (ctx.options.getMember('user') || ctx.member ) : ( ctx.mentions.members.first() || ctx.member);
+        const member = ctx.cType === 'COMMAND' ? (ctx.options.getMember('user') || ctx.member) : (ctx.mentions.members.first() || ctx.member);
 
         const levelingData = perGuildLeveling.get(ctx.guild.id) || {}
         const levelData = levelingData[member.id] || {};
         const level = levelData.level || 0;
-        const currentXp = ((levelData.currentXp || 0.001) / 1000 ).toFixed(2);
+        const currentXp = ((levelData.currentXp || 1) / 1000).toFixed(2);
 
-        const backgroundUrl = levelData.background || `https://cdnb.artstation.com/p/marketplace/presentation_assets/000/106/277/large/file.jpg`;
+        if (!perUserData.get(member.id)) {
 
-        if(ctx.cType === 'COMMAND') await ctx.deferReply();
+            const params = new URLSearchParams();
 
-        if(member.user.bot) return await utils.reply(ctx,'Bots are too sweaty to participate in leveling');
+            params.append('where', `id='${member.id}'`);
+
+            const user_settings_response = await db.get('/tables/user_settings/rows', { params: params });
+
+            const user_settings_data = user_settings_response.data;
+
+            if (user_settings_data.error) {
+                utils.log(`Error Fetchig User Data : "${user_settings_data.error}" \x1b[0m`);
+            }
+            else {
+
+                
+
+                const rows = user_settings_data.data;
+                
+                if(rows.length){
+
+                    const bus = require(`${process.cwd()}/dataBus.js`);
+
+                    perUserData.set(member.id,rows[0]);
+                    perUserData.get(member.id).afk_options = new URLSearchParams(perUserData.get(member.id).afk_options);
+
+                    //axios.post(`${process.env.SERVER_API}/notifications-user`,{ op: 'add' , data : [member.id], target : `${process.env.CLUSTER_API}/user-update`}).catch((error)=>log('Error making request to server',error.message));
+                }
+                
+            }
+        }
+
+        const userBackground = perUserData.get(member.id) ? perUserData.get(member.id).card_bg_url : `https://cdnb.artstation.com/p/marketplace/presentation_assets/000/106/277/large/file.jpg`;
+
+        if (ctx.cType === 'COMMAND') await ctx.deferReply();
+
+        if (member.user.bot) return await utils.reply(ctx, 'Bots are too sweaty to participate in leveling');
 
         const avatarUrl = member.displayAvatarURL({ format: 'png', size: 1024 });
         const displayName = member.displayName;
-        const rank = 1;
+        const rank = levelingData.ranking ? levelingData.ranking.indexOf(member.id) + 1 : 'Unranked';
         const requiredXp = (utils.getXpForNextLevel(level) / 1000).toFixed(2);
+
+        const userColor = perUserData.get(member.id) ? perUserData.get(member.id).color : '#87ceeb';
+        const userOpacity = perUserData.get(member.id) ? perUserData.get(member.id).card_opacity : '0.8';
 
         const cardAsHtml = `<!DOCTYPE html>
         <html lang="en">
@@ -55,9 +90,9 @@ module.exports = {
                 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500&display=swap');
         
                 :root {
-                    --main-color: #87ceeb;
-                    --progress-percent: ${(currentXp/requiredXp) * 100}%;
-                    --opacity : 0.8;
+                    --main-color: ${userColor};
+                    --progress-percent: ${(currentXp / requiredXp) * 100}%;
+                    --opacity : ${userOpacity};
                 }
         
                 h1 {
@@ -219,7 +254,7 @@ module.exports = {
         </head>
         
         <body>
-            <img class="background" src="${backgroundUrl}" />
+            <img class="background" src="${userBackground}" />
             <div class="main">
                 <div class="user-profile">
                     <img
@@ -246,12 +281,12 @@ module.exports = {
 
         //<div class="online-status"></div>
 
-        
-        const browser = await puppeteer.launch({ headless: true, args:['--no-sandbox'] ,userDataDir: `${process.cwd()}/../puppeter` });
+
+        const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'], userDataDir: `${process.cwd()}/../puppeter` });
         const page = await browser.newPage();
 
-        page.setViewport({width : 1200,height : 400});
-        
+        page.setViewport({ width: 1200, height: 400 });
+
         await page.setContent(cardAsHtml);
         const content = await page.$("body");
         const imageBuffer = await content.screenshot({ omitBackground: true });
@@ -260,6 +295,6 @@ module.exports = {
         await browser.close();
 
 
-        await utils.reply(ctx, { files: [{ attachment: imageBuffer }]});
+        await utils.reply(ctx, { files: [{ attachment: imageBuffer }] });
     }
 }

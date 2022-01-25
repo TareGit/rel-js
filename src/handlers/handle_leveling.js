@@ -1,5 +1,5 @@
-const ps = require(`${process.cwd()}/passthrough.js`);
-const { sync, bot, modulesLastReloadTime, perGuildSettings, perGuildLeveling } = ps;
+const dataBus = require(`${process.cwd()}/dataBus.js`);
+const { sync, bot, modulesLastReloadTime, perGuildSettings, perGuildLeveling } = dataBus;
 
 const utils = sync.require(`${process.cwd()}/utils`);
 
@@ -24,11 +24,14 @@ async function onMessageCreate(message) {
 
         if(!options.get('enabled') || options.get('enabled') !== 'true') return;
 
-        if (perGuildLeveling.get(guildId) === undefined) perGuildLeveling.set(guildId, {});
+        if (perGuildLeveling.get(guildId) === undefined) perGuildLeveling.set(guildId, { ranking : []});
 
         const levelingData = perGuildLeveling.get(guildId);
 
-        if (levelingData[userId] === undefined) levelingData[userId] = {level : 0, currentXp : 0};
+        if (levelingData[userId] === undefined){
+            levelingData[userId] = {level : 0, currentXp : 0};
+            levelingData.ranking.push(userId);
+        } 
 
         levelingData[userId].currentXp += utils.randomIntegerInRange(5, 10) * 5;
 
@@ -38,6 +41,14 @@ async function onMessageCreate(message) {
         {
             levelingData[userId].level += 1;
             levelingData[userId].currentXp = levelingData[userId].currentXp - nextLevelXp;
+
+            if(levelingData.ranking)
+            {
+                levelingData.ranking.sort(function(userA,userB){
+                    return  levelingData[userA].level < levelingData[userB].level;
+                });
+            }
+            
 
             if(levelingData[userId].level === 5 && message.guild.id === "669640893745201168"){
                 message.member.roles.add('930280652115443712','Level up');
@@ -113,14 +124,14 @@ const levelingEvents = [
 ]
 
 if (bot !== undefined) {
-    if (ps.levelingEvents !== undefined) {
-        const previousEvents = ps.levelingEvents;
+    if (dataBus.levelingEvents !== undefined) {
+        const previousEvents = dataBus.levelingEvents;
 
         previousEvents.forEach(function (levelingEvent, index) {
             try {
                 bot.removeListener(levelingEvent.id, levelingEvent.event);
             } catch (error) {
-                utils.log(`\x1b[31mError unbinding event ${levelingEvent.id} from bot\x1b[0m\n`, error);
+                utils.log(`Error unbinding event ${levelingEvent.id} from bot\x1b[0m\n`, error);
             }
         });
 
@@ -130,11 +141,11 @@ if (bot !== undefined) {
         try {
             bot.on(levelingEvent.id, levelingEvent.event);
         } catch (error) {
-            utils.log(`\x1b[31mError binding event ${levelingEvent.id} to bot\x1b[0m\n`, error);
+            utils.log(`Error binding event ${levelingEvent.id} to bot\x1b[0m\n`, error);
         }
     });
 
-    ps.levelingEvents = levelingEvents;
+    dataBus.levelingEvents = levelingEvents;
 }
 
 

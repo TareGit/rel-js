@@ -1,6 +1,6 @@
 const { MessageEmbed } = require('discord.js');
 
-const { sync } = require(`${process.cwd()}/passthrough.js`);
+const { sync } = require(`${process.cwd()}/dataBus.js`);
 
 const utils = sync.require(`${process.cwd()}/utils`);
 
