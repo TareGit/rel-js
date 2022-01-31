@@ -329,10 +329,10 @@ module.exports = {
 
 
 if (modulesLastReloadTime.utils !== undefined) {
-    log('\x1b[32mGlobal Utils Reloaded\x1b[0m');
+    log('Global Utils Reloaded\x1b[0m');
 }
 else {
-    log('\x1b[32mGlobal Utils Loaded\x1b[0m');
+    log('Global Utils Loaded\x1b[0m');
 }
 
 if (bot) {

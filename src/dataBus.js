@@ -8,7 +8,7 @@ const dataBus = {
     db : axios.create({
         baseURL: process.env.DB_API,
         headers: {
-            'x-umeko-token': process.env.DB_API_TOKEN
+            'x-api-key': process.env.DB_API_TOKEN
         }
     })
 }

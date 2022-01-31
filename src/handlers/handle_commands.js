@@ -73,11 +73,11 @@ module.exports.parseInteractionCommand = async (interaction) => {
 
 if(modulesLastReloadTime.commands !== undefined)
 {
-    utils.log('\x1b[32mCommands Module Reloaded\x1b[0m');
+    utils.log('Commands Module Reloaded\x1b[0m');
 }
 else
 {
-    utils.log('\x1b[32mCommands Module Loaded\x1b[0m');
+    utils.log('Commands Module Loaded\x1b[0m');
 }
 
 if(bot)

@@ -19,7 +19,7 @@ Object.assign(dataBus,{
     intervals : {}
 })
 
-const { Client, Intents, CommandInteractionOptionResolver } = require('discord.js');
+const { Client, Intents, CommandInteractionOptionResolver,Options, Sweepers } = require('discord.js');
 
 const sync = dataBus.sync;
 
@@ -55,13 +55,12 @@ bot.dataBus = dataBus;
 
 const utils = sync.require(`./utils`);
 
-
 bot.on('ready', async () => {
     
 
     
 
-    utils.log('\x1b[32mBot Ready\x1b[0m');
+    utils.log('Bot Ready\x1b[0m');
 
     setInterval(() => bot.user.setActivity(`${bot.guilds.cache.size} Servers`,{type: 'WATCHING'}), 20000);
 
@@ -89,7 +88,7 @@ bot.on('ready', async () => {
     try {
         await LavaManager.connect();
         
-        utils.log("\x1b[32mConnected to Music provider\x1b[0m");
+        utils.log("Connected to Music provider\x1b[0m");
     } catch (error) {
         utils.log('Error connecting to music provider\x1b[0m\n',error);
         dataBus.disabledCategories.push('Music');

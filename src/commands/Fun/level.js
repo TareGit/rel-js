@@ -35,11 +35,7 @@ module.exports = {
 
         if (!perUserData.get(member.id)) {
 
-            const params = new URLSearchParams();
-
-            params.append('where', `id='${member.id}'`);
-
-            const user_settings_response = await db.get('/tables/user_settings/rows', { params: params });
+            const user_settings_response = await db.get('/tables/user_settings/rows',[member.id]);
 
             const user_settings_data = user_settings_response.data;
 
@@ -50,7 +46,7 @@ module.exports = {
 
                 
 
-                const rows = user_settings_data.data;
+                const rows = user_settings_data;
                 
                 if(rows.length){
 
@@ -59,7 +55,7 @@ module.exports = {
                     perUserData.set(member.id,rows[0]);
                     perUserData.get(member.id).afk_options = new URLSearchParams(perUserData.get(member.id).afk_options);
 
-                    //axios.post(`${process.env.SERVER_API}/notifications-user`,{ op: 'add' , data : [member.id], target : `${process.env.CLUSTER_API}/user-update`}).catch((error)=>log('Error making request to server',error.message));
+                    axios.post(`${process.env.SERVER_API}/notifications-user`,{ op: 'add' , data : [member.id], target : `${process.env.CLUSTER_API}/user-update`}).catch((error)=>log('Error making request to server',error.message));
                 }
                 
             }

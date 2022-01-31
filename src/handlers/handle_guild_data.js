@@ -15,18 +15,9 @@ async function updateGuilds(){
         return;
     }
 
-    let whereStatement = '';
-
-    guildsPendingUpdate.forEach(function (guild) {
-        whereStatement += `id='${guild}'${guild !== guildsPendingUpdate[guildsPendingUpdate.length - 1] ? ' OR ' : ''}`;
-    });
-
-    const params = new URLSearchParams();
-
-    params.append('where', whereStatement);
 
     try {
-        const guild_settings_response = await db.get('/tables/guild_settings/rows',{ params : params});
+        const guild_settings_response = await db.get('/tables/guild_settings/rows',guildsPendingUpdate);
 
         const guild_settings_data = guild_settings_response.data;
 
@@ -37,9 +28,7 @@ async function updateGuilds(){
         }
         else {
 
-            const promises = [];
-
-            const rows = guild_settings_data.data;
+            const rows = guild_settings_data;
 
             rows.forEach(function (dbSetting, index) {
 
@@ -88,18 +77,8 @@ async function updateUsers(){
         return;
     }
 
-    let whereStatement = '';
-
-    usersPendingUpdate.forEach(function (user) {
-        whereStatement += `id='${user}'${user !== usersPendingUpdate[usersPendingUpdate.length - 1] ? ' OR ' : ''}`;
-    });
-
-    const params = new URLSearchParams();
-
-    params.append('where', whereStatement);
-
     try {
-        const user_settings_response = await db.get('/tables/user_settings/rows',{ params : params});
+        const user_settings_response = await db.get('/tables/user_settings/rows',usersPendingUpdate);
 
         const user_settings_data = user_settings_response.data;
 
@@ -110,9 +89,7 @@ async function updateUsers(){
         }
         else {
 
-            const promises = [];
-
-            const rows = user_settings_data.data;
+            const rows = user_settings_data;
 
             rows.forEach(function (dbSetting, index) {
 
@@ -154,7 +131,7 @@ async function loadLevelingAndUserData(guildId) {
         }
         else {
             // handle the leveling data recieved
-            const rows = leveling_data_response.data;
+            const rows = leveling_data_response;
 
             if (perGuildLeveling.get(guildId) === undefined) perGuildLeveling.set(guildId, { ranking : []});
 
@@ -165,7 +142,6 @@ async function loadLevelingAndUserData(guildId) {
             rows.forEach(function (userLevelingData) {
 
                 
-
                 if (levelingData[userLevelingData.id] === undefined) levelingData[userLevelingData.id] = { level: 0, currentXp: 0 };
 
                 levelingData[userLevelingData.id].level = userLevelingData.level;
@@ -177,7 +153,7 @@ async function loadLevelingAndUserData(guildId) {
                 usersToTrack.push(userLevelingData.id);
             })
 
-            //axios.post(`${process.env.SERVER_API}/notifications-user`,{ op: 'add' , data : usersToTrack, target : `${process.env.CLUSTER_API}/user-update`}).catch((error)=>log('Error making request to server',error.message));
+            axios.post(`${process.env.SERVER_API}/notifications-user`,{ op: 'add' , data : usersToTrack, target : `${process.env.CLUSTER_API}/user-update`}).catch((error)=>log('Error making request to server',error.message));
 
             if(levelingData.ranking)
             {
@@ -226,7 +202,7 @@ async function loadLevelingAndUserData(guildId) {
 
 async function pushGuildToDatabase(guild_setting_data) {
     try {
-        await db.post(`/tables/guild_settings/rows`, guild_setting_data);
+        
     } catch (error) {
         if(error.isAxiosError)
         {
@@ -282,10 +258,11 @@ module.exports.joinedNewGuild = async function (guild) {
 module.exports.load = async function () {
 
     try {
-        const user_settings_response = await db.get('/tables/user_settings');
+        const user_settings_response = await db.get('/tables'['user_settings']);
+
         if(user_settings_response.data && user_settings_response.data.error)
         {
-            if(user_settings_response.data.error === 'Table does not exist') await db.post('/tables',userSettingsTableFormat)
+            await db.post('/tables',userSettingsTableFormat).catch(error => utils.log(error.message));
         }
     } catch (error) {
         if(error.isAxiosError)
@@ -300,20 +277,10 @@ module.exports.load = async function () {
 
     guildsPendingUpdate.push.apply(guildsPendingUpdate,Array.from(bot.guilds.cache.keys()));
 
-    //axios.post(`${process.env.SERVER_API}/notifications-guild`,{ op: 'add' , data : guildsPendingUpdate, target : `${process.env.CLUSTER_API}/guild-update`}).catch((error)=>log('Error making request to main server',error.message));;
-
-    let whereStatement = '';
-
-    guildsPendingUpdate.forEach(function (guild) {
-        whereStatement += `id='${guild}'${guild !== guildsPendingUpdate[guildsPendingUpdate.length - 1] ? ' OR ' : ''}`;
-    });
-
-    const params = new URLSearchParams();
-
-    params.append('where', whereStatement);
+    axios.post(`${process.env.SERVER_API}/notifications-guild`,{ op: 'add' , data : guildsPendingUpdate, target : `${process.env.CLUSTER_API}/guild-update`}).catch((error)=>log('Error making request to main server',error.message));;
 
     try {
-        const guild_settings_response = await db.get('/tables/guild_settings/rows',{ params : params});
+        const guild_settings_response = await db.get('/tables/guild_settings/rows',guildsPendingUpdate);
 
         const guild_settings_data = guild_settings_response.data;
 
@@ -326,7 +293,7 @@ module.exports.load = async function () {
 
             const promises = [];
 
-            const rows = guild_settings_data.data;
+            const rows = guild_settings_data;
 
             rows.forEach(function (dbSetting, index) {
 
@@ -371,6 +338,7 @@ module.exports.load = async function () {
     utils.log(`Guilds Not In Database [${guildsPendingUpdate}]`);
 
     const promises = [];
+    const dataToPush = [];
 
     guildsPendingUpdate.forEach(function (guild, index) {
 
@@ -408,12 +376,14 @@ module.exports.load = async function () {
             leveling_options: ''
         }
 
-        promises.push(pushGuildToDatabase(dbSetting));
+        dataToPush.push(dbSetting);
+        promises.push(loadLevelingAndUserData(guild));
     });
 
-    guildsPendingUpdate.splice(0,guildsPendingUpdate.length)
-
+    await db.post(`/tables/guild_settings/rows`, dataToPush).catch(error => utils.log(error.message));
     await Promise.all(promises);
+
+    guildsPendingUpdate.splice(0,guildsPendingUpdate.length)
 
     // update guilds every 10 seconds
     setTimeout(updateGuilds,dataUpdateInterval * 1000);
@@ -424,10 +394,10 @@ module.exports.load = async function () {
 
 
 
-utils.log('\x1b[32mGuild data Module Loaded\x1b[0m');
+utils.log('Guild data Module Loaded\x1b[0m');
 
 if (modulesLastReloadTime.guildData !== undefined) {
-    utils.log('\x1b[32mGuild data Module Reloaded\x1b[0m');
+    utils.log('Guild data Module Reloaded\x1b[0m');
 }
 
 if (bot) {

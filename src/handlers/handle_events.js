@@ -10,7 +10,8 @@ const fs = require('fs');
 
 
 async function onMessageCreate(message) {
-    if (message.author.id === bot.user.id) return;
+    try {
+        if (message.author.id === bot.user.id) return;
     if (message.author.bot) return;
 
     if (message.mentions.users.has(bot.user.id) && message.content && message.content.split('>')[1]) {
@@ -28,24 +29,33 @@ async function onMessageCreate(message) {
             utils.log(`Error Executing Message Command\x1b[0m\n`, error)
         });
     }
+    } catch (error) {
+        utils.log(error);
+    }
+    
 }
 
 async function onInteractionCreate(interaction) {
-    if (!interaction.isCommand() && !interaction.isContextMenu()) {
-        return;
+    try {
+        if (!interaction.isCommand() && !interaction.isContextMenu()) {
+            return;
+        }
+    
+        const commandToExecute = await parser.parseInteractionCommand(interaction).catch((error) => utils.log(`Error parsing interaction\x1b[0m\n`, error));
+    
+        if (commandToExecute == undefined) {
+            interaction.reply("Command not yet implemented");
+        }
+        else {
+            commandToExecute.execute(interaction).catch((error) => {
+                utils.log(`Error Executing Interaction Command\x1b[0m\n`, error)
+            });
+    
+        }
+    } catch (error) {
+        utils.log(error)
     }
-
-    const commandToExecute = await parser.parseInteractionCommand(interaction).catch((error) => utils.log(`Error parsing interaction\x1b[0m\n`, error));
-
-    if (commandToExecute == undefined) {
-        interaction.reply("Command not yet implemented");
-    }
-    else {
-        commandToExecute.execute(interaction).catch((error) => {
-            utils.log(`Error Executing Interaction Command\x1b[0m\n`, error)
-        });
-
-    }
+    
 }
 
 async function onGuildMemberUpdate(oldMember, newMember) {
@@ -60,6 +70,11 @@ async function onGuildCreate(guild) {
 // presence update for twitch activity
 async function onPresenceUpdate(oldPresence, newPresence) {
 
+    try {
+        
+    } catch (error) {
+        utils.log(error);
+    }
     const options = perGuildSettings.get(newPresence.guild.id).twitch_options;
 
     if (!options.get('enabled') || options.get('enabled') !== 'true') return;
@@ -73,7 +88,7 @@ async function onPresenceUpdate(oldPresence, newPresence) {
     const targetActivity = relevantActivities[0];
 
     // we only check the first one because afaik a user can't have more than 1 twitch activity
-    if (oldPresence.activities.filter((activity) => activity.id === targetActivity.id).length !== 0) return;
+    if (!oldPresence || oldPresence.activities.filter((activity) => activity.id === targetActivity.id).length !== 0) return;
 
     const guildId = newPresence.guild.id;
     
@@ -95,7 +110,7 @@ async function onPresenceUpdate(oldPresence, newPresence) {
             message.author.send(twitchOnlineNotification).catch((error) => { utils.log('Error sending twitch message', error) })
         }
         else {
-            const channel = await message.guild.channels.fetch(options.get('channel'));
+            const channel = await message.guild.channels.fetch(options.get('channel')).catch(utils.log);;
 
             if (channel) {
                 channel.send(twitchOnlineNotification);
@@ -151,10 +166,10 @@ if (bot !== undefined) {
 
 
 if (modulesLastReloadTime.events !== undefined) {
-    utils.log('\x1b[32mEvents Module Reloaded\x1b[0m');
+    utils.log('Events Module Reloaded\x1b[0m');
 }
 else {
-    utils.log('\x1b[32mEvents Module Loaded\x1b[0m');
+    utils.log('Events Module Loaded\x1b[0m');
 }
 
 if (bot) {

@@ -32,6 +32,6 @@ app.post('/user-update', (request, response) => {
     wsm.updateUser(request,response).catch(utils.log);
 });
 
-/*app.listen(port, () => {
-    utils.log(`Umeko HTTP Server listening at http://localhost:${port}/`);
-});*/
+app.listen(port, () => {
+    utils.log(`Umeko HTTP Server listening at ${process.env.CLUSTER_API}:${port}/`);
+});

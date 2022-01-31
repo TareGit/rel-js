@@ -11,6 +11,8 @@ const utils = sync.require(`${process.cwd()}/utils`);
 const EventEmitter = require("events");
 const axios = require('axios');
 
+const loopTypes = ['off','song','queue'];
+
 /**
  * Checks the url specified and returns its type.
  * @param {String} url The url to check.
@@ -129,7 +131,7 @@ async function getSong(search, user) {
 
         return createSong(songData, user, songData.info.uri);
     } catch (error) {
-        utils.log(`Error fetching song for "${search}"\x1b[0m\n`, error);
+        utils.log(`Error fetching song for "${search}"\n`, error);
         return undefined;
     }
 
@@ -158,11 +160,13 @@ async function convertSpotifyToSong(ctx, trackData, songArray) {
 
     const searchToMake = trackData.name + ' ' + artists + ' audio';
 
-    const song = await Promise.race([getSong(searchToMake, ctx.member), trackFetchTimeout(maxQueueFetchTime)]);;
+    const song = await Promise.race([getSong(searchToMake, ctx.member), trackFetchTimeout(maxQueueFetchTime)]);
 
     if (song === undefined) return;
 
     if (songArray === undefined) return;
+
+    song.priority = trackData.priority;
 
     songArray.push(song);
 }
@@ -231,7 +235,6 @@ async function createNowPlayingMessage(queue, ctx = undefined) {
 
     if(ctx)
     {
-        utils.log('CTX REPLY MF');
         message = await utils.reply(ctx,{ embeds: [Embed], components: [nowButtons], fetchReply: true });
     }
     else
@@ -254,7 +257,6 @@ async function createNowPlayingMessage(queue, ctx = undefined) {
 
             Object.assign(button, { forceChannelReply: true });
 
-
             switch (button.customId) {
                 case 'pause':
                     if (commands.get('pause') !== undefined) await commands.get('pause').execute(button);
@@ -276,6 +278,8 @@ async function createNowPlayingMessage(queue, ctx = undefined) {
                     if (commands.get('stop') !== undefined) await commands.get('stop').execute(button);
                     break;
             }
+
+            if(nowPlayingCollector.ended) return;
 
             button.forceChannelReply = undefined;
 
@@ -329,9 +333,8 @@ async function createNowPlayingMessage(queue, ctx = undefined) {
                 );
 
             nowPlayingCollector.options.message.fetch().then((message) => {
-                utils.log('Fetched Message');
                 if (message) message.edit({ embeds: [message.embeds[0]], components: [editedNowButtons] });
-            });
+            }).catch(utils.log);;
         });
 
         queue.nowPlayingMessage = nowPlayingCollector;
@@ -368,11 +371,10 @@ function generateQueueEmbed(queue, page) {
         let currentSong = queue.songs[i];
 
         if (currentSong != undefined) Embed.addField(`${i}) \`${currentSong.title}\``, `**Requested by** ${currentSong.requester} \n`, false);
-
+        
     }
 
     Embed.setFooter({ text: `Page ${page} of ${currentPages}` });
-
 
     return [Embed, currentPages];
 }
@@ -408,11 +410,6 @@ function onSongEnd(data) {
     if (data.reason === "REPLACED") return; // Ignore REPLACED reason to prevent skip loops
 
     this.emit('state', 'Finished');
-
-    if (this.nowPlayingMessage != undefined) {
-        this.nowPlayingMessage.stop('EndOfLife');
-        this.nowPlayingMessage = undefined;
-    }
 
     switch (this.loopType) {
         case 'song':
@@ -468,7 +465,7 @@ async function playNextSong(queue) {
 
     } catch (error) {
 
-        utils.log(`Error playing song\x1b[0m\n`, error);
+        utils.log(`Error playing song\n`, error);
 
         queue.songs.shift();
 
@@ -551,7 +548,8 @@ module.exports.parseInput = async function (ctx, queue) {
 
             const promisesToAwait = [];
 
-            tracks.forEach(data => {
+            tracks.forEach(function(data,index) {
+                data.priority = index;
                 promisesToAwait.push(convertSpotifyToSong(ctx, data, newSongs));
             });
 
@@ -563,7 +561,8 @@ module.exports.parseInput = async function (ctx, queue) {
 
             const promisesToAwait = [];
 
-            tracks.forEach(data => {
+            tracks.forEach(function(data,index) {
+                data.track.priority = index;
                 promisesToAwait.push(convertSpotifyToSong(ctx, data.track, newSongs));
             });
 
@@ -571,8 +570,14 @@ module.exports.parseInput = async function (ctx, queue) {
         }
     }
     catch (error) {
-        utils.log(`Error fetching song for url "${url}"\x1b[0m\n`, error);
+        utils.log(`Error fetching song for url "${url}"\n`, error);
+    }
 
+    if(newSongs.length && newSongs[0].priority !== undefined)
+    {
+        utils.log('sorted');
+
+        newSongs.sort((a,b) => { return a.priority - b.priority});
     }
 
     queue.songs.push.apply(queue.songs, newSongs);
@@ -694,10 +699,6 @@ module.exports.removeSong = async function (ctx, queue) {
 module.exports.showNowPlaying = async function (ctx, queue) {
 
     if (isPlaying(queue)) {
-        if (queue.nowPlayingMessage != undefined) {
-            queue.nowPlayingMessage.stop('EndOfLife');
-            queue.nowPlayingMessage = undefined;
-        }
         await createNowPlayingMessage(queue, ctx);
     }
 }
@@ -830,7 +831,7 @@ module.exports.showQueue = async function (ctx, queue) {
 
                 queueCollector.options.message.fetch().then((message) => {
                     if (message) message.edit({ embeds: [message.embeds[0]], components: [newButtons] });
-                });
+                }).catch(utils.log);;
             });
 
         }
@@ -1050,13 +1051,13 @@ module.exports.Queue = class Queue extends EventEmitter {
         }
 
 
-        if (this.player === undefined) this.player = undefined;
-        if (this.songs === undefined) this.songs = []
-        if (this.nowPlayingMessage === undefined) this.nowPlayingMessage = undefined;
-        if (this.currentSong === undefined) this.currentSong = undefined
-        if (this.volume === undefined) this.volume = defaultVolumeMultiplier;
+        if (!this.player) this.player = undefined;
+        if (!this.songs) this.songs = []
+        if (!this.nowPlayingMessage) this.nowPlayingMessage = undefined;
+        if (!this.currentSong) this.currentSong = undefined
+        if (!this.volume) this.volume = defaultVolumeMultiplier;
         if (this.isIdle === undefined) this.isIdle = true;
-        if (this.loopType === undefined) this.loopType = 'off';
+        if (!this.loopType) this.loopType = 'off';
         if (this.isCreatingNowPlaying === undefined) this.isCreatingNowPlaying = false;
         if (this.isFirstPlay === undefined) this.isFirstPlay = true;
         if (this.isSwitchingChannels === undefined) this.isSwitchingChannels = false;
@@ -1124,14 +1125,14 @@ if (modulesLastReloadTime.music !== undefined) {
 
 
     } catch (error) {
-        utils.log(`Error transfering old queue data\x1b[0m\n`, error);
+        utils.log(`Error transfering old queue data\n`, error);
     }
 
 
-    utils.log('\x1b[32mMusic Module Reloaded\x1b[0m');
+    utils.log('Music Module Reloaded');
 }
 else {
-    utils.log('\x1b[32mMusic Module loaded\x1b[0m');
+    utils.log('Music Module loaded');
 }
 
 if (bot) {

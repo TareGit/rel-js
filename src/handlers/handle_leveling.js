@@ -71,7 +71,7 @@ async function onMessageCreate(message) {
                 }
                 else
                 {
-                    const channel = await message.guild.channels.fetch(options.get('channel'));
+                    const channel = await message.guild.channels.fetch(options.get('channel')).catch(utils.log);;
                     if(channel)
                     {
                         channel.send(levelUpNotification);
@@ -104,7 +104,7 @@ async function onMessageCreate(message) {
 
         utils.log('Updating Backend XP',levelingData[userId]);
          
-        axios.post(`${process.argv.includes('debug') ? process.env.DB_API_DEBUG : process.env.DB_API }/tables/guild_leveling_${guildId}/rows`,postData,{ headers: {'x-umeko-token': process.env.DB_API_TOKEN}}).then((levelingUpdateResponse) =>{
+        axios.post(`${process.argv.includes('debug') ? process.env.DB_API_DEBUG : process.env.DB_API }/tables/guild_leveling_${guildId}/rows`,[postData],{ headers: {'x-api-key': process.env.DB_API_TOKEN}}).then((levelingUpdateResponse) =>{
         }).catch((error)=>{utils.log("Error updating back end XP",error.data)});
 
     } catch (error) {
@@ -151,10 +151,10 @@ if (bot !== undefined) {
 
 
 if (modulesLastReloadTime.leveling !== undefined) {
-    utils.log('\x1b[32mLeveling Module Reloaded\x1b[0m');
+    utils.log('Leveling Module Reloaded\x1b[0m');
 }
 else {
-    utils.log('\x1b[32mLeveling Module Loaded\x1b[0m');
+    utils.log('Leveling Module Loaded\x1b[0m');
 }
 
 if(bot)

@@ -161,7 +161,7 @@ module.exports = {
                             message.components[0].components[0].disabled = true
                             message.edit({ embeds: [message.embeds[0]], components: message.components });
                         }
-                    });
+                    }).catch(utils.log);
                 } catch (error) {
                     utils.log(`Error Ending Help Message Collector\x1b[0m\n`, error);
                 }
