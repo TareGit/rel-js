@@ -1,6 +1,5 @@
 const { default: axios } = require("axios");
 const EventEmitter = require("events");
-const { log } = require("util");
 
 const { sync, bot, db, perGuildSettings,perUserData, modulesLastReloadTime, socket, perGuildLeveling, guildsPendingUpdate,usersPendingUpdate, intervals } = require(`${process.cwd()}/dataBus.js`);
 const { dataUpdateInterval ,defaultPrefix, defaultPrimaryColor, defaultLanguage, defaultNickname, defaultWelcomeMessage, defaultLeaveMessage, defaultTwitchMessage, defaultLevelingMessage, guildSettingsTableFormat, guildLevelingTableFormat, guildCommandsTableFormat, userSettingsTableFormat } = sync.require(`${process.cwd()}/config.json`);
@@ -17,7 +16,7 @@ async function updateGuilds(){
 
 
     try {
-        const guild_settings_response = await db.get('/tables/guild_settings/rows',guildsPendingUpdate);
+        const guild_settings_response = await db.get(`/tables/guild_settings/rows?data=${guildsPendingUpdate.join(',')}`);
 
         const guild_settings_data = guild_settings_response.data;
 
@@ -78,7 +77,7 @@ async function updateUsers(){
     }
 
     try {
-        const user_settings_response = await db.get('/tables/user_settings/rows',usersPendingUpdate);
+        const user_settings_response = await db.get(`/tables/user_settings/rows?data=${usersPendingUpdate.join(',')}`);
 
         const user_settings_data = user_settings_response.data;
 
@@ -153,7 +152,7 @@ async function loadLevelingAndUserData(guildId) {
                 usersToTrack.push(userLevelingData.id);
             })
 
-            axios.post(`${process.env.SERVER_API}/notifications-user`,{ op: 'add' , data : usersToTrack, target : `${process.env.CLUSTER_API}/user-update`}).catch((error)=>log('Error making request to server',error.message));
+            axios.post(`${process.env.SERVER_API}/notifications-user`,{ op: 'add' , data : usersToTrack, target : `${process.env.CLUSTER_API}/user-update`}).catch((error)=>utils.log('Error asking server to track user updates : ',error.message));
 
             if(levelingData.ranking)
             {
@@ -258,9 +257,9 @@ module.exports.joinedNewGuild = async function (guild) {
 module.exports.load = async function () {
 
     try {
-        const user_settings_response = await db.get('/tables'['user_settings']);
+        const user_settings_response = await db.get(`/tables?data=user_settings`);
 
-        if(user_settings_response.data && user_settings_response.data.error)
+        if(user_settings_response.data && !user_settings_response.data.length)
         {
             await db.post('/tables',userSettingsTableFormat).catch(error => utils.log(error.message));
         }
@@ -277,10 +276,10 @@ module.exports.load = async function () {
 
     guildsPendingUpdate.push.apply(guildsPendingUpdate,Array.from(bot.guilds.cache.keys()));
 
-    axios.post(`${process.env.SERVER_API}/notifications-guild`,{ op: 'add' , data : guildsPendingUpdate, target : `${process.env.CLUSTER_API}/guild-update`}).catch((error)=>log('Error making request to main server',error.message));;
+    axios.post(`${process.env.SERVER_API}/notifications-guild`,{ op: 'add' , data : guildsPendingUpdate, target : `${process.env.CLUSTER_API}/guild-update`}).catch((error)=>utils.log('Error asking server to track guild updates : ',error.message));;
 
     try {
-        const guild_settings_response = await db.get('/tables/guild_settings/rows',guildsPendingUpdate);
+        const guild_settings_response = await db.get(`/tables/guild_settings/rows?data=${guildsPendingUpdate.join(',')}`);
 
         const guild_settings_data = guild_settings_response.data;
 
