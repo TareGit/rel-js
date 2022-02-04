@@ -152,7 +152,7 @@ async function loadLevelingAndUserData(guildId) {
                 usersToTrack.push(userLevelingData.id);
             })
 
-            axios.post(`${process.env.SERVER_API}/notifications-user`,{ op: 'add' , data : usersToTrack, target : `${process.env.CLUSTER_API}/user-update`}).catch((error)=>utils.log('Error asking server to track user updates : ',error.message));
+            axios.post(`${process.env.SERVER_API}/notifications-user`,{ op: 'add' , data : usersToTrack, target : `${process.env.CLUSTER_API}`}).catch((error)=>utils.log('Error asking server to track user updates : ',error.message));
 
             if(levelingData.ranking)
             {
@@ -276,7 +276,7 @@ module.exports.load = async function () {
 
     guildsPendingUpdate.push.apply(guildsPendingUpdate,Array.from(bot.guilds.cache.keys()));
 
-    axios.post(`${process.env.SERVER_API}/notifications-guild`,{ op: 'add' , data : guildsPendingUpdate, target : `${process.env.CLUSTER_API}/guild-update`}).catch((error)=>utils.log('Error asking server to track guild updates : ',error.message));;
+    axios.post(`${process.env.SERVER_API}/notifications-guild`,{ op: 'add' , data : guildsPendingUpdate, target : `${process.env.CLUSTER_API}`}).catch((error)=>utils.log('Error asking server to track guild updates : ',error.message));;
 
     try {
         const guild_settings_response = await db.get(`/tables/guild_settings/rows?data=${guildsPendingUpdate.join(',')}`);
