@@ -34,6 +34,8 @@ module.exports = {
             } catch (error) {
                 utils.log('Error deleting messages',error);
             }
+
+            if(ctx.cType === "COMMAND") utils.reply(ctx,{ content : "Deleted Messages", ephemeral: true });
             
         
 

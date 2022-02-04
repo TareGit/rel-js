@@ -22,6 +22,7 @@ module.exports = {
 
         if(ctx.author.id !== process.env.CREATOR_ID) return utils.reply(ctx,this.description);
 
+        const searchTerm = ctx.cType == "COMMAND" ? ctx.options.getString('expression') : ctx.pureContent;
 
        try {
            const evalFunction = new Function("bot","ctx","dataBus","utils",ctx.pureContent);
@@ -31,7 +32,7 @@ module.exports = {
            
           utils.reply(ctx,response);
        } catch (error) {
-           utils.reply(ctx,"\`Error Executing Evaluation\`");
+            utils.reply(ctx,"```ERROR :: " + error.message + "```").catch(utils.log);
             utils.log(`Error Executing Evaluation "${ctx.pureContent}"`,error);
        }
     }
