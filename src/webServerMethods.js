@@ -25,7 +25,7 @@ async function updateGuild(request,response){
     }
     `);
 
-    utils.log(`Recieved Update For Guild ${guild}`);
+    utils.log(`Recieved Update For Guild ${guildId}`);
 
     response.send({ result : 'recieved'});
 }
