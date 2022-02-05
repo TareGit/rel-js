@@ -1,4 +1,4 @@
-const { sync, perGuildLeveling, perGuildSettings, db, perUserData } = require(`${process.cwd()}/dataBus.js`);
+const { sync, perGuildLeveling, perGuildSettings, db, perUserData, browser } = require(`${process.cwd()}/dataBus.js`);
 const { XpRequiredForLevelOne, XpSecreteSauce } = sync.require(`${process.cwd()}/config.json`);
 const { MessageAttachment } = require('discord.js')
 const fs = require('fs');
@@ -25,274 +25,109 @@ module.exports = {
 
         const options = perGuildSettings.get(ctx.guild.id).leveling_options;
 
+        // check if leveling is enabled
         if (!options.get('location') || options.get('location') === 'disabled') return await utils.reply(ctx, `Leveling is disabled in this server`);
 
-        const member = ctx.cType === 'COMMAND' ? (ctx.options.getMember('user') || ctx.member) : (ctx.mentions.members.first() || ctx.member);
+        // select the member specified 
+        const specificUser = ctx.cType === 'COMMAND' ? (ctx.options.getMember('user') || ctx.member) : (ctx.mentions.members.first() || ctx.member);
 
-        const levelingData = perGuildLeveling.get(ctx.guild.id) || {}
-        const levelData = levelingData[member.id] || {};
+        // no point in bots participating in leveling
+        if (specificUser.user.bot) return await utils.reply(ctx, 'Bots are too sweaty to participate in leveling');
+
+        // get the guilds leveling data
+        const levelingData = perGuildLeveling.get(ctx.guild.id) || {};
+
+        // get the specified users leveling data 
+        const levelData = levelingData[specificUser.id] || {};
+
+        // get the users level or 0 if the user has no data
         const level = levelData.level || 0;
+
+        // get the users current XP
         const currentXp = ((levelData.currentXp || 1) / 1000).toFixed(2);
 
-        if (!perUserData.get(member.id)) {
+        // defer the reply to give puppeter time to render and incase we make an API call
+        if (ctx.cType === 'COMMAND') await ctx.deferReply();
 
-            const user_settings_response = await db.get('/tables/user_settings/rows', [member.id]);
+        // fetch data from database since we don't currently have it
+        if (!perUserData.get(specificUser.id)) {
+
+            const user_settings_response = await db.get(`/tables/user_settings/rows?data=${specificUser.id}`);
 
             const user_settings_data = user_settings_response.data;
 
             if (user_settings_data.error) {
+                // need to handle this error better
                 utils.log(`Error Fetchig User Data : "${user_settings_data.error}" \x1b[0m`);
             }
             else {
 
+                // get the rows from the database
                 const rows = user_settings_data;
 
+                // make sure we actually have information to work with
                 if (rows.length) {
 
-                    const bus = require(`${process.cwd()}/dataBus.js`);
+                    // add the user's data to our memory
+                    perUserData.set(specificUser.id, rows[0]);
 
-                    perUserData.set(member.id, rows[0]);
-                    perUserData.get(member.id).afk_options = new URLSearchParams(perUserData.get(member.id).afk_options);
+                    // convert the afk_options from string to URLSearchParams that we can query as required
+                    perUserData.get(specificUser.id).afk_options = new URLSearchParams(perUserData.get(specificUser.id).afk_options);
 
-                    axios.post(`${process.env.SERVER_API}/notifications-user`, { op: 'add', data: [member.id], target: `${process.env.CLUSTER_API}/user-update` }).catch((error) => log('Error making request to server', error.message));
+                    // tell the server to inform us of future updates concerning this user
+                    axios.post(`${process.env.SERVER_API}/notifications-user`, { op: 'add', data: [specificUser.id], target: `${process.env.CLUSTER_API}/user-update` }).catch((error) => utils.log('Error making request to server', error.message));
                 }
 
             }
         }
 
-        const userBackground = perUserData.get(member.id) ? perUserData.get(member.id).card_bg_url : `https://cdnb.artstation.com/p/marketplace/presentation_assets/000/106/277/large/file.jpg`;
+        utils.log(specificUser.id);
 
-        if (ctx.cType === 'COMMAND') await ctx.deferReply();
+        // select the specific users background or use the default if it is not available
+        const userBackground = perUserData.get(specificUser.id) ? perUserData.get(specificUser.id).card_bg_url : `https://cdnb.artstation.com/p/marketplace/presentation_assets/000/106/277/large/file.jpg`;
 
-        if (member.user.bot) return await utils.reply(ctx, 'Bots are too sweaty to participate in leveling');
+        utils.log(perUserData);
 
-        const avatarUrl = member.displayAvatarURL({ format: 'png', size: 1024 });
-        const displayName = member.displayName;
-        const rank = levelingData.ranking && levelingData.ranking.includes(member.id)  ? levelingData.ranking.indexOf(member.id) + 1 : undefined;
+        // the specific users avatar url
+        const avatarUrl = specificUser.displayAvatarURL({ format: 'png', size: 1024 });
+
+        const displayName = specificUser.displayName;
+
+        const rank = levelingData.ranking && levelingData.ranking.includes(specificUser.id)  ? levelingData.ranking.indexOf(specificUser.id) + 1 : undefined;
 
         const rankText = typeof rank === 'number' ? `RANK ${rank}` : 'UNRANKED';
 
         const requiredXp = (utils.getXpForNextLevel(level) / 1000).toFixed(2);
 
-        const userColor = perUserData.get(member.id) ? perUserData.get(member.id).color : '#87ceeb';
-        const userOpacity = perUserData.get(member.id) ? perUserData.get(member.id).card_opacity : '0.8';
+        const userColor = perUserData.get(specificUser.id) ? perUserData.get(specificUser.id).color : '#87ceeb';
 
-        const cardAsHtml = `<!DOCTYPE html>
-        <html lang="en">
-        
-        <head>
-            <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-            <style>
-                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500&display=swap');
-        
-                :root {
-                    --main-color: ${userColor};
-                    --progress-percent: ${(currentXp / requiredXp) * 100}%;
-                    --opacity : ${userOpacity};
-                }
-        
-                h1 {
-                    font-family: 'Poppins', sans-serif;
-                    font-weight: 500;
-                    font-size: 40px;
-                    display: block;
-                    color: white;
-                    margin: 0;
-                }
-        
-                h2 {
-                    font-family: 'Poppins', sans-serif;
-                    font-weight: 300;
-                    font-size: 30px;
-                    display: block;
-                    color: white;
-                    margin: 0;
-                }
-        
-                h3 {
-                    font-family: 'Poppins', sans-serif;
-                    font-weight: 200;
-                    font-size: 20px;
-                    display: block;
-                    color: white;
-                    margin: 0;
-                }
-        
-                body {
-                    font-family: "Poppins", Arial, Helvetica, sans-serif;
-                    background: rgb(22, 22, 22);
-                    color: #222;
-                    width: 1000px;
-                    height: 300px;
-                    overflow: hidden;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    background: transparent;
-                }
-        
-                .user-profile {
-                    position: relative;
-                    min-width: 184px;
-                    width: 184px;
-                    height: 184px;
-                    display: block;
-                }
-        
-                .user-rank-info {
-                    width: inherit;
-                    height: inherit;
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: flex-end;
-                }
-        
-        
-        
-        
-                .user-rank-info-row {
-                    width: 100%;
-                    height: 50px;
-                    display: flex;
-                    flex-direction: row;
-                    position: relative;
-                    justify-content: space-between;
-                    box-sizing: border-box;
-                    padding: 0 20px;
-                }
-        
-                .user-rank-info-row[pos='top'] {
-                    height: 70px;
-                }
-        
-                .user-rank-info-row[pos='middle'] {
-                    height: 60px;
-                    align-items: center;
-                }
-        
-                .user-rank-info-bar{
-                    display: block;
-                    background-color: grey;
-                    width: 100%;
-                    height: 30px;
-                    box-sizing: border-box;
-                    border-radius: 20px;
-                }
-        
-                .user-rank-info-progress{
-                    display: block;
-                    background-color: var(--main-color);
-                    width: var(--progress-percent);
-                    height: 30px;
-                    box-sizing: border-box;
-                    border-radius: 20px;
-                }
-        
-        
-        
-                .user-rank-info-row[pos='top']::after {
-                    content: '';
-                    display: block;
-                    height: 1px;
-                    width: 686px;
-                    background-color: var(--main-color);
-                    position: absolute;
-                    top: 100%;
-                }
-        
-        
-        
-                .user-profile img {
-                    position: absolute;
-                    width: 180px;
-                    height: 180px;
-                    border-radius: 110px;
-                    border: 2px groove black;
-                    display: inline-block;
-                }
-        
-                .online-status {
-                    position: absolute;
-                    width: 30px;
-                    height: 30px;
-                    border-radius: 100px;
-                    background-color: green;
-                    border: 2px solid black;
-                    display: inline-block;
-                    transform: translateY(-50%) translateX(-50%);
-                    left: 85%;
-                    top: 85%;
-                }
-        
-                .main {
-                    position: relative;
-                    width: 950px;
-                    height: 220px;
-                    display: flex;
-                    flex-direction: row;
-                    overflow: hidden;
-                    background-color: rgba(34, 34, 34, var(--opacity));
-                    justify-content: flex-start;
-                    align-items: center;
-                    box-sizing: border-box;
-                    padding: 20px;
-                    border-radius: 8px;
-                }
-        
-                .background {
-                    width: 1000px;
-                    height: 300px;
-                    object-fit: cover;
-                    position: fixed;
-                    border-radius: 8px;
-                }
-            </style>
-        </head>
-        
-        <body>
-            <img class="background" src="${userBackground}" />
-            <div class="main">
-                <div class="user-profile">
-                    <img
-                        src="${avatarUrl}" />
-                    
-                </div>
-                <div class="user-rank-info">
-                    <div class="user-rank-info-row" pos='top'>
-                        <h1>${displayName}</h1> <h1>${rankText}</h1>
-                    </div>
-                    <div class="user-rank-info-row" pos='middle'>
-                        <h2>Level ${level}</h2> <h2>${currentXp}k/${requiredXp}k</h2>
-                    </div>
-                    <div class="user-rank-info-row">
-                        <div class="user-rank-info-bar">
-                            <div class="user-rank-info-progress"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </body>
-        
-        </html>`
+        const userOpacity = perUserData.get(specificUser.id) ? perUserData.get(specificUser.id).card_opacity : '0.8';
 
-        //<div class="online-status"></div>
+        const cardAsHtml = utils.generateCardHtml(userColor,userOpacity,userBackground,avatarUrl,rankText,level,displayName,currentXp,requiredXp);
 
+        // start a puppeteer browser
+        if(!browser)
+        {
+            const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'], userDataDir: `${process.cwd()}/../puppeter` });
+            
+            Object.assign(dataBus,{
+                browser : require(`${process.cwd()}/dataBus.js`);
+            })
+        }
+        
 
-        const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'], userDataDir: `${process.cwd()}/../puppeter` });
+        // create a new window and capture the ranked card
         const page = await browser.newPage();
-
         page.setViewport({ width: 1200, height: 400 });
-
         await page.setContent(cardAsHtml);
         const content = await page.$("body");
         const imageBuffer = await content.screenshot({ omitBackground: true });
 
+        // shut down puppeteer
         await page.close();
         await browser.close();
-
-
+        
+        // send the level card
         await utils.reply(ctx, { files: [{ attachment: imageBuffer }] });
     }
 }
