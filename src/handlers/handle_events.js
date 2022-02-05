@@ -71,62 +71,64 @@ async function onGuildCreate(guild) {
 async function onPresenceUpdate(oldPresence, newPresence) {
 
     try {
+        if (!perGuildSettings.get(newPresence.guild.id)) return;
 
-    } catch (error) {
-        utils.log(error);
-    }
-    const options = perGuildSettings.get(newPresence.guild.id).twitch_options;
+        const options = perGuildSettings.get(newPresence.guild.id).twitch_options;
 
-    if (!options.get('enabled') || options.get('enabled') !== 'true') return;
+        if (!options.get('enabled') || options.get('enabled') !== 'true') return;
 
-    if (newPresence.activities.length === 0) return;
+        if (newPresence.activities.length === 0) return;
 
-    const relevantActivities = newPresence.activities.filter((activity) => activity.name === 'Twitch');
+        const relevantActivities = newPresence.activities.filter((activity) => activity.name === 'Twitch');
 
-    if (relevantActivities.length === 0) return;
+        if (relevantActivities.length === 0) return;
 
-    const targetActivity = relevantActivities[0];
+        const targetActivity = relevantActivities[0];
 
-    // we only check the first one because afaik a user can't have more than 1 twitch activity
-    if (!oldPresence || oldPresence.activities.filter((activity) => activity.id === targetActivity.id).length !== 0) return;
+        // we only check the first one because afaik a user can't have more than 1 twitch activity
+        if (!oldPresence || oldPresence.activities.filter((activity) => activity.id === targetActivity.id).length !== 0) return;
 
-    const guildId = newPresence.guild.id;
+        const guildId = newPresence.guild.id;
 
-    // Twitch online message here
-    let twitchOnlineNotification = perGuildSettings.get(guildId).twitch_message;
+        // Twitch online message here
+        let twitchOnlineNotification = perGuildSettings.get(guildId).twitch_message;
 
 
-    const userId = newPresence.member.id;
-    const username = newPresence.member.displayName;
-    const url = targetActivity.url;
+        const userId = newPresence.member.id;
+        const username = newPresence.member.displayName;
+        const url = targetActivity.url;
 
-    twitchOnlineNotification = twitchOnlineNotification.replace(/{user}/gi, `<@${userId}>`);
-    twitchOnlineNotification = twitchOnlineNotification.replace(/{username}/gi, `${username}`);
-    twitchOnlineNotification = twitchOnlineNotification.replace(/{link}/gi, `${url}`);
+        twitchOnlineNotification = twitchOnlineNotification.replace(/{user}/gi, `<@${userId}>`);
+        twitchOnlineNotification = twitchOnlineNotification.replace(/{username}/gi, `${username}`);
+        twitchOnlineNotification = twitchOnlineNotification.replace(/{link}/gi, `${url}`);
 
 
-    if (options.get('location') === 'channel' && options.get('channel')) {
+        if (options.get('location') === 'channel' && options.get('channel')) {
 
-        const channel = await message.guild.channels.fetch(options.get('channel')).catch(utils.log);
+            const channel = await message.guild.channels.fetch(options.get('channel')).catch(utils.log);
 
-        if (channel) {
-            channel.send(twitchOnlineNotification);
+            if (channel) {
+                channel.send(twitchOnlineNotification);
+            }
+            else {
+                message.forceChannelReply = true;
+                utils.reply(message, twitchOnlineNotification);
+            }
+
+        }
+        else if (options.get('location') === "dm") {
+            message.author.send(twitchOnlineNotification).catch((error) => { utils.log('Error sending twitch message', error) })
         }
         else {
             message.forceChannelReply = true;
             utils.reply(message, twitchOnlineNotification);
         }
 
-    }
-    else if (options.get('location') === "dm") {
-        message.author.send(twitchOnlineNotification).catch((error) => { utils.log('Error sending twitch message', error) })
-    }
-    else {
-        message.forceChannelReply = true;
-        utils.reply(message, twitchOnlineNotification);
+        log(`${newPresence.member.displayName} Just went live`);
+    } catch (error) {
+        utils.log(error);
     }
 
-    log(`${newPresence.member.displayName} Just went live`);
 }
 
 
