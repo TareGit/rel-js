@@ -142,7 +142,6 @@ async function loadLevelingAndUserData(guildId) {
             // handle the leveling data recieved
             const rows = leveling_data_response.data;
 
-            console.log(rows);
 
             if (perGuildLeveling.get(guildId) === undefined) perGuildLeveling.set(guildId, { ranking : []});
 
@@ -341,7 +340,6 @@ module.exports.load = async function () {
 
                 guildsPendingUpdate.splice(guildsPendingUpdate.indexOf(setting.id), 1);
 
-                utils.log(`Updated Settings for Guild ${setting.id}`);
             });
 
             await Promise.all(promises);
