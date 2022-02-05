@@ -312,6 +312,211 @@ async function getSpotifyApiToken() {
 
 }
 
+function generateCardHtml(color,opacity,background,avatar,rankText,level,displayName,currentXp,requiredXp)
+{
+    const card = `<!DOCTYPE html>
+    <html lang="en">
+    
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500&display=swap');
+    
+            :root {
+                --main-color: ${color};
+                --progress-percent: ${(currentXp / requiredXp) * 100}%;
+                --opacity : ${opacity};
+            }
+    
+            h1 {
+                font-family: 'Poppins', sans-serif;
+                font-weight: 500;
+                font-size: 40px;
+                display: block;
+                color: white;
+                margin: 0;
+            }
+    
+            h2 {
+                font-family: 'Poppins', sans-serif;
+                font-weight: 300;
+                font-size: 30px;
+                display: block;
+                color: white;
+                margin: 0;
+            }
+    
+            h3 {
+                font-family: 'Poppins', sans-serif;
+                font-weight: 200;
+                font-size: 20px;
+                display: block;
+                color: white;
+                margin: 0;
+            }
+    
+            body {
+                font-family: "Poppins", Arial, Helvetica, sans-serif;
+                background: rgb(22, 22, 22);
+                color: #222;
+                width: 1000px;
+                height: 300px;
+                overflow: hidden;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                background: transparent;
+            }
+    
+            .user-profile {
+                position: relative;
+                min-width: 184px;
+                width: 184px;
+                height: 184px;
+                display: block;
+            }
+    
+            .user-rank-info {
+                width: inherit;
+                height: inherit;
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-end;
+            }
+    
+    
+    
+    
+            .user-rank-info-row {
+                width: 100%;
+                height: 50px;
+                display: flex;
+                flex-direction: row;
+                position: relative;
+                justify-content: space-between;
+                box-sizing: border-box;
+                padding: 0 20px;
+            }
+    
+            .user-rank-info-row[pos='top'] {
+                height: 70px;
+            }
+    
+            .user-rank-info-row[pos='middle'] {
+                height: 60px;
+                align-items: center;
+            }
+    
+            .user-rank-info-bar{
+                display: block;
+                background-color: grey;
+                width: 100%;
+                height: 30px;
+                box-sizing: border-box;
+                border-radius: 20px;
+            }
+    
+            .user-rank-info-progress{
+                display: block;
+                background-color: var(--main-color);
+                width: var(--progress-percent);
+                height: 30px;
+                box-sizing: border-box;
+                border-radius: 20px;
+            }
+    
+    
+    
+            .user-rank-info-row[pos='top']::after {
+                content: '';
+                display: block;
+                height: 1px;
+                width: 686px;
+                background-color: var(--main-color);
+                position: absolute;
+                top: 100%;
+            }
+    
+    
+    
+            .user-profile img {
+                position: absolute;
+                width: 180px;
+                height: 180px;
+                border-radius: 110px;
+                border: 2px groove black;
+                display: inline-block;
+            }
+    
+            .online-status {
+                position: absolute;
+                width: 30px;
+                height: 30px;
+                border-radius: 100px;
+                background-color: green;
+                border: 2px solid black;
+                display: inline-block;
+                transform: translateY(-50%) translateX(-50%);
+                left: 85%;
+                top: 85%;
+            }
+    
+            .main {
+                position: relative;
+                width: 950px;
+                height: 220px;
+                display: flex;
+                flex-direction: row;
+                overflow: hidden;
+                background-color: rgba(34, 34, 34, var(--opacity));
+                justify-content: flex-start;
+                align-items: center;
+                box-sizing: border-box;
+                padding: 20px;
+                border-radius: 8px;
+            }
+    
+            .background {
+                width: 1000px;
+                height: 300px;
+                object-fit: cover;
+                position: fixed;
+                border-radius: 8px;
+            }
+        </style>
+    </head>
+    
+    <body>
+        <img class="background" src="${background}" />
+        <div class="main">
+            <div class="user-profile">
+                <img
+                    src="${avatar}" />
+                
+            </div>
+            <div class="user-rank-info">
+                <div class="user-rank-info-row" pos='top'>
+                    <h1>${displayName}</h1> <h1>${rankText}</h1>
+                </div>
+                <div class="user-rank-info-row" pos='middle'>
+                    <h2>Level ${level}</h2> <h2>${currentXp}k/${requiredXp}k</h2>
+                </div>
+                <div class="user-rank-info-row">
+                    <div class="user-rank-info-bar">
+                        <div class="user-rank-info-progress"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+    
+    </html>`
+
+    return card;
+}
+
 module.exports = {
     randomFloatInRange : randomFloatInRange,
     randomIntegerInRange : randomIntegerInRange,
@@ -323,7 +528,8 @@ module.exports = {
     handleCommandDirectoryChanges : handleCommandDirectoryChanges,
     getOsuApiToken : getOsuApiToken,
     getSpotifyApiToken : getSpotifyApiToken,
-    reloadCommandCategory : reloadCommandCategory
+    reloadCommandCategory : reloadCommandCategory,
+    generateCardHtml : generateCardHtml
 }
 
 
