@@ -12,27 +12,27 @@ const fs = require('fs');
 async function onMessageCreate(message) {
     try {
         if (message.author.id === bot.user.id) return;
-    if (message.author.bot) return;
+        if (message.author.bot) return;
 
-    if (message.mentions.users.has(bot.user.id) && message.content && message.content.split('>')[1]) {
-        const argument = message.content.split('>')[1].trim().toLowerCase();
-        if (argument === '' || argument === 'help') {
-            message.args = ['']
-            return commands.get('help').execute(message);
+        if (message.mentions.users.has(bot.user.id) && message.content && message.content.split('>')[1]) {
+            const argument = message.content.split('>')[1].trim().toLowerCase();
+            if (argument === '' || argument === 'help') {
+                message.args = ['']
+                return commands.get('help').execute(message);
+            }
         }
-    }
 
-    const commandToExecute = await parser.parseMessage(message).catch((error) => utils.log(`Error parsing message\x1b[0m\n`, error));
+        const commandToExecute = await parser.parseMessage(message).catch((error) => utils.log(`Error parsing message\x1b[0m\n`, error));
 
-    if (commandToExecute !== undefined) {
-        commandToExecute.execute(message).catch((error) => {
-            utils.log(`Error Executing Message Command\x1b[0m\n`, error)
-        });
-    }
+        if (commandToExecute !== undefined) {
+            commandToExecute.execute(message).catch((error) => {
+                utils.log(`Error Executing Message Command\x1b[0m\n`, error)
+            });
+        }
     } catch (error) {
         utils.log(error);
     }
-    
+
 }
 
 async function onInteractionCreate(interaction) {
@@ -40,9 +40,9 @@ async function onInteractionCreate(interaction) {
         if (!interaction.isCommand() && !interaction.isContextMenu()) {
             return;
         }
-    
+
         const commandToExecute = await parser.parseInteractionCommand(interaction).catch((error) => utils.log(`Error parsing interaction\x1b[0m\n`, error));
-    
+
         if (commandToExecute == undefined) {
             interaction.reply("Command not yet implemented");
         }
@@ -50,16 +50,16 @@ async function onInteractionCreate(interaction) {
             commandToExecute.execute(interaction).catch((error) => {
                 utils.log(`Error Executing Interaction Command\x1b[0m\n`, error)
             });
-    
+
         }
     } catch (error) {
         utils.log(error)
     }
-    
+
 }
 
 async function onGuildMemberUpdate(oldMember, newMember) {
-    
+
 }
 
 async function onGuildCreate(guild) {
@@ -71,7 +71,7 @@ async function onGuildCreate(guild) {
 async function onPresenceUpdate(oldPresence, newPresence) {
 
     try {
-        
+
     } catch (error) {
         utils.log(error);
     }
@@ -91,11 +91,11 @@ async function onPresenceUpdate(oldPresence, newPresence) {
     if (!oldPresence || oldPresence.activities.filter((activity) => activity.id === targetActivity.id).length !== 0) return;
 
     const guildId = newPresence.guild.id;
-    
+
     // Twitch online message here
     let twitchOnlineNotification = perGuildSettings.get(guildId).twitch_message;
 
-    
+
     const userId = newPresence.member.id;
     const username = newPresence.member.displayName;
     const url = targetActivity.url;
@@ -105,21 +105,21 @@ async function onPresenceUpdate(oldPresence, newPresence) {
     twitchOnlineNotification = twitchOnlineNotification.replace(/{link}/gi, `${url}`);
 
 
-    if (options.get('channel') && options.get('channel') !== '') {
-        if (options.get('channel') === "dm") {
-            message.author.send(twitchOnlineNotification).catch((error) => { utils.log('Error sending twitch message', error) })
+    if (options.get('location') === 'channel' && options.get('channel')) {
+
+        const channel = await message.guild.channels.fetch(options.get('channel')).catch(utils.log);
+
+        if (channel) {
+            channel.send(twitchOnlineNotification);
         }
         else {
-            const channel = await message.guild.channels.fetch(options.get('channel')).catch(utils.log);;
-
-            if (channel) {
-                channel.send(twitchOnlineNotification);
-            }
-            else {
-                message.forceChannelReply = true;
-                utils.reply(message, twitchOnlineNotification);
-            }
+            message.forceChannelReply = true;
+            utils.reply(message, twitchOnlineNotification);
         }
+
+    }
+    else if (options.get('location') === "dm") {
+        message.author.send(twitchOnlineNotification).catch((error) => { utils.log('Error sending twitch message', error) })
     }
     else {
         message.forceChannelReply = true;

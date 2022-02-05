@@ -22,7 +22,7 @@ async function onMessageCreate(message) {
 
         const options = perGuildSettings.get(guildId).leveling_options;
 
-        if(!options.get('enabled') || options.get('enabled') !== 'true') return;
+        if(!options.get('location') || options.get('location') === 'disabled') return;
 
         if (perGuildLeveling.get(guildId) === undefined) perGuildLeveling.set(guildId, { ranking : []});
 
@@ -33,7 +33,7 @@ async function onMessageCreate(message) {
             levelingData.ranking.push(userId);
         } 
 
-        levelingData[userId].currentXp += utils.randomIntegerInRange(5, 10) * 5;
+        levelingData[userId].currentXp += utils.randomIntegerInRange(5, 10);
 
         const nextLevelXp = utils.getXpForNextLevel(levelingData[userId].level)
         
@@ -49,10 +49,6 @@ async function onMessageCreate(message) {
                 });
             }
             
-
-            if(levelingData[userId].level === 5 && message.guild.id === "669640893745201168"){
-                message.member.roles.add('930280652115443712','Level up');
-            }
             
             let levelUpNotification = perGuildSettings.get(guildId).leveling_message;
 
@@ -64,14 +60,9 @@ async function onMessageCreate(message) {
 
             levelingData[userId].lastXpUpdateAmmount = levelingData[userId].currentXp - xpUpdateThreshold;//  force an update to the backend
             
-            if(options.get('channel') && options.get('channel') !== '')
+            if(options.get('location') === 'channel' && options.get('channel'))
             {
-                if(options.get('channel') === "dm"){
-                    message.author.send(levelUpNotification).catch((error)=>{utils.log('Error sending level up message',error)})
-                }
-                else
-                {
-                    const channel = await message.guild.channels.fetch(options.get('channel')).catch(utils.log);;
+                const channel = await message.guild.channels.fetch(options.get('channel')).catch(utils.log);;
                     if(channel)
                     {
                         channel.send(levelUpNotification);
@@ -81,11 +72,13 @@ async function onMessageCreate(message) {
                         message.forceChannelReply = true;
                        utils.reply(message,levelUpNotification);
                     }
-                }
+            }
+            else if(options.get('location') === "dm"){
+                message.author.send(levelUpNotification).catch((error)=>{utils.log('Error sending level up message',error)})
             }
             else
             {
-                message.forceChannelReply = true;
+            message.forceChannelReply = true;
                utils.reply(message,levelUpNotification);
             }
             
@@ -102,7 +95,6 @@ async function onMessageCreate(message) {
             xp_current : levelingData[userId].currentXp
         }
 
-        utils.log('Updating Backend XP',levelingData[userId]);
          
         axios.post(`${process.argv.includes('debug') ? process.env.DB_API_DEBUG : process.env.DB_API }/tables/guild_leveling_${guildId}/rows`,[postData],{ headers: {'x-api-key': process.env.DB_API_TOKEN}}).then((levelingUpdateResponse) =>{
         }).catch((error)=>{utils.log("Error updating back end XP",error.data)});

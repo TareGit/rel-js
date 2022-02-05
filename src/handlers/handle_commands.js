@@ -16,7 +16,9 @@ module.exports.parseMessage = async (message) => {
     const content = message.content;
     const guildData = (message.member !== null) ? perGuildSettings.get(message.member.guild.id) : undefined;
 
-    const prefix = (message.member !== null && guildData !== undefined) ? perGuildSettings.get(message.member.guild.id).prefix : defaultPrefix;
+    
+
+    const prefix = (message.member !== null) ? perGuildSettings.get(message.member.guild.id).prefix : defaultPrefix;
 
     if (!content.startsWith(prefix)) {
         return undefined

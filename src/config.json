@@ -1,5 +1,5 @@
 {
-    "dataUpdateInterval" : 30,
+    "dataUpdateInterval" : 10,
     "queueTimeout": 300000,
     "queueItemsPerPage": 10,
     "maxQueueFetchTime": 5000,
@@ -130,7 +130,7 @@
         "name": "guild_leveling_",
         "rows": [
             {
-                "name": "userId",
+                "name": "id",
                 "type": "TEXT",
                 "option": "PRIMARY KEY"
             },
@@ -150,7 +150,7 @@
         "name": "guild_commands_",
         "rows": [
             {
-                "name": "commandId",
+                "name": "id",
                 "type": "TEXT",
                 "option": "PRIMARY KEY"
             },

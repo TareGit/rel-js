@@ -19,13 +19,13 @@ async function updateGuild(request,response){
     const guildId = request.body.id;
 
     manager.broadcastEval(`
-    if(this.dataBus.perGuildData.get('${guildId}') && !this.dataBus.guildsPendingUpdate.includes('${guildId}'))
+    if(this.dataBus.perGuildSettings.get('${guildId}') && !this.dataBus.guildsPendingUpdate.includes('${guildId}'))
     {
         this.dataBus.guildsPendingUpdate.push('${guildId}');
     }
     `);
 
-    utils.log(`Recieved Update For Guild ${guild}`);
+    utils.log(`Recieved Update For Guild ${guildId}`);
 
     response.send({ result : 'recieved'});
 }

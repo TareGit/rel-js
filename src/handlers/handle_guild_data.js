@@ -23,7 +23,7 @@ async function updateGuilds(){
         if (guild_settings_data.error) {
             utils.log(`Error Updating Pending Guilds : "${guild_settings_data.error}" \x1b[0m`);
 
-            if(guild_settings_data.error === 'Table does not exist') await db.post('/tables',guildSettingsTableFormat);
+            if(guild_settings_data.error === 'Table does not exist') await db.post('/tables',[guildSettingsTableFormat]);
         }
         else {
 
@@ -48,6 +48,15 @@ async function updateGuilds(){
                 }
 
                 perGuildSettings.set(setting.id, setting);
+
+                if(bot.guilds.cache.get(dbSetting.id).me.displayName !== dbSetting.nickname)
+                {
+                    const me = bot.guilds.cache.get(dbSetting.id).me;
+                    if(me.permissions.has('CHANGE_NICKNAME'))
+                    {
+                        me.setNickname(dbSetting.nickname,'Dashboard nickname changed.');
+                    }
+                }
 
                 guildsPendingUpdate.splice(guildsPendingUpdate.indexOf(setting.id), 1);
 
@@ -84,7 +93,7 @@ async function updateUsers(){
         if (user_settings_data.error) {
             utils.log(`Error Updating Pending Users : "${user_settings_data.error}" \x1b[0m`);
 
-            if(user_settings_data.error === 'Table does not exist') await db.post('/tables',userSettingsTableFormat);
+            if(user_settings_data.error === 'Table does not exist') await db.post('/tables',[userSettingsTableFormat]);
         }
         else {
 
@@ -119,18 +128,21 @@ async function updateUsers(){
 async function loadLevelingAndUserData(guildId) {
 
     try {
-        const leveling_data_response = (await db.get(`/tables/guild_leveling_${guildId}/rows`)).data;
+        const leveling_data_response = (await db.get(`/tables/guild_leveling_${guildId}/rows`));
 
-        if (leveling_data_response.error) {
+        if (leveling_data_response.data.error) {
 
             let levelingTable = Object.assign({}, guildLevelingTableFormat);;
+            
             levelingTable.name += guildId;
 
-            if(leveling_data_response.error === 'Table does not exist') await db.post(`/tables`, levelingTable);
+            if(leveling_data_response.data.error === 'Table does not exist') await db.post(`/tables`, [levelingTable]);
         }
         else {
             // handle the leveling data recieved
-            const rows = leveling_data_response;
+            const rows = leveling_data_response.data;
+
+            console.log(rows);
 
             if (perGuildLeveling.get(guildId) === undefined) perGuildLeveling.set(guildId, { ranking : []});
 
@@ -182,7 +194,7 @@ async function loadLevelingAndUserData(guildId) {
             let commandsTable = Object.assign({}, guildCommandsTableFormat);;
             commandsTable.name += guildId;
 
-            if(commands_data_response.error === 'Table does not exist') await db.post(`/tables`, commandsTable);
+            if(commands_data_response.error === 'Table does not exist') await db.post(`/tables`, [commandsTable]);
         }
         else {
             // handle commands permission data here
@@ -261,7 +273,7 @@ module.exports.load = async function () {
 
         if(user_settings_response.data && !user_settings_response.data.length)
         {
-            await db.post('/tables',userSettingsTableFormat).catch(error => utils.log(error.message));
+            await db.post('/tables',[userSettingsTableFormat]).catch(error => utils.log(error.message));
         }
     } catch (error) {
         if(error.isAxiosError)
@@ -286,7 +298,7 @@ module.exports.load = async function () {
         if (guild_settings_data.error) {
             utils.log(`Error Fetching Guild Settings "${guild_settings_data.error}" \x1b[0m`);
 
-            if(guild_settings_data.error === 'Table does not exist') await db.post('/tables',guildSettingsTableFormat);
+            if(guild_settings_data.error === 'Table does not exist') await db.post('/tables',[guildSettingsTableFormat]);
         }
         else {
 
@@ -317,6 +329,19 @@ module.exports.load = async function () {
                 guildsPendingUpdate.splice(guildsPendingUpdate.indexOf(setting.id), 1);
 
                 promises.push(loadLevelingAndUserData(dbSetting.id));
+
+                if(bot.guilds.cache.get(dbSetting.id).me.displayName !== dbSetting.nickname)
+                {
+                    const me = bot.guilds.cache.get(dbSetting.id).me;
+                    if(me.permissions.has('CHANGE_NICKNAME'))
+                    {
+                        me.setNickname(dbSetting.nickname,'Dashboard nickname changed.');
+                    }
+                }
+
+                guildsPendingUpdate.splice(guildsPendingUpdate.indexOf(setting.id), 1);
+
+                utils.log(`Updated Settings for Guild ${setting.id}`);
             });
 
             await Promise.all(promises);
@@ -331,8 +356,6 @@ module.exports.load = async function () {
             utils.log(error)
         }
     }
-
-
 
     utils.log(`Guilds Not In Database [${guildsPendingUpdate}]`);
 

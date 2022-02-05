@@ -1,7 +1,8 @@
-const { sync, perGuildLeveling, perGuildSettings, db , perUserData } = require(`${process.cwd()}/dataBus.js`);
+const { sync, perGuildLeveling, perGuildSettings, db, perUserData } = require(`${process.cwd()}/dataBus.js`);
 const { XpRequiredForLevelOne, XpSecreteSauce } = sync.require(`${process.cwd()}/config.json`);
 const { MessageAttachment } = require('discord.js')
 const fs = require('fs');
+const axios = require('axios');
 const puppeteer = require('puppeteer');
 const utils = sync.require(`${process.cwd()}/utils`);
 
@@ -24,7 +25,7 @@ module.exports = {
 
         const options = perGuildSettings.get(ctx.guild.id).leveling_options;
 
-        if (options.get('enabled') === undefined || options.get('enabled') !== 'true') return await utils.reply(ctx, `Leveling is disabled in this server (and still being worked on ⚆_⚆)`);
+        if (!options.get('location') || options.get('location') === 'disabled') return await utils.reply(ctx, `Leveling is disabled in this server`);
 
         const member = ctx.cType === 'COMMAND' ? (ctx.options.getMember('user') || ctx.member) : (ctx.mentions.members.first() || ctx.member);
 
@@ -35,7 +36,7 @@ module.exports = {
 
         if (!perUserData.get(member.id)) {
 
-            const user_settings_response = await db.get('/tables/user_settings/rows',[member.id]);
+            const user_settings_response = await db.get('/tables/user_settings/rows', [member.id]);
 
             const user_settings_data = user_settings_response.data;
 
@@ -44,20 +45,18 @@ module.exports = {
             }
             else {
 
-                
-
                 const rows = user_settings_data;
-                
-                if(rows.length){
+
+                if (rows.length) {
 
                     const bus = require(`${process.cwd()}/dataBus.js`);
 
-                    perUserData.set(member.id,rows[0]);
+                    perUserData.set(member.id, rows[0]);
                     perUserData.get(member.id).afk_options = new URLSearchParams(perUserData.get(member.id).afk_options);
 
-                    axios.post(`${process.env.SERVER_API}/notifications-user`,{ op: 'add' , data : [member.id], target : `${process.env.CLUSTER_API}/user-update`}).catch((error)=>log('Error making request to server',error.message));
+                    axios.post(`${process.env.SERVER_API}/notifications-user`, { op: 'add', data: [member.id], target: `${process.env.CLUSTER_API}/user-update` }).catch((error) => log('Error making request to server', error.message));
                 }
-                
+
             }
         }
 
@@ -69,7 +68,10 @@ module.exports = {
 
         const avatarUrl = member.displayAvatarURL({ format: 'png', size: 1024 });
         const displayName = member.displayName;
-        const rank = levelingData.ranking ? levelingData.ranking.indexOf(member.id) + 1 : 'Unranked';
+        const rank = levelingData.ranking && levelingData.ranking.includes(member.id)  ? levelingData.ranking.indexOf(member.id) + 1 : undefined;
+
+        const rankText = typeof rank === 'number' ? `RANK ${rank}` : 'UNRANKED';
+
         const requiredXp = (utils.getXpForNextLevel(level) / 1000).toFixed(2);
 
         const userColor = perUserData.get(member.id) ? perUserData.get(member.id).color : '#87ceeb';
@@ -259,7 +261,7 @@ module.exports = {
                 </div>
                 <div class="user-rank-info">
                     <div class="user-rank-info-row" pos='top'>
-                        <h1>${displayName}</h1> <h1>RANK ${rank}</h1>
+                        <h1>${displayName}</h1> <h1>${rankText}</h1>
                     </div>
                     <div class="user-rank-info-row" pos='middle'>
                         <h2>Level ${level}</h2> <h2>${currentXp}k/${requiredXp}k</h2>

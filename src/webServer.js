@@ -33,5 +33,5 @@ app.post('/user-update', (request, response) => {
 });
 
 app.listen(port, () => {
-    utils.log(`Umeko HTTP Server listening at ${process.env.CLUSTER_API}:${port}/`);
+    utils.log(`Umeko HTTP Server listening at ${process.env.CLUSTER_API}/`);
 });
