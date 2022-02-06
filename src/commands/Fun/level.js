@@ -1,4 +1,4 @@
-const { sync, perGuildLeveling, perGuildSettings, db, perUserData, browser } = require(`${process.cwd()}/dataBus.js`);
+const { sync, perGuildLeveling, perGuildSettings, db, perUserData} = require(`${process.cwd()}/dataBus.js`);
 const { XpRequiredForLevelOne, XpSecreteSauce } = sync.require(`${process.cwd()}/config.json`);
 const { MessageAttachment } = require('discord.js')
 const fs = require('fs');
@@ -81,12 +81,8 @@ module.exports = {
             }
         }
 
-        utils.log(specificUser.id);
-
         // select the specific users background or use the default if it is not available
         const userBackground = perUserData.get(specificUser.id) ? perUserData.get(specificUser.id).card_bg_url : `https://cdnb.artstation.com/p/marketplace/presentation_assets/000/106/277/large/file.jpg`;
-
-        utils.log(perUserData);
 
         // the specific users avatar url
         const avatarUrl = specificUser.displayAvatarURL({ format: 'png', size: 1024 });
@@ -106,16 +102,17 @@ module.exports = {
         const cardAsHtml = utils.generateCardHtml(userColor,userOpacity,userBackground,avatarUrl,rankText,level,displayName,currentXp,requiredXp);
 
         // start a puppeteer browser
-        if(!browser)
+        /*if(!browser)
         {
             const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'], userDataDir: `${process.cwd()}/../puppeter` });
             
             Object.assign(dataBus,{
                 browser : require(`${process.cwd()}/dataBus.js`);
             })
-        }
+        }*/
         
 
+        const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'], userDataDir: `${process.cwd()}/../puppeter` });
         // create a new window and capture the ranked card
         const page = await browser.newPage();
         page.setViewport({ width: 1200, height: 400 });

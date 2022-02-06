@@ -45,7 +45,7 @@ async function onMessageCreate(message) {
             if(levelingData.ranking)
             {
                 levelingData.ranking.sort(function(userA,userB){
-                    return  levelingData[userA].level < levelingData[userB].level;
+                    return  (levelingData[userA].currentXp + utils.getTotalXp(levelingData[userA].currentXp)) < (levelingData[userB].currentXp + utils.getTotalXp(levelingData[userB].currentXp));
                 });
             }
             
@@ -90,7 +90,7 @@ async function onMessageCreate(message) {
         levelingData[userId].lastXpUpdateAmmount = levelingData[userId].currentXp;
 
         const postData = {
-            userId : userId,
+            id : userId,
             level : levelingData[userId].level,
             xp_current : levelingData[userId].currentXp
         }

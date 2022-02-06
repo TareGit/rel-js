@@ -33,7 +33,7 @@ module.exports = {
             const helpEmbed = new MessageEmbed();
             helpEmbed.setColor((ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).color : defaultPrimaryColor);
             helpEmbed.setTitle(`Help For ${command.name}\n`);
-            helpEmbed.setURL(process.env.WEBSITE);
+            helpEmbed.setURL(`${process.env.WEBSITE}/commands?s=${command.name}`);
 
             let syntax = command.syntax;
             syntax = syntax.replace(/{prefix}/gi, `${prefix}`);
@@ -53,7 +53,7 @@ module.exports = {
             const helpEmbed = new MessageEmbed();
             helpEmbed.setColor((ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).color : defaultPrimaryColor);
             helpEmbed.setTitle('Help For Commands\n');
-            helpEmbed.setURL(process.env.WEBSITE);
+            helpEmbed.setURL(`${process.env.WEBSITE}/commands`);
 
             commands.forEach(function (value, key) {
 
@@ -63,7 +63,7 @@ module.exports = {
                         syntax = syntax.replace(/{prefix}/gi, `${prefix}`);
                         syntax = syntax.replace(/{name}/gi, `${value.name}`);
 
-                        helpEmbed.addField(key, `Description: ${value.description} \n Syntax: \`${syntax}\``, false);
+                        helpEmbed.addField(key, `Syntax: \`${syntax}\``, false);
                     }
                 }
 
