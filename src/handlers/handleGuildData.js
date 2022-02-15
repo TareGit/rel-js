@@ -262,6 +262,7 @@ async function load() {
             if (guild_settings_data.error === 'Table does not exist') await db.post('/tables', [guildSettingsTableFormat]);
         }
         else {
+            utils.log(guildsPendingUpdate.length, 'Guilds to fetch');
 
             const promises = [];
 
@@ -287,6 +288,8 @@ async function load() {
                 guildsPendingUpdate.splice(guildsPendingUpdate.indexOf(setting.id), 1);
 
             });
+
+            utils.log('Recieved', rows.length, 'Settings from database')
 
             await Promise.all(promises);
         }
