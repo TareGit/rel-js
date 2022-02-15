@@ -25,8 +25,12 @@ module.exports = {
         const searchTerm = ctx.cType == "COMMAND" ? ctx.options.getString('expression') : ctx.pureContent;
 
        try {
-           const evalFunction = new Function("bot","ctx","dataBus","utils",ctx.pureContent);
-           const response = "```" + JSON.stringify(evalFunction(bot,ctx,dataBus,utils)) + "```";
+            const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+
+           const evalFunction = new AsyncFunction("bot","ctx","dataBus","utils",ctx.pureContent);
+           const result = await evalFunction(bot,ctx,dataBus,utils)
+           utils.log(result);
+           const response = "```" + JSON.stringify(result) + "```";
            if(!response) return utils.reply(ctx,"\`The result of the evaluation was undefined\`");
            if(!response.length) return utils.reply(ctx,"\`The evaluation did not return a result\`");
            

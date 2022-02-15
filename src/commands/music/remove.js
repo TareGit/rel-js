@@ -1,5 +1,5 @@
 const { sync, queues } = require(`${process.cwd()}/dataBus.js`);
-const { removeSong } = sync.require(`${process.cwd()}/handlers/handle_music`);
+const { removeSong } = sync.require(`${process.cwd()}/handlers/handleMusic`);
 
 const utils = sync.require(`${process.cwd()}/utils`);
 

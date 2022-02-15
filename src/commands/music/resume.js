@@ -1,6 +1,6 @@
 
 const { sync, queues } = require(`${process.cwd()}/dataBus.js`);
-const { resumeSong } = sync.require(`${process.cwd()}/handlers/handle_music`);
+const { resumeSong } = sync.require(`${process.cwd()}/handlers/handleMusic`);
 
 const utils = sync.require(`${process.cwd()}/utils`);
 

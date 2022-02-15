@@ -3,8 +3,8 @@ const { sync, bot, modulesLastReloadTime, perGuildSettings, perGuildLeveling } =
 
 const utils = sync.require(`${process.cwd()}/utils`);
 
-const parser = sync.require('./handle_commands');
-const guildDataModule = sync.require('./handle_guild_data');
+const parser = sync.require('./handleCommands');
+const guildDataModule = sync.require('./handleGuildData');
 const { xpUpdateThreshold } = sync.require(`${process.cwd()}/config.json`);
 
 const axios = require("axios");

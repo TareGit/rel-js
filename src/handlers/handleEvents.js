@@ -1,8 +1,8 @@
 const dataBus = require(`${process.cwd()}/dataBus.js`);
 const { sync, bot, modulesLastReloadTime, perGuildSettings, commands } = require(`${process.cwd()}/dataBus.js`);
 
-const parser = sync.require('./handle_commands');
-const guildDataModule = sync.require('./handle_guild_data');
+const parser = sync.require('./handleCommands');
+const guildDataModule = sync.require('./handleGuildData');
 
 const utils = sync.require(`${process.cwd()}/utils`);
 
@@ -63,7 +63,7 @@ async function onGuildMemberUpdate(oldMember, newMember) {
 }
 
 async function onGuildCreate(guild) {
-    guildDataModule.joinedNewGuild(guild);
+    guildDataModule.onJoinedNewGuild(guild);
 }
 
 
@@ -105,23 +105,11 @@ async function onPresenceUpdate(oldPresence, newPresence) {
 
         if (options.get('location') === 'channel' && options.get('channel')) {
 
-            const channel = await message.guild.channels.fetch(options.get('channel')).catch(utils.log);
+            const channel = await newPresence.guild.channels.fetch(options.get('channel')).catch(utils.log);
 
             if (channel) {
                 channel.send(twitchOnlineNotification);
             }
-            else {
-                message.forceChannelReply = true;
-                utils.reply(message, twitchOnlineNotification);
-            }
-
-        }
-        else if (options.get('location') === "dm") {
-            message.author.send(twitchOnlineNotification).catch((error) => { utils.log('Error sending twitch message', error) })
-        }
-        else {
-            message.forceChannelReply = true;
-            utils.reply(message, twitchOnlineNotification);
         }
 
         log(`${newPresence.member.displayName} Just went live`);

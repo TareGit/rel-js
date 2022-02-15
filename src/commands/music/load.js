@@ -1,5 +1,5 @@
 const { sync, queues, bot } = require(`${process.cwd()}/dataBus.js`);
-const { createQueue, loadQueue } = sync.require(`${process.cwd()}/handlers/handle_music`);
+const { createQueue, loadQueue } = sync.require(`${process.cwd()}/handlers/handleMusic`);
 
 const utils = sync.require(`${process.cwd()}/utils`);
 

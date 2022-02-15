@@ -109,10 +109,10 @@ bot.on('ready', async () => {
 
     try {
         // Loads other modules once done
-        const guildDataModule = sync.require('./handlers/handle_guild_data');
+        const guildDataModule = sync.require('./handlers/handleGuildData');
         await guildDataModule.load();
-        const levelingModule = sync.require('./handlers/handle_leveling');
-        const eventsModule = sync.require('./handlers/handle_events');
+        const levelingModule = sync.require('./handlers/handleLeveling');
+        const eventsModule = sync.require('./handlers/handleEvents');
     } catch (error) {
         utils.log('Error loading modules\x1b[0m\n',error);
     }
