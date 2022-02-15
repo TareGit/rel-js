@@ -146,25 +146,5 @@
             }
         ]
     },
-    "guildCommandsTableFormat": {
-        "name": "guild_commands_",
-        "rows": [
-            {
-                "name": "id",
-                "type": "TEXT",
-                "option": "PRIMARY KEY"
-            },
-            {
-                "name": "role_overiddes",
-                "type": "TEXT",
-                "option": "DEFAULT ''"
-            },
-            {
-                "name": "channel_overiddes",
-                "type": "TEXT",
-                "option": "DEFAULT ''"
-            }
-        ]
-    },
     "xpUpdateThreshold" : 100
 }

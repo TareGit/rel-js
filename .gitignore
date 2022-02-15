@@ -31,3 +31,5 @@ puppeter/*
 
 # env files
 *.env
+
+*.DS_Store

@@ -1,6 +1,6 @@
 const { MessageEmbed } = require('discord.js');
 
-const { sync, perGuildSettings, bot } = require(`${process.cwd()}/dataBus.js`);
+const { sync, perGuildSettings, bot, queues } = require(`${process.cwd()}/dataBus.js`);
 
 const {version, defaultPrimaryColor} = sync.require(`${process.cwd()}/config.json`);
 
@@ -22,8 +22,6 @@ module.exports = {
             Embed.setTitle('Status');
             Embed.setURL(process.env.WEBSITE);
 
-            let memory = await osu.mem.free();
-
             let cpu = await osu.cpu.usage();
 
             function pad(s) {
@@ -40,12 +38,13 @@ module.exports = {
 
             const daysUp = parseInt(Math.floor(seconds / 86400));
 
-            Embed.addField(`Version`, `${version}`, false);
-            Embed.addField(`Language`, `Node JS`, false);
-            Embed.addField(`UP Time`, ` ${daysUp} Day${daysUp === 1 ? "" : "s"} ${pad(hoursUp)} Hr${hoursUp === 1 ? "" : "s"} ${pad(minutsUp)} Min ${pad(secondsUp)}Secs`, false);
-            Embed.addField(`Guilds Count `, ` ${bot.guilds.cache.size}`, false);
-            Embed.addField(`CPU Usage`, `${parseInt(cpu)}%`, false);
-            Embed.addField(`Ram In Use`, `${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB`, false);
+            Embed.addField(`Uptime`, ` ${daysUp} Day${daysUp === 1 ? "" : "s"} ${pad(hoursUp)} Hr${hoursUp === 1 ? "" : "s"} ${pad(minutsUp)} Min ${pad(secondsUp)}Secs`, false);
+            Embed.addField(`Cluster`, `${bot.cluster.id}`, true);
+            Embed.addField(`Shard`, `${ctx.guild.shardId}`, true);
+            Embed.addField(`Servers`, ` ${bot.guilds.cache.size}`, true);
+            Embed.addField(`Players`, `${queues.size}`, true);
+            Embed.addField(`CPU`, `${parseInt(cpu)}%`, true);
+            Embed.addField(`RAM`, `${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB`, true);
 
            utils.reply(ctx,{ embeds: [Embed] });
 
