@@ -15,6 +15,8 @@ function getDefaultGuildSettings(guildId) {
         language: defaultLanguage,
         welcome_message: defaultWelcomeMessage,
         welcome_options: new URLSearchParams(),
+        leave_message: defaultLeaveMessage,
+        leave_options: new URLSearchParams(),
         twitch_message: defaultTwitchMessage,
         twitch_options: new URLSearchParams(),
         leveling_message: defaultLevelingMessage,
@@ -53,11 +55,11 @@ function convertToDbSetting(setting) {
         language: setting.language,
         welcome_message: setting.welcome_message,
         welcome_options: setting.welcome_options.toString(),
-        leave_message: dbSetting.leave_message,
+        leave_message: setting.leave_message,
         leave_options: setting.leave_options.toString(),
-        twitch_message: dbSetting.twitch_message,
+        twitch_message: setting.twitch_message,
         twitch_options: setting.twitch_options.toString(),
-        leveling_message: dbSetting.leveling_message,
+        leveling_message: setting.leveling_message,
         leveling_options: setting.leveling_options.toString()
     }
 
@@ -200,9 +202,18 @@ async function loadLevelingAndUserData(guildId) {
             axios.post(`${process.env.SERVER_API}/notifications-user`, { op: 'add', data: usersToTrack, target: `${process.env.CLUSTER_API}` }).catch((error) => utils.log('Error asking server to track user updates : ', error.message));
 
             if (levelingData.ranking) {
+
                 levelingData.ranking.sort(function (userA, userB) {
-                    return (levelingData[userA].currentXp + utils.getTotalXp(levelingData[userA].currentXp)) < (levelingData[userB].currentXp + utils.getTotalXp(levelingData[userB].currentXp));
+                    const aData = levelingData[userA];
+                    const bData = levelingData[userB];
+    
+                    if (aData.level === bData.level) return aData.currentXp - bData.currentXp;
+    
+                    return aData.level - bData.level;
                 });
+
+                levelingData.ranking.reverse();
+    
             }
         }
     } catch (error) {
@@ -222,7 +233,7 @@ async function postSettingsToDatabase(dbSetting) {
         logPossibleAxiosError(error);
     }
 
-    await loadLevelingAndUserData(guild_setting_data.id);
+    await loadLevelingAndUserData(dbSetting.id);
 }
 
 async function onJoinedNewGuild(guild) {
@@ -256,25 +267,27 @@ async function load() {
 
         const guild_settings_data = guild_settings_response.data;
 
+        utils.log(guildsPendingUpdate.length, 'Guilds to fetch');
+
         if (guild_settings_data.error) {
             utils.log(`Error Fetching Guild Settings "${guild_settings_data.error}" \x1b[0m`);
 
             if (guild_settings_data.error === 'Table does not exist') await db.post('/tables', [guildSettingsTableFormat]);
         }
         else {
-            utils.log(guildsPendingUpdate.length, 'Guilds to fetch');
+            
 
             const promises = [];
 
             const rows = guild_settings_data;
 
-            rows.forEach(function (dbSetting, index) {
+            let iterations = 0;
+            rows.forEach(function (dbSetting) {
+                iterations += 1;
 
                 const setting = convertFromDbSetting(dbSetting);
 
                 perGuildSettings.set(setting.id, setting);
-
-                guildsPendingUpdate.splice(guildsPendingUpdate.indexOf(setting.id), 1);
 
                 promises.push(loadLevelingAndUserData(dbSetting.id));
 
@@ -288,16 +301,14 @@ async function load() {
                 guildsPendingUpdate.splice(guildsPendingUpdate.indexOf(setting.id), 1);
 
             });
-
-            utils.log('Recieved', rows.length, 'Settings from database')
-
+            
             await Promise.all(promises);
         }
     } catch (error) {
         logPossibleAxiosError(error);
     }
 
-    utils.log(`Guilds Not In Database [${guildsPendingUpdate}]`);
+    utils.log(guildsPendingUpdate.length, 'Guilds Left');
 
     const promises = [];
     const settingsToPush = [];

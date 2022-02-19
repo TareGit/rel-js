@@ -28,6 +28,9 @@ module.exports = {
         // check if leveling is enabled
         if (!options.get('location') || options.get('location') === 'disabled') return await utils.reply(ctx, `Leveling is disabled in this server`);
 
+        // defer the reply to give puppeter time to render and incase we make an API call
+        if (ctx.cType === 'COMMAND') await ctx.deferReply();
+
         // select the member specified 
         const specificUser = ctx.cType === 'COMMAND' ? (ctx.options.getMember('user') || ctx.member) : (ctx.mentions.members.first() || ctx.member);
 
@@ -37,6 +40,21 @@ module.exports = {
         // get the guilds leveling data
         const levelingData = perGuildLeveling.get(ctx.guild.id) || {};
 
+        if (levelingData.ranking) {
+
+            levelingData.ranking.sort(function (userA, userB) {
+                const aData = levelingData[userA];
+                const bData = levelingData[userB];
+
+                if (aData.level === bData.level) return aData.currentXp - bData.currentXp;
+
+                return aData.level - bData.level;
+            });
+
+            levelingData.ranking.reverse();
+
+        }
+
         // get the specified users leveling data 
         const levelData = levelingData[specificUser.id] || {};
 
@@ -45,9 +63,6 @@ module.exports = {
 
         // get the users current XP
         const currentXp = ((levelData.currentXp || 1) / 1000).toFixed(2);
-
-        // defer the reply to give puppeter time to render and incase we make an API call
-        if (ctx.cType === 'COMMAND') await ctx.deferReply();
 
         // fetch data from database since we don't currently have it
         if (!perUserData.get(specificUser.id)) {
@@ -75,7 +90,7 @@ module.exports = {
                     perUserData.get(specificUser.id).afk_options = new URLSearchParams(perUserData.get(specificUser.id).afk_options);
 
                     // tell the server to inform us of future updates concerning this user
-                    axios.post(`${process.env.SERVER_API}/notifications-user`, { op: 'add', data: [specificUser.id], target: `${process.env.CLUSTER_API}/user-update` }).catch((error) => utils.log('Error making request to server', error.message));
+                    axios.post(`${process.env.SERVER_API}/notifications-user`, { op: 'add', data: [specificUser.id], target: `${process.env.CLUSTER_API}` }).catch((error) => utils.log('Error making request to server', error.message));
                 }
 
             }

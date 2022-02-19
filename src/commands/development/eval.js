@@ -2,6 +2,7 @@ const { MessageEmbed } = require('discord.js');
 const dataBus = require(`${process.cwd()}/dataBus.js`);
 const { sync, bot } = require(`${process.cwd()}/dataBus.js`);
 const utils = sync.require(`${process.cwd()}/utils`);
+const axios = require('axios');
 
 
 module.exports = {
@@ -27,9 +28,8 @@ module.exports = {
        try {
             const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 
-           const evalFunction = new AsyncFunction("bot","ctx","dataBus","utils",ctx.pureContent);
-           const result = await evalFunction(bot,ctx,dataBus,utils)
-           utils.log(result);
+           const evalFunction = new AsyncFunction("bot","ctx","dataBus","utils","axios",ctx.pureContent);
+           const result = await evalFunction(bot,ctx,dataBus,utils,axios);
            const response = "```" + JSON.stringify(result) + "```";
            if(!response) return utils.reply(ctx,"\`The result of the evaluation was undefined\`");
            if(!response.length) return utils.reply(ctx,"\`The evaluation did not return a result\`");

@@ -42,11 +42,19 @@ async function onMessageCreate(message) {
             levelingData[userId].level += 1;
             levelingData[userId].currentXp = levelingData[userId].currentXp - nextLevelXp;
 
-            if(levelingData.ranking)
-            {
-                levelingData.ranking.sort(function(userA,userB){
-                    return  (levelingData[userA].currentXp + utils.getTotalXp(levelingData[userA].currentXp)) < (levelingData[userB].currentXp + utils.getTotalXp(levelingData[userB].currentXp));
+            if (levelingData.ranking) {
+
+                levelingData.ranking.sort(function (userA, userB) {
+                    const aData = levelingData[userA];
+                    const bData = levelingData[userB];
+    
+                    if (aData.level === bData.level) return aData.currentXp - bData.currentXp;
+    
+                    return aData.level - bData.level;
                 });
+
+                levelingData.ranking.reverse();
+    
             }
             
             

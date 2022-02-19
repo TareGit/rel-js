@@ -62,7 +62,7 @@ module.exports.parseInteractionCommand = async (interaction) => {
         interaction.cType = 'COMMAND';
     }
     
-    if(disabledCategories.includes(commands.get(interaction.commandName).category))
+    if(commands.get(interaction.commandName) && disabledCategories && disabledCategories.includes(commands.get(interaction.commandName).category))
     {
         return undefined;
     }
