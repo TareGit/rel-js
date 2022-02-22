@@ -75,44 +75,68 @@ async function onPresenceUpdate(oldPresence, newPresence) {
 
         const options = perGuildSettings.get(newPresence.guild.id).twitch_options;
 
-        if (!options.get('enabled') || options.get('enabled') !== 'true') return;
+        if (!options.get('location') || options.get('location') === 'disabled') return;
 
-        if (newPresence.activities.length === 0) return;
+        const relevantNewActivities = newPresence && newPresence.activities ? newPresence.activities.filter((activity) => activity.name === 'Twitch') : [];
 
-        const relevantActivities = newPresence.activities.filter((activity) => activity.name === 'Twitch');
+        const relevantOldActivities = oldPresence && oldPresence.activities ? oldPresence.activities.filter((activity) => activity.name === 'Twitch') : [];
 
-        if (relevantActivities.length === 0) return;
+        const bJustWentLive = relevantNewActivities.length && !relevantOldActivities.length;
 
-        const targetActivity = relevantActivities[0];
+        const bJustWentOffline = !relevantNewActivities.length && relevantOldActivities.length;
 
-        // we only check the first one because afaik a user can't have more than 1 twitch activity
-        if (!oldPresence || oldPresence.activities.filter((activity) => activity.id === targetActivity.id).length !== 0) return;
+        if (!bJustWentLive && !bJustWentOffline) return;
 
-        const guildId = newPresence.guild.id;
+        if (bJustWentLive) {
+            const targetActivity = relevantNewActivities[0];
 
-        // Twitch online message here
-        let twitchOnlineNotification = perGuildSettings.get(guildId).twitch_message;
+            const guildId = newPresence.guild.id;
+            const userId = newPresence.member.id;
+            const username = newPresence.member.displayName;
+            const url = targetActivity.url;
 
+            // Twitch online message here
+            let twitchOnlineNotification = perGuildSettings.get(guildId).twitch_message;
 
-        const userId = newPresence.member.id;
-        const username = newPresence.member.displayName;
-        const url = targetActivity.url;
+            twitchOnlineNotification = twitchOnlineNotification.replace(/{user}/gi, `<@${userId}>`);
+            twitchOnlineNotification = twitchOnlineNotification.replace(/{username}/gi, `${username}`);
+            twitchOnlineNotification = twitchOnlineNotification.replace(/{link}/gi, `${url}`);
 
-        twitchOnlineNotification = twitchOnlineNotification.replace(/{user}/gi, `<@${userId}>`);
-        twitchOnlineNotification = twitchOnlineNotification.replace(/{username}/gi, `${username}`);
-        twitchOnlineNotification = twitchOnlineNotification.replace(/{link}/gi, `${url}`);
+            if (options.get('location') === 'channel' && options.get('channel')) {
 
+                const channel = await newPresence.guild.channels.fetch(options.get('channel')).catch(utils.log);
 
-        if (options.get('location') === 'channel' && options.get('channel')) {
+                if (channel) {
+                    channel.send(twitchOnlineNotification);
+                }
+            }
 
-            const channel = await newPresence.guild.channels.fetch(options.get('channel')).catch(utils.log);
+            if (options.get('give')) {
 
-            if (channel) {
-                channel.send(twitchOnlineNotification);
+                const roles = options.get('give').split(',').filter(role => !Array.from(newPresence.member.roles.cache.keys()).includes(role));
+
+                const user = newPresence.member;
+                
+                if (roles.length) {
+                    await user.roles.add(roles, 'Started Streaming').catch(utils.log);
+                }
+            }
+        }
+        else {
+            if (options.get('give')) {
+
+                const roles = options.get('give').split(',').filter(role => Array.from(newPresence.member.roles.cache.keys()).includes(role));
+
+                const user = newPresence.member;
+                
+                if (roles.length) {
+                    await user.roles.remove(roles, 'Stopped Streaming').catch(utils.log);
+                }
             }
         }
 
-        log(`${newPresence.member.displayName} Just went live`);
+
+
     } catch (error) {
         utils.log(error);
     }
