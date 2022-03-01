@@ -108,7 +108,7 @@ async function reply(ctx, payload) {
         }
 
         if (ctx.cType === 'MESSAGE') {
-            return await ctx.reply(payload);
+            return await ctx.reply(payload).catch((error)=>log('Error sending message',error));
         }
         else {
             if (ctx.forceChannelReply !== undefined) {

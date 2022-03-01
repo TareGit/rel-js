@@ -99,7 +99,11 @@ bot.on('ready', async () => {
         .on("VOICE_SERVER_UPDATE", dataBus.LavaManager.voiceServerUpdate.bind(dataBus.LavaManager))
         .on("VOICE_STATE_UPDATE", dataBus.LavaManager.voiceStateUpdate.bind(dataBus.LavaManager))
         .on("GUILD_CREATE", async data => {
-            for (const state of data.voice_states) await dataBus.LavaManager.voiceStateUpdate({ ...state, guild_id: data.id });
+            if(data.voice_states.length)
+            {
+                for (const state of data.voice_states) await dataBus.LavaManager.voiceStateUpdate({ ...state, guild_id: data.id });
+            }
+            
         });
 
     LavaManager.on("error", (error, node) => {

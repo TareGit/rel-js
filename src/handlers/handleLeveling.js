@@ -1,5 +1,5 @@
 const dataBus = require(`${process.cwd()}/dataBus.js`);
-const { sync, bot, modulesLastReloadTime, perGuildSettings, perGuildLeveling } = dataBus;
+const { sync, db, bot, modulesLastReloadTime, perGuildSettings, perGuildLeveling } = dataBus;
 
 const utils = sync.require(`${process.cwd()}/utils`);
 
@@ -104,7 +104,7 @@ async function onMessageCreate(message) {
         }
 
          
-        axios.post(`${process.argv.includes('debug') ? process.env.DB_API_DEBUG : process.env.DB_API }/tables/guild_leveling_${guildId}/rows`,[postData],{ headers: {'x-api-key': process.env.DB_API_TOKEN}}).then((levelingUpdateResponse) =>{
+        db.post(`/tables/guild_leveling_${guildId}/rows`,[postData]).then((levelingUpdateResponse) =>{
         }).catch((error)=>{utils.log("Error updating back end XP",error.data)});
 
     } catch (error) {
