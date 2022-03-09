@@ -6,7 +6,7 @@ const utils = sync.require(`${process.cwd()}/utils`);
 
 module.exports = {
     name: 'clean',
-    category: 'Moderation',
+    category: 'General',
     description: 'Deletes messages in a channel',
     ContextMenu: {},
     syntax : '{prefix}{name} <ammount to delete>',

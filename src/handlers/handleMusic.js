@@ -700,8 +700,6 @@ module.exports.resumeSong = async function (ctx, queue) {
 module.exports.removeSong = async function (ctx, queue) {
     const index = ctx.cType == "COMMAND" ? ctx.options.getInteger('index') : parseInt(ctx.args[0]);
 
-    if (!index) return await commands.get('help').execute(ctx,'remove');
-
     if (index !== index) {
         await commands.get('help').execute(ctx,'remove');
         return;
