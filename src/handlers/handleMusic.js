@@ -9,9 +9,14 @@ const { createAudioPlayer, createAudioResource, joinVoiceChannel, NoSubscriberBe
 const utils = sync.require(`${process.cwd()}/utils`);
 
 const EventEmitter = require("events");
+
 const axios = require('axios');
 
 const loopTypes = ['off','song','queue'];
+
+const fs = require('fs/promises');
+
+const queuesPath = `${process.cwd().slice(0,-4)}/queues`;
 
 /**
  * Checks the url specified and returns its type.
@@ -38,6 +43,8 @@ function checkUrl(url) {
 
 
 }
+
+
 
 /**
  * Fetches a track from the spofity API.
@@ -106,19 +113,21 @@ function createSong(songData, songRequester, songGroupURL = "") {
         groupURL: songGroupURL
     }
 }
-
 /**
  * Creates a song from a search term and user object
  * @param {String} search The term to search for
  * @param user The user that requested the song.
  * @returns A song object || undefined if the search term returned no results.
  */
-async function getSong(search, user) {
+async function getSongFromSavedData(guild,savedSong,arrayToAddTo) {
     try {
         const node = LavaManager.idealNodes[0];
 
         const params = new URLSearchParams();
 
+        const user = bot.guilds.cache.get(guild).members.fetch(savedSong.member);
+        
+        const songLink = savedSong.link;
         params.append("identifier", "ytsearch:" + search);
 
         const data = (await axios.get(`http://${node.host}:${node.port}/loadtracks?${params}`, { headers: { Authorization: node.password } })).data;
@@ -130,6 +139,32 @@ async function getSong(search, user) {
         if (songData.info === undefined) return undefined;
 
         return createSong(songData, user, songData.info.uri);
+    } catch (error) {
+        utils.log(`Error fetching song for "${search}"\n`, error);
+        return undefined;
+    }
+
+}
+
+/**
+ * Creates a song from a search term and user object
+ * @param {String} search The term to search for
+ * @param user The user that requested the song.
+ * @returns A song object || undefined if the search term returned no results.
+ */
+async function getSongs(search, user) {
+    try {
+        const node = LavaManager.idealNodes[0];
+
+        const params = new URLSearchParams();
+
+        params.append("identifier", "ytsearch:" + search);
+
+        const data = (await axios.get(`http://${node.host}:${node.port}/loadtracks?${params}`, { headers: { Authorization: node.password } })).data;
+
+        if (!data.tracks) return [];
+
+        return data.tracks.map(songData => createSong(songData, user, songData.info.uri));
     } catch (error) {
         utils.log(`Error fetching song for "${search}"\n`, error);
         return undefined;
@@ -160,15 +195,15 @@ async function convertSpotifyToSong(ctx, trackData, songArray) {
 
     const searchToMake = trackData.name + ' ' + artists + ' audio';
 
-    const song = await Promise.race([getSong(searchToMake, ctx.member), trackFetchTimeout(maxQueueFetchTime)]);
+    const songs = await Promise.race([getSongs(searchToMake, ctx.member), trackFetchTimeout(maxQueueFetchTime)]);
 
     if (song === undefined) return;
 
     if (songArray === undefined) return;
 
-    song.priority = trackData.priority;
+    songs[0].priority = trackData.priority;
 
-    songArray.push(song);
+    songArray.push(songs[0]);
 }
 
 /**
@@ -209,7 +244,7 @@ async function createNowPlayingMessage(queue, ctx = undefined) {
     Embed.setColor(perGuildSettings.get(queue.Id).color);
     Embed.setTitle(`**${song.title}**`);
     Embed.setURL(`${song.uri}`);
-    Embed.setDescription(`**Volume** : **${parseInt(queue.volume * 100)}%** | **loop mode** : **${queue.loopType}**`);
+    Embed.setDescription(`**Volume** : **${parseInt(queue.volume * 100)}%** | **loop mode** : **${loopTypes[queue.loopType]}**`);
     Embed.setFooter({ text: `${song.requester.displayName}`, iconURL: song.requester.displayAvatarURL({ format: 'png', size: 32 }) });
     const nowButtons = new MessageActionRow()
         .addComponents(
@@ -411,12 +446,12 @@ function onSongEnd(data) {
 
     this.emit('state', 'Finished');
 
-    switch (this.loopType) {
-        case 'song':
+    switch (loopTypes[this.loopType]) {
+        case loopTypes[1]:
             this.songs.unshift(this.currentSong);
             break;
 
-        case 'queue':
+        case loopTypes[2]:
             this.songs.push(this.currentSong);
             break;
     }
@@ -439,6 +474,7 @@ async function playNextSong(queue) {
         queue.timeout = setTimeout(destroyQueue.bind(queue), queueTimeout);
         queue.isIdle = true;
         queue.emit('state', 'Idle');
+        await deleteSavedQueueFile(queue);
         return;
     }
 
@@ -470,9 +506,9 @@ async function playNextSong(queue) {
         queue.songs.shift();
 
         playNextSong(queue);
-        return
     }
 
+    await saveQueueToFile(queue);
 
 }
 
@@ -534,9 +570,9 @@ module.exports.parseInput = async function (ctx, queue) {
         // Simple yt video shit
         if (check.type === "search") // handle just a regular search term
         {
-            const song = await getSong(url, ctx.member, false);
+            const songs = await getSongs(url, ctx.member, false);
 
-            if (song) newSongs.push(song);
+            if (songs.length) newSongs.push.apply(newSongs,songs);
         }
         else if (check.type == 'spotify-track') {
             const spotifyData = await fetchSpotifyTrack(check)
@@ -575,8 +611,6 @@ module.exports.parseInput = async function (ctx, queue) {
 
     if(newSongs.length && newSongs[0].priority !== undefined)
     {
-        utils.log('sorted');
-
         newSongs.sort((a,b) => { return a.priority - b.priority});
     }
 
@@ -615,7 +649,7 @@ module.exports.parseInput = async function (ctx, queue) {
         await utils.reply(ctx, { embeds: [Embed] })
     }
 
-
+    saveQueueToFile(queue);
 }
 
 /**
@@ -683,6 +717,8 @@ module.exports.removeSong = async function (ctx, queue) {
 
     queue.songs.splice(index,1)
 
+    saveQueueToFile(queue);
+
     const Embed = new MessageEmbed();
     Embed.setColor(perGuildSettings.get(queue.Id).color);
     Embed.setURL(process.env.WEBSITE);
@@ -723,15 +759,15 @@ module.exports.setLooping = async function (ctx, queue) {
 
     if (option.toLowerCase() === 'off') {
 
-        queue.loopType = 'off';
+        queue.loopType = 0;
         Embed.setFooter({ text: `Looping Off`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
     } else if (option.toLowerCase() === 'song') {
 
-        queue.loopType = 'song';
+        queue.loopType = 1;
         Embed.setFooter({ text: `Looping Current Song`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
     } else if (option.toLowerCase() === 'queue') {
 
-        queue.loopType = 'queue';
+        queue.loopType = 2;
         Embed.setFooter({ text: `Looping Queue`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
     } else {
         await commands.get('help').execute(ctx,'loop');
@@ -739,6 +775,8 @@ module.exports.setLooping = async function (ctx, queue) {
     }
 
     await utils.reply(ctx, { embeds: [Embed] })
+
+    saveQueueToFile(queue);
 
 }
 
@@ -891,13 +929,14 @@ module.exports.setVolume = async function (ctx, queue) {
 
     queue.player.volume(queue.volume * maxRawVolume);
 
-
     const Embed = new MessageEmbed();
     Embed.setColor(perGuildSettings.get(queue.Id).color);
     Embed.setURL(process.env.WEBSITE);
     Embed.setFooter({ text: `${ctx.member.displayName} Changed the volume to ${parseInt(queue.volume * 100)}`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
 
-    await utils.reply(ctx, { embeds: [Embed] })
+    await utils.reply(ctx, { embeds: [Embed] });
+
+    saveQueueToFile(queue);
 }
 
 /**
@@ -907,7 +946,7 @@ module.exports.setVolume = async function (ctx, queue) {
  */
 module.exports.skipSong = async function (ctx, queue) {
 
-    if (queue.songs.length != 0 || (isPlaying(queue) && queue.loopType !== 'off')) {
+    if (queue.songs.length != 0 || (isPlaying(queue) && queue.loopType !== 0)) {
 
         const Embed = new MessageEmbed();
         Embed.setColor(perGuildSettings.get(queue.Id).color);
@@ -990,8 +1029,13 @@ async function destroyQueue() {
         this.timeout = undefined;
     }
 
-    this.queue = [];
-    this.loopType = 'off';
+    if(this.songs.length)
+    {
+        await deleteSavedQueueFile(this);
+    }
+
+    this.songs = [];
+    this.loopType = 0;
 
     this.boundEvents.forEach(function (boundEvent) {
 
@@ -1020,11 +1064,18 @@ module.exports.Queue = class Queue extends EventEmitter {
 
         this.boundEvents = [];
 
-        if (ctx.__proto__.constructor.name === 'Queue') {
+        switch(ctx.loadType)
+        {
+            case 0: // Regular Queue Loading
+            this.Id = ctx.member.guild.id;
+            this.channel = ctx.channel;
+            this.voice = ctx.member.voice.channel;
+            break;
 
+            case 1: // Loading A Queue From Another Queue
             const properties = Object.getOwnPropertyNames(ctx);
 
-            const propertiesToCopyIfFound = ['Id', 'channel', 'voiceChannel', 'player', 'songs', 'nowPlayingMessage', 'currentSong', 'volume', 'isIdle', 'loopType', 'isCreatingNowPlaying', 'isFirstPlay', 'isSwitchingChannels', 'isDisconnecting']
+            const propertiesToCopyIfFound = ['Id', 'channel', 'voice', 'player', 'songs', 'nowPlayingMessage', 'currentSong', 'volume', 'isIdle', 'loopType', 'isCreatingNowPlaying', 'isFirstPlay', 'isSwitchingChannels', 'isDisconnecting']
 
             const currentQueue = this;
 
@@ -1041,15 +1092,19 @@ module.exports.Queue = class Queue extends EventEmitter {
                 this.player.on('end', playerEndBind);
                 this.boundEvents.push({ owner: this.player, event: 'end', function: playerEndBind })
             }
+            break;
 
-
-        }
-        else {
-            this.Id = ctx.member.guild.id;
+            case 2: // Loading A Queue From File
+            this.Id = ctx.Id;
             this.channel = ctx.channel;
-            this.voiceChannel = ctx.member.voice.channel;
-        }
+            this.voice = ctx.voice;
+            this.songs = ctx.songs;
+            this.loopType = ctx.loopType;
+            this.volume = ctx.volume;
+            this.currentSong = ctx.currentSong;
+            break;
 
+        }
 
         if (!this.player) this.player = undefined;
         if (!this.songs) this.songs = []
@@ -1057,7 +1112,7 @@ module.exports.Queue = class Queue extends EventEmitter {
         if (!this.currentSong) this.currentSong = undefined
         if (!this.volume) this.volume = defaultVolumeMultiplier;
         if (this.isIdle === undefined) this.isIdle = true;
-        if (!this.loopType) this.loopType = 'off';
+        if (!this.loopType) this.loopType = 0;
         if (this.isCreatingNowPlaying === undefined) this.isCreatingNowPlaying = false;
         if (this.isFirstPlay === undefined) this.isFirstPlay = true;
         if (this.isSwitchingChannels === undefined) this.isSwitchingChannels = false;
@@ -1083,6 +1138,9 @@ module.exports.Queue = class Queue extends EventEmitter {
  * @returns A new queue.
  */
 module.exports.createQueue = function (ctx) {
+
+    ctx.loadType = 0;
+
     const newQueue = new module.exports.Queue(ctx);
 
     queues.set(ctx.member.guild.id, newQueue);
@@ -1090,8 +1148,140 @@ module.exports.createQueue = function (ctx) {
     return newQueue;
 }
 
+function songToSavableData(song)
+{
+    return {
+        url : song.uri,
+        userId : song.requester.id
+    };
+}
 
 
+async function deleteSavedQueueFile(Queue)
+{
+    if(!(await fs.access(`${queuesPath}/${Queue.Id}.json`)))
+    try {
+        await fs.unlink(`${queuesPath}/${Queue.Id}.json`);
+    } catch (error) {
+        utils.log(error);
+    }
+}
+
+async function saveQueueToFile(Queue)
+{
+    const payloadToSave = {};
+
+    payloadToSave.guild = Queue.Id;
+
+    payloadToSave.voice = Queue.voice.id;
+
+    payloadToSave.channel = Queue.channel.id;
+
+    payloadToSave.volume = Queue.volume;
+
+    payloadToSave.loopType = Queue.loopType;
+
+    payloadToSave.songs = [];
+
+    if(Queue.currentSong)
+    {
+        payloadToSave.songs.push(songToSavableData(Queue.currentSong))
+    }
+
+    Queue.songs.forEach(song => payloadToSave.songs.push(songToSavableData(song)));
+
+    try {
+        await fs.writeFile(`${queuesPath}/${Queue.Id}.json`,JSON.stringify(payloadToSave,null,4));
+    } catch (error) {
+        utils.log(error);
+    }
+}
+
+async function loadSavedSong(guild,songData,priority,songArray)
+{
+    const songUrl = songData.url;
+
+    const member = await guild.members.fetch(songData.userId);
+
+    const songs = await getSongs(songUrl, member, false);
+
+    if (songs[0]){
+        songs[0].priority = priority;
+        songArray.push(songs[0]);
+    } 
+}
+
+async function loadQueueFromFile(filename){
+
+    const fullPath = `${queuesPath}/${filename}`;
+
+    const file = await fs.readFile(fullPath,'utf-8').catch((error)=>{utils.log(error)});
+
+    const QueueDataAsJson = JSON.parse(file);
+
+    if(!QueueDataAsJson.guild || !QueueDataAsJson.voice || !QueueDataAsJson.channel || !QueueDataAsJson.songs || !QueueDataAsJson.songs.length){
+        await fs.unlink(fullPath);
+        utils.log('Deleting invalid saved queue',filename);
+    }
+    
+    const Id = QueueDataAsJson.guild;
+
+    if(!await bot.guilds.fetch(Id)) return;
+
+    const guild = await bot.guilds.fetch(Id);
+
+    const voice = await guild.channels.fetch(QueueDataAsJson.voice);
+
+    const channel = await guild.channels.fetch(QueueDataAsJson.channel);
+
+    const songs = QueueDataAsJson.songs;
+
+    const loadedSongs = [];
+
+    const songLoaders = [];
+
+    songs.forEach(function (songData,index){
+        songLoaders.push(loadSavedSong(guild,songData,index,loadedSongs));
+    });
+
+    await Promise.all(songLoaders);
+
+    loadedSongs.sort(function (a,b) {
+        return a.priority - b.priority;
+    });
+
+    const ctx = {
+        Id : Id,
+        voice : voice,
+        channel : channel,
+        songs : loadedSongs,
+        loopType : QueueDataAsJson.loopType || 0,
+        volume : QueueDataAsJson.volume || defaultVolumeMultiplier,
+    }
+
+    ctx.loadType = 2;
+
+    
+
+    const queue = new module.exports.Queue(ctx);
+    queues.set(Id,queue);
+
+    const player = await LavaManager.join({
+        guild: Id,
+        channel: voice.id,
+        node: "1"
+    });
+
+    queue.player = player;
+    const playerEndBind = onSongEnd.bind(queue);
+    queue.player.on('end', playerEndBind);
+    queue.boundEvents.push({ owner: queue.player, event: 'end', function: playerEndBind })
+
+
+    await fs.unlink(fullPath);
+
+    playNextSong(queue);
+}
 
 
 if (modulesLastReloadTime.music !== undefined) {
@@ -1102,6 +1292,8 @@ if (modulesLastReloadTime.music !== undefined) {
         queues.forEach(function (queue, key) {
 
             const oldQueue = queue;
+
+            oldQueue.loadType = 1;
 
             const newQueue = new module.exports.Queue(oldQueue);
 
@@ -1133,6 +1325,21 @@ if (modulesLastReloadTime.music !== undefined) {
 }
 else {
     utils.log('Music Module loaded');
+
+    
+    fs.readdir(queuesPath).then((files)=>{
+
+        if(!files.length) return;
+
+        const guilds = Array.from(bot.guilds.cache.keys());
+
+        files.forEach(file => {
+            if(guilds.indexOf(file.split('.')[0]) !== -1)
+            {
+                loadQueueFromFile(file);
+            }
+        })
+    });
 }
 
 if (bot) {

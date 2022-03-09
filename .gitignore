@@ -33,3 +33,5 @@ puppeter/*
 *.env
 
 *.DS_Store
+
+queues/*

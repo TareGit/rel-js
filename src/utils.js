@@ -138,6 +138,8 @@ async function reply(ctx, payload) {
 
 const addNewCommand = async function (path) {
 
+    if(!path.endsWith('.js')) return;
+
     const pathAsArray = process.platform !== 'win32' ? path.split('/') : path.split('\\');
 
     try {
@@ -168,6 +170,9 @@ const addNewCommand = async function (path) {
 }
 
 const reloadCommand = async function (path) {
+
+    if(!path.endsWith('.js')) return;
+
     const pathAsArray = process.platform !== 'win32' ? path.split('/') : path.split('\\');
 
     try {
@@ -197,6 +202,9 @@ const reloadCommand = async function (path) {
 }
 
 const deleteCommand = async function (path) {
+
+    if(!path.endsWith('.js')) return;
+    
     const pathAsArray = process.platform !== 'win32' ? path.split('/') : path.split('\\');
 
     try {
