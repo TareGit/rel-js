@@ -12,11 +12,11 @@ const EventEmitter = require("events");
 
 const axios = require('axios');
 
-const loopTypes = ['off','song','queue'];
+const loopTypes = ['off', 'song', 'queue'];
 
 const fs = require('fs/promises');
 
-const queuesPath = `${process.cwd().slice(0,-4)}/queues`;
+const queuesPath = `${process.cwd().slice(0, -4)}/queues`;
 
 /**
  * Checks the url specified and returns its type.
@@ -119,14 +119,14 @@ function createSong(songData, songRequester, songGroupURL = "") {
  * @param user The user that requested the song.
  * @returns A song object || undefined if the search term returned no results.
  */
-async function getSongFromSavedData(guild,savedSong,arrayToAddTo) {
+async function getSongFromSavedData(guild, savedSong, arrayToAddTo) {
     try {
         const node = LavaManager.idealNodes[0];
 
         const params = new URLSearchParams();
 
         const user = bot.guilds.cache.get(guild).members.fetch(savedSong.member);
-        
+
         const songLink = savedSong.link;
         params.append("identifier", "ytsearch:" + search);
 
@@ -163,6 +163,10 @@ async function getSongs(search, user) {
         const data = (await axios.get(`http://${node.host}:${node.port}/loadtracks?${params}`, { headers: { Authorization: node.password } })).data;
 
         if (!data.tracks) return [];
+
+        if (!(data.playlistInfo.name)) {
+            return [createSong(data.tracks[0], user, data.tracks[0].info.uri)];
+        }
 
         return data.tracks.map(songData => createSong(songData, user, songData.info.uri));
     } catch (error) {
@@ -265,19 +269,17 @@ async function createNowPlayingMessage(queue, ctx = undefined) {
                 .setLabel('Queue')
                 .setStyle('SECONDARY'),
         );
-    
+
     let messsage = undefined;
 
-    if(ctx)
-    {
-        message = await utils.reply(ctx,{ embeds: [Embed], components: [nowButtons], fetchReply: true });
+    if (ctx) {
+        message = await utils.reply(ctx, { embeds: [Embed], components: [nowButtons], fetchReply: true });
     }
-    else
-    {
+    else {
         message = await channel.send({ embeds: [Embed], components: [nowButtons], fetchReply: true });
     }
 
-    
+
     if (message) {
 
         const nowPlayingCollector = new InteractionCollector(bot, { message: message, componentType: 'BUTTON' });
@@ -314,7 +316,7 @@ async function createNowPlayingMessage(queue, ctx = undefined) {
                     break;
             }
 
-            if(nowPlayingCollector.ended) return;
+            if (nowPlayingCollector.ended) return;
 
             button.forceChannelReply = undefined;
 
@@ -406,7 +408,7 @@ function generateQueueEmbed(queue, page) {
         let currentSong = queue.songs[i];
 
         if (currentSong != undefined) Embed.addField(`${i}) \`${currentSong.title}\``, `**Requested by** ${currentSong.requester} \n`, false);
-        
+
     }
 
     Embed.setFooter({ text: `Page ${page} of ${currentPages}` });
@@ -557,7 +559,7 @@ module.exports.parseInput = async function (ctx, queue) {
     }
 
 
-    if (url.length == 0) return await commands.get('help').execute(ctx,'play');
+    if (url.length == 0) return await commands.get('help').execute(ctx, 'play');
 
 
     let newSongs = [];
@@ -572,7 +574,7 @@ module.exports.parseInput = async function (ctx, queue) {
         {
             const songs = await getSongs(url, ctx.member, false);
 
-            if (songs.length) newSongs.push.apply(newSongs,songs);
+            if (songs.length) newSongs.push.apply(newSongs, songs);
         }
         else if (check.type == 'spotify-track') {
             const spotifyData = await fetchSpotifyTrack(check)
@@ -584,7 +586,7 @@ module.exports.parseInput = async function (ctx, queue) {
 
             const promisesToAwait = [];
 
-            tracks.forEach(function(data,index) {
+            tracks.forEach(function (data, index) {
                 data.priority = index;
                 promisesToAwait.push(convertSpotifyToSong(ctx, data, newSongs));
             });
@@ -597,7 +599,7 @@ module.exports.parseInput = async function (ctx, queue) {
 
             const promisesToAwait = [];
 
-            tracks.forEach(function(data,index) {
+            tracks.forEach(function (data, index) {
                 data.track.priority = index;
                 promisesToAwait.push(convertSpotifyToSong(ctx, data.track, newSongs));
             });
@@ -609,9 +611,8 @@ module.exports.parseInput = async function (ctx, queue) {
         utils.log(`Error fetching song for url "${url}"\n`, error);
     }
 
-    if(newSongs.length && newSongs[0].priority !== undefined)
-    {
-        newSongs.sort((a,b) => { return a.priority - b.priority});
+    if (newSongs.length && newSongs[0].priority !== undefined) {
+        newSongs.sort((a, b) => { return a.priority - b.priority });
     }
 
     queue.songs.push.apply(queue.songs, newSongs);
@@ -701,7 +702,7 @@ module.exports.removeSong = async function (ctx, queue) {
     const index = ctx.cType == "COMMAND" ? ctx.options.getInteger('index') : parseInt(ctx.args[0]);
 
     if (index !== index) {
-        await commands.get('help').execute(ctx,'remove');
+        await commands.get('help').execute(ctx, 'remove');
         return;
     }
 
@@ -713,7 +714,7 @@ module.exports.removeSong = async function (ctx, queue) {
 
     const song = queue.songs[index];
 
-    queue.songs.splice(index,1)
+    queue.songs.splice(index, 1)
 
     saveQueueToFile(queue);
 
@@ -768,7 +769,7 @@ module.exports.setLooping = async function (ctx, queue) {
         queue.loopType = 2;
         Embed.setFooter({ text: `Looping Queue`, iconURL: ctx.member.displayAvatarURL({ format: 'png', size: 32 }) });
     } else {
-        await commands.get('help').execute(ctx,'loop');
+        await commands.get('help').execute(ctx, 'loop');
         return
     }
 
@@ -910,11 +911,11 @@ module.exports.setVolume = async function (ctx, queue) {
 
     const volume = ctx.cType == "COMMAND" ? ctx.options.getInteger('volume') : parseInt(ctx.args[0]);
 
-    if (!volume) return await commands.get('help').execute(ctx,'volume');
+    if (!volume) return await commands.get('help').execute(ctx, 'volume');
 
 
     if (volume !== volume) {
-        await commands.get('help').execute(ctx,'volume');
+        await commands.get('help').execute(ctx, 'volume');
         return;
     }
 
@@ -1027,8 +1028,7 @@ async function destroyQueue() {
         this.timeout = undefined;
     }
 
-    if(this.songs.length)
-    {
+    if (this.songs.length) {
         await deleteSavedQueueFile(this);
     }
 
@@ -1062,45 +1062,44 @@ module.exports.Queue = class Queue extends EventEmitter {
 
         this.boundEvents = [];
 
-        switch(ctx.loadType)
-        {
+        switch (ctx.loadType) {
             case 0: // Regular Queue Loading
-            this.Id = ctx.member.guild.id;
-            this.channel = ctx.channel;
-            this.voice = ctx.member.voice.channel;
-            break;
+                this.Id = ctx.member.guild.id;
+                this.channel = ctx.channel;
+                this.voice = ctx.member.voice.channel;
+                break;
 
             case 1: // Loading A Queue From Another Queue
-            const properties = Object.getOwnPropertyNames(ctx);
+                const properties = Object.getOwnPropertyNames(ctx);
 
-            const propertiesToCopyIfFound = ['Id', 'channel', 'voice', 'player', 'songs', 'nowPlayingMessage', 'currentSong', 'volume', 'isIdle', 'loopType', 'isCreatingNowPlaying', 'isFirstPlay', 'isSwitchingChannels', 'isDisconnecting']
+                const propertiesToCopyIfFound = ['Id', 'channel', 'voice', 'player', 'songs', 'nowPlayingMessage', 'currentSong', 'volume', 'isIdle', 'loopType', 'isCreatingNowPlaying', 'isFirstPlay', 'isSwitchingChannels', 'isDisconnecting']
 
-            const currentQueue = this;
+                const currentQueue = this;
 
-            propertiesToCopyIfFound.forEach(function (property) {
+                propertiesToCopyIfFound.forEach(function (property) {
 
-                if (properties.includes(property)) {
+                    if (properties.includes(property)) {
 
-                    currentQueue[property] = ctx[property];
+                        currentQueue[property] = ctx[property];
+                    }
+                });
+
+                if (this.player !== undefined) {
+                    const playerEndBind = onSongEnd.bind(this);
+                    this.player.on('end', playerEndBind);
+                    this.boundEvents.push({ owner: this.player, event: 'end', function: playerEndBind })
                 }
-            });
-
-            if (this.player !== undefined) {
-                const playerEndBind = onSongEnd.bind(this);
-                this.player.on('end', playerEndBind);
-                this.boundEvents.push({ owner: this.player, event: 'end', function: playerEndBind })
-            }
-            break;
+                break;
 
             case 2: // Loading A Queue From File
-            this.Id = ctx.Id;
-            this.channel = ctx.channel;
-            this.voice = ctx.voice;
-            this.songs = ctx.songs;
-            this.loopType = ctx.loopType;
-            this.volume = ctx.volume;
-            this.currentSong = ctx.currentSong;
-            break;
+                this.Id = ctx.Id;
+                this.channel = ctx.channel;
+                this.voice = ctx.voice;
+                this.songs = ctx.songs;
+                this.loopType = ctx.loopType;
+                this.volume = ctx.volume;
+                this.currentSong = ctx.currentSong;
+                break;
 
         }
 
@@ -1146,27 +1145,24 @@ module.exports.createQueue = function (ctx) {
     return newQueue;
 }
 
-function songToSavableData(song)
-{
+function songToSavableData(song) {
     return {
-        url : song.uri,
-        userId : song.requester.id
+        url: song.uri,
+        userId: song.requester.id
     };
 }
 
 
-async function deleteSavedQueueFile(Queue)
-{
-    if(!(await fs.access(`${queuesPath}/${Queue.Id}.json`)))
-    try {
-        await fs.unlink(`${queuesPath}/${Queue.Id}.json`);
-    } catch (error) {
-        utils.log(error);
-    }
+async function deleteSavedQueueFile(Queue) {
+    if (!(await fs.access(`${queuesPath}/${Queue.Id}.json`)))
+        try {
+            await fs.unlink(`${queuesPath}/${Queue.Id}.json`);
+        } catch (error) {
+            utils.log(error);
+        }
 }
 
-async function saveQueueToFile(Queue)
-{
+async function saveQueueToFile(Queue) {
     const payloadToSave = {};
 
     payloadToSave.guild = Queue.Id;
@@ -1181,104 +1177,110 @@ async function saveQueueToFile(Queue)
 
     payloadToSave.songs = [];
 
-    if(Queue.currentSong)
-    {
+    if (Queue.currentSong) {
         payloadToSave.songs.push(songToSavableData(Queue.currentSong))
     }
 
     Queue.songs.forEach(song => payloadToSave.songs.push(songToSavableData(song)));
 
     try {
-        await fs.writeFile(`${queuesPath}/${Queue.Id}.json`,JSON.stringify(payloadToSave,null,4));
+        await fs.writeFile(`${queuesPath}/${Queue.Id}.json`, JSON.stringify(payloadToSave, null, 4));
     } catch (error) {
         utils.log(error);
     }
 }
 
-async function loadSavedSong(guild,songData,priority,songArray)
-{
+async function loadSavedSong(guild, songData, priority, songArray) {
     const songUrl = songData.url;
 
     const member = await guild.members.fetch(songData.userId);
 
     const songs = await getSongs(songUrl, member, false);
 
-    if (songs[0]){
+    if (songs[0]) {
         songs[0].priority = priority;
         songArray.push(songs[0]);
-    } 
+    }
 }
 
-async function loadQueueFromFile(filename){
+async function loadQueueFromFile(filename) {
 
     const fullPath = `${queuesPath}/${filename}`;
 
-    const file = await fs.readFile(fullPath,'utf-8').catch((error)=>{utils.log(error)});
+    const file = await fs.readFile(fullPath, 'utf-8').catch((error) => { utils.log(error) });
 
     const QueueDataAsJson = JSON.parse(file);
 
-    if(!QueueDataAsJson.guild || !QueueDataAsJson.voice || !QueueDataAsJson.channel || !QueueDataAsJson.songs || !QueueDataAsJson.songs.length){
+    if (!QueueDataAsJson.guild || !QueueDataAsJson.voice || !QueueDataAsJson.channel || !QueueDataAsJson.songs || !QueueDataAsJson.songs.length) {
         await fs.unlink(fullPath);
-        utils.log('Deleting invalid saved queue',filename);
+        utils.log('Deleting invalid saved queue', filename);
     }
-    
+
     const Id = QueueDataAsJson.guild;
 
-    if(!await bot.guilds.fetch(Id)) return;
+    if (!await bot.guilds.fetch(Id)) {
+        await fs.unlink(fullPath);
+    };
 
-    const guild = await bot.guilds.fetch(Id);
+    try {
+        const guild = await bot.guilds.fetch(Id);
 
-    const voice = await guild.channels.fetch(QueueDataAsJson.voice);
+        const voice = await guild.channels.fetch(QueueDataAsJson.voice);
 
-    const channel = await guild.channels.fetch(QueueDataAsJson.channel);
+        const channel = await guild.channels.fetch(QueueDataAsJson.channel);
 
-    const songs = QueueDataAsJson.songs;
+        const songs = QueueDataAsJson.songs;
 
-    const loadedSongs = [];
+        const loadedSongs = [];
 
-    const songLoaders = [];
+        const songLoaders = [];
 
-    songs.forEach(function (songData,index){
-        songLoaders.push(loadSavedSong(guild,songData,index,loadedSongs));
-    });
+        songs.forEach(function (songData, index) {
+            songLoaders.push(loadSavedSong(guild, songData, index, loadedSongs));
+        });
 
-    await Promise.all(songLoaders);
+        await Promise.all(songLoaders);
 
-    loadedSongs.sort(function (a,b) {
-        return a.priority - b.priority;
-    });
+        loadedSongs.sort(function (a, b) {
+            return a.priority - b.priority;
+        });
 
-    const ctx = {
-        Id : Id,
-        voice : voice,
-        channel : channel,
-        songs : loadedSongs,
-        loopType : QueueDataAsJson.loopType || 0,
-        volume : QueueDataAsJson.volume || defaultVolumeMultiplier,
+        const ctx = {
+            Id: Id,
+            voice: voice,
+            channel: channel,
+            songs: loadedSongs,
+            loopType: QueueDataAsJson.loopType || 0,
+            volume: QueueDataAsJson.volume || defaultVolumeMultiplier,
+        }
+
+        ctx.loadType = 2;
+
+
+
+        const queue = new module.exports.Queue(ctx);
+        queues.set(Id, queue);
+
+        const player = await LavaManager.join({
+            guild: Id,
+            channel: voice.id,
+            node: "1"
+        });
+
+        queue.player = player;
+        const playerEndBind = onSongEnd.bind(queue);
+        queue.player.on('end', playerEndBind);
+        queue.boundEvents.push({ owner: queue.player, event: 'end', function: playerEndBind })
+
+
+        await fs.unlink(fullPath);
+
+        playNextSong(queue);
+
+    } catch (error) {
+        utils.log(`Error loading queue ${filename} :: `, error);
+        await fs.unlink(fullPath);
     }
-
-    ctx.loadType = 2;
-
-    
-
-    const queue = new module.exports.Queue(ctx);
-    queues.set(Id,queue);
-
-    const player = await LavaManager.join({
-        guild: Id,
-        channel: voice.id,
-        node: "1"
-    });
-
-    queue.player = player;
-    const playerEndBind = onSongEnd.bind(queue);
-    queue.player.on('end', playerEndBind);
-    queue.boundEvents.push({ owner: queue.player, event: 'end', function: playerEndBind })
-
-
-    await fs.unlink(fullPath);
-
-    playNextSong(queue);
 }
 
 
@@ -1324,16 +1326,15 @@ if (modulesLastReloadTime.music !== undefined) {
 else {
     utils.log('Music Module loaded');
 
-    
-    fs.readdir(queuesPath).then((files)=>{
 
-        if(!files.length) return;
+    fs.readdir(queuesPath).then((files) => {
+
+        if (!files.length) return;
 
         const guilds = Array.from(bot.guilds.cache.keys());
 
         files.forEach(file => {
-            if(guilds.indexOf(file.split('.')[0]) !== -1)
-            {
+            if (guilds.indexOf(file.split('.')[0]) !== -1) {
                 loadQueueFromFile(file);
             }
         })
