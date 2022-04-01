@@ -18,6 +18,9 @@ const fs = require('fs/promises');
 
 const queuesPath = `${process.cwd().slice(0, -4)}/queues`;
 
+const spotifyExpression = /^(?:spotify:|(?:https?:\/\/(?:open|play)\.spotify\.com\/)(?:embed)?\/?(track|album|playlist)(?::|\/)((?:[0-9a-zA-Z]){22}))/;
+const youtubePlaylistExpression = /[&?]list=([^&]+)/i;
+
 /**
  * Checks the url specified and returns its type.
  * @param {String} url The url to check.
@@ -25,7 +28,6 @@ const queuesPath = `${process.cwd().slice(0, -4)}/queues`;
  */
 function checkUrl(url) {
     try {
-        const spotifyExpression = /^(?:spotify:|(?:https?:\/\/(?:open|play)\.spotify\.com\/)(?:embed)?\/?(track|album|playlist)(?::|\/)((?:[0-9a-zA-Z]){22}))/;
         const spMatch = url.match(spotifyExpression);
 
         if (spMatch) {
@@ -160,15 +162,27 @@ async function getSongs(search, user) {
 
         params.append("identifier", "ytsearch:" + search);
 
-        const data = (await axios.get(`http://${node.host}:${node.port}/loadtracks?${params}`, { headers: { Authorization: node.password } })).data;
+        const isYtPlaylist = search.match(youtubePlaylistExpression) !== null;
 
-        if (!data.tracks) return [];
+        const LavalinkData = (await axios.get(`http://${node.host}:${node.port}/loadtracks?${params}`, { headers: { Authorization: node.password } })).data;
 
-        if (!(data.playlistInfo.name)) {
-            return [createSong(data.tracks[0], user, data.tracks[0].info.uri)];
+        utils.log(LavalinkData);
+        
+        if(!LavalinkData.tracks.length){
+            
+            return [];
         }
 
-        return data.tracks.map(songData => createSong(songData, user, songData.info.uri));
+        if(isYtPlaylist)
+        {
+            return LavalinkData.tracks.map(data => createSong(data, user, data.info.uri));
+        }
+        else
+        {
+            const TargetTrack = LavalinkData.tracks[0];
+            return [createSong(TargetTrack, user, TargetTrack.info.uri)];
+        }
+        
     } catch (error) {
         utils.log(`Error fetching song for "${search}"\n`, error);
         return undefined;
@@ -201,13 +215,17 @@ async function convertSpotifyToSong(ctx, trackData, songArray) {
 
     const songs = await Promise.race([getSongs(searchToMake, ctx.member), trackFetchTimeout(maxQueueFetchTime)]);
 
+    utils.log(songs);
+    
+    const song = songs[0];
+
     if (song === undefined) return;
 
     if (songArray === undefined) return;
 
-    songs[0].priority = trackData.priority;
+    song.priority = trackData.priority;
 
-    songArray.push(songs[0]);
+    songArray.push(song);
 }
 
 /**
