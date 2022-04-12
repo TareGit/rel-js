@@ -165,8 +165,6 @@ async function getSongs(search, user) {
         const isYtPlaylist = search.match(youtubePlaylistExpression) !== null;
 
         const LavalinkData = (await axios.get(`http://${node.host}:${node.port}/loadtracks?${params}`, { headers: { Authorization: node.password } })).data;
-
-        utils.log(LavalinkData);
         
         if(!LavalinkData.tracks.length){
             
@@ -291,10 +289,10 @@ async function createNowPlayingMessage(queue, ctx = undefined) {
     let messsage = undefined;
 
     if (ctx) {
-        message = await utils.reply(ctx, { embeds: [Embed], components: [nowButtons], fetchReply: true });
+        message = await utils.reply(ctx, { embeds: [Embed], components: [nowButtons], fetchReply: true }).catch(utils.log);
     }
     else {
-        message = await channel.send({ embeds: [Embed], components: [nowButtons], fetchReply: true });
+        message = await channel.send({ embeds: [Embed], components: [nowButtons], fetchReply: true }).catch(utils.log);
     }
 
 
@@ -1227,23 +1225,40 @@ async function loadQueueFromFile(filename) {
 
     const file = await fs.readFile(fullPath, 'utf-8').catch((error) => { utils.log(error) });
 
-    const QueueDataAsJson = JSON.parse(file);
+    let QueueDataAsJson = {};
+
+    try {
+        QueueDataAsJson = JSON.parse(file);
+    } catch (error) {
+        utils.log("Error parsing saved queue into json",error);
+        await fs.unlink(fullPath);
+        return;
+    }
+    
 
     if (!QueueDataAsJson.guild || !QueueDataAsJson.voice || !QueueDataAsJson.channel || !QueueDataAsJson.songs || !QueueDataAsJson.songs.length) {
-        await fs.unlink(fullPath);
         utils.log('Deleting invalid saved queue', filename);
+        await fs.unlink(fullPath);
+        return;
     }
 
     const Id = QueueDataAsJson.guild;
 
     if (!await bot.guilds.fetch(Id)) {
         await fs.unlink(fullPath);
+        return;
     };
 
     try {
         const guild = await bot.guilds.fetch(Id);
 
         const voice = await guild.channels.fetch(QueueDataAsJson.voice);
+
+        if(voice && voice.members && voice.members.length === 0)
+        {
+            await fs.unlink(fullPath);
+            return;
+        }
 
         const channel = await guild.channels.fetch(QueueDataAsJson.channel);
 
