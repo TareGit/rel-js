@@ -5,7 +5,7 @@
 * OSU! API (For osu! user lookup)
 * My Anime List API (For anime lookup)
 * TMDB API (For movie lookup)
-* Sotify API (For converting spotify links to playable tracks)
+* Spotify API (For converting spotify links to playable tracks)
 * Discord API (It's a discord bot ¯\\\_(ツ)\_/¯ )
 ### Back End Information
 * Custom Sqlite DB for most per-guild data
