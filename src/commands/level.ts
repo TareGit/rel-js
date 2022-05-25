@@ -1,4 +1,4 @@
-const { sync, perGuildLeveling, perGuildSettings, db, perUserData} = require(`${process.cwd()}/dataBus.js`);
+const { sync, perGuildLeveling, guildSettings, db, perUserData } = require(`${process.cwd()}/dataBus.js`);
 const { XpRequiredForLevelOne, XpSecreteSauce } = sync.require(`${process.cwd()}/config.json`);
 const { MessageAttachment } = require('discord.js')
 const fs = require('fs');
@@ -23,7 +23,7 @@ module.exports = {
     async execute(ctx) {
         if (ctx.guild === null) return utils.reply(ctx, `You need to be in a server to use this command`);
 
-        const options = perGuildSettings.get(ctx.guild.id).leveling_options;
+        const options = guildSettings.get(ctx.guild.id).leveling_options;
 
         // check if leveling is enabled
         if (!options.get('location') || options.get('location') === 'disabled') return await utils.reply(ctx, `Leveling is disabled in this server`);
@@ -32,7 +32,7 @@ module.exports = {
         if (ctx.cType === 'COMMAND') await ctx.deferReply();
 
         // select the member specified 
-        const specificUser = ctx.cType === 'COMMAND' ? (ctx.options.getMember('user') || ctx.member) : (ctx.mentions.members.first() || ctx.member);
+        const specificUser = ctx.cType === 'COMMAND' ? ((ctx.command as CommandInteraction).options.getMember('user') || ctx.member) : (ctx.mentions.members.first() || ctx.member);
 
         // no point in bots participating in leveling
         if (specificUser.user.bot) return await utils.reply(ctx, 'Bots are too sweaty to participate in leveling');
@@ -104,7 +104,7 @@ module.exports = {
 
         const displayName = specificUser.displayName;
 
-        const rank = levelingData.ranking && levelingData.ranking.includes(specificUser.id)  ? levelingData.ranking.indexOf(specificUser.id) + 1 : undefined;
+        const rank = levelingData.ranking && levelingData.ranking.includes(specificUser.id) ? levelingData.ranking.indexOf(specificUser.id) + 1 : undefined;
 
         const rankText = typeof rank === 'number' ? `RANK ${rank}` : 'UNRANKED';
 
@@ -114,7 +114,7 @@ module.exports = {
 
         const userOpacity = perUserData.get(specificUser.id) ? perUserData.get(specificUser.id).card_opacity : '0.8';
 
-        const cardAsHtml = utils.generateCardHtml(userColor,userOpacity,userBackground,avatarUrl,rankText,level,displayName,currentXp,requiredXp);
+        const cardAsHtml = utils.generateCardHtml(userColor, userOpacity, userBackground, avatarUrl, rankText, level, displayName, currentXp, requiredXp);
 
         // start a puppeteer browser
         /*if(!browser)
@@ -125,7 +125,7 @@ module.exports = {
                 browser : require(`${process.cwd()}/dataBus.js`);
             })
         }*/
-        
+
 
         const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'], userDataDir: `${process.cwd()}/../puppeter` });
         // create a new window and capture the ranked card
@@ -138,7 +138,7 @@ module.exports = {
         // shut down puppeteer
         await page.close();
         await browser.close();
-        
+
         // send the level card
         await utils.reply(ctx, { files: [{ attachment: imageBuffer }] });
     }

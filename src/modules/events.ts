@@ -1,5 +1,5 @@
 const dataBus = require(`${process.cwd()}/dataBus.js`);
-const { sync, bot, modulesLastReloadTime, perGuildSettings, commands } = require(`${process.cwd()}/dataBus.js`);
+const { sync, bot, modulesLastReloadTime, guildSettings, commands } = require(`${process.cwd()}/dataBus.js`);
 
 const parser = sync.require('./handleCommands');
 const guildDataModule = sync.require('./handleGuildData');
@@ -71,9 +71,9 @@ async function onGuildCreate(guild) {
 async function onPresenceUpdate(oldPresence, newPresence) {
 
     try {
-        if (!perGuildSettings.get(newPresence.guild.id)) return;
+        if (!guildSettings.get(newPresence.guild.id)) return;
 
-        const options = perGuildSettings.get(newPresence.guild.id).twitch_options;
+        const options = guildSettings.get(newPresence.guild.id).twitch_options;
 
         if (!options.get('location') || options.get('location') === 'disabled') return;
 
@@ -96,7 +96,7 @@ async function onPresenceUpdate(oldPresence, newPresence) {
             const url = targetActivity.url;
 
             // Twitch online message here
-            let twitchOnlineNotification = perGuildSettings.get(guildId).twitch_message;
+            let twitchOnlineNotification = guildSettings.get(guildId).twitch_message;
 
             twitchOnlineNotification = twitchOnlineNotification.replace(/{user}/gi, `<@${userId}>`);
             twitchOnlineNotification = twitchOnlineNotification.replace(/{username}/gi, `${username}`);
@@ -116,7 +116,7 @@ async function onPresenceUpdate(oldPresence, newPresence) {
                 const roles = options.get('give').split(',').filter(role => !Array.from(newPresence.member.roles.cache.keys()).includes(role));
 
                 const user = newPresence.member;
-                
+
                 if (roles.length) {
                     await user.roles.add(roles, 'Started Streaming').catch(utils.log);
                 }
@@ -128,7 +128,7 @@ async function onPresenceUpdate(oldPresence, newPresence) {
                 const roles = options.get('give').split(',').filter(role => Array.from(newPresence.member.roles.cache.keys()).includes(role));
 
                 const user = newPresence.member;
-                
+
                 if (roles.length) {
                     await user.roles.remove(roles, 'Stopped Streaming').catch(utils.log);
                 }

@@ -1,6 +1,6 @@
 const { MessageEmbed } = require('discord.js');
 
-const { sync, perGuildSettings, bot } = require(`${process.cwd()}/dataBus.js`);
+const { sync, guildSettings, bot } = require(`${process.cwd()}/dataBus.js`);
 
 const axios = require("axios");
 
@@ -15,25 +15,25 @@ module.exports = {
     category: 'Fun',
     description: 'Gets basic information about an Osu! player',
     ContextMenu: {},
-    syntax : '{prefix}{name} <osu id | osu username>',
+    syntax: '{prefix}{name} <osu id | osu username>',
     options: [
         {
-            name : "player",
-            description : "The username or ID of the player to search for",
-            type : 3,
-            required : true
-          }
+            name: "player",
+            description: "The username or ID of the player to search for",
+            type: 3,
+            required: true
+        }
     ],
     async execute(ctx) {
 
 
-        const searchTerm = ctx.cType == "COMMAND" ? ctx.options.getString('player') : ctx.pureContent;
+        const searchTerm = ctx.type == EUmekoCommandContextType.SLASH_COMMAND ? (ctx.command as CommandInteraction).options.getString('player') : (ctx.command as IParsedMessage).pureContent;
 
         let response = undefined;
 
         const Embed = new MessageEmbed();
-        
-        Embed.setColor((ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).color : defaultPrimaryColor);
+
+        Embed.setColor(ctx.command.member ? guildSettings.get((ctx.command.member as GuildMember).guild.id).color : defaultPrimaryColor);
 
         try {
 
@@ -49,7 +49,7 @@ module.exports = {
             if (user === undefined) {
 
                 Embed.setFooter("User Not Found");
-               utils.reply(ctx, { embeds: [Embed] });
+                utils.reply(ctx, { embeds: [Embed] });
 
                 return;
             }
@@ -68,14 +68,14 @@ module.exports = {
 
             Embed.setFooter(`Mode | ${user.playmode}`);
 
-           utils.reply(ctx, { embeds: [Embed] });
+            utils.reply(ctx, { embeds: [Embed] });
 
         } catch (error) {
-            Embed.setFooter({ text : "User Not Found" });
+            Embed.setFooter({ text: "User Not Found" });
 
-           utils.reply(ctx, { embeds: [Embed] });
-            
-            utils.log(`Error fetching Osu Data\x1b[0m`,error);
+            utils.reply(ctx, { embeds: [Embed] });
+
+            utils.log(`Error fetching Osu Data\x1b[0m`, error);
         }
 
     }

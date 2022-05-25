@@ -1,4 +1,4 @@
-const { bot, sync, perGuildSettings, commands,modulesLastReloadTime,disabledCategories } = require(`${process.cwd()}/dataBus`);
+const { bot, sync, guildSettings, commands, modulesLastReloadTime, disabledCategories } = require(`${process.cwd()}/dataBus`);
 const { Interaction, BaseCommandInteraction, CommandInteraction } = require('discord.js');
 const fs = require('fs');
 
@@ -14,11 +14,11 @@ const { defaultPrefix } = sync.require(`${process.cwd()}/config.json`);
 module.exports.parseMessage = async (message) => {
 
     const content = message.content;
-    const guildData = (message.member !== null) ? perGuildSettings.get(message.member.guild.id) : undefined;
+    const guildData = (message.member !== null) ? guildSettings.get(message.member.guild.id) : undefined;
 
-    
 
-    const prefix = (message.member !== null) ? perGuildSettings.get(message.member.guild.id).prefix : defaultPrefix;
+
+    const prefix = (message.member !== null) ? guildSettings.get(message.member.guild.id).prefix : defaultPrefix;
 
     if (!content.startsWith(prefix)) {
         return undefined
@@ -32,8 +32,7 @@ module.exports.parseMessage = async (message) => {
         return undefined;
     }
 
-    if(disabledCategories.includes(commands.get(actualAlias).category))
-    {
+    if (disabledCategories.includes(commands.get(actualAlias).category)) {
         return undefined;
     }
 
@@ -52,18 +51,15 @@ module.exports.parseMessage = async (message) => {
  */
 module.exports.parseInteractionCommand = async (interaction) => {
 
-    if(interaction.isContextMenu())
-    {
+    if (interaction.isContextMenu()) {
         interaction.cType = 'CONTEXT_MENU';
     }
 
-    if(interaction.isCommand())
-    {
+    if (interaction.isCommand()) {
         interaction.cType = 'COMMAND';
     }
-    
-    if(commands.get(interaction.commandName) && disabledCategories && disabledCategories.includes(commands.get(interaction.commandName).category))
-    {
+
+    if (commands.get(interaction.commandName) && disabledCategories && disabledCategories.includes(commands.get(interaction.commandName).category)) {
         return undefined;
     }
 
@@ -73,17 +69,14 @@ module.exports.parseInteractionCommand = async (interaction) => {
 
 
 
-if(modulesLastReloadTime.commands !== undefined)
-{
+if (modulesLastReloadTime.commands !== undefined) {
     utils.log('Commands Module Reloaded\x1b[0m');
 }
-else
-{
+else {
     utils.log('Commands Module Loaded\x1b[0m');
 }
 
-if(bot)
-{
+if (bot) {
     modulesLastReloadTime.commands = bot.uptime;
 }
 

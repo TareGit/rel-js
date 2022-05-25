@@ -1,15 +1,15 @@
-const { MessageEmbed, MessageSelectMenu, MessageSelectOptionData, MessageActionRow, InteractionCollector } = require('discord.js');
+import { MessageEmbed, MessageSelectMenu, MessageSelectOptionData, MessageActionRow, InteractionCollector, GuildMember } from 'discord.js';
 
-const { bot, sync, perGuildSettings, commands } = require(`${process.cwd()}/dataBus.js`);
+const { bot, sync, guildSettings, commands } = require(`${process.cwd()}/dataBus.js`);
 const { defaultPrimaryColor, defaultPrefix } = sync.require(`${process.cwd()}/config.json`);
 
 const utils = sync.require(`${process.cwd()}/utils`);
 
-module.exports = {
+const result: IUmekoSlashCommand = {
     name: 'help',
     category: 'General',
     description: 'shows help',
-    ContextMenu: {},
+    type: ECommandType.SLASH,
     syntax: '{prefix}{name} <specific command>',
     options: [
         {
@@ -22,16 +22,16 @@ module.exports = {
     async execute(ctx, targetCommand = '') {
 
 
-        const specificCommand = targetCommand !== '' ? targetCommand : (ctx.cType == "COMMAND" ? ctx.options.getString('command') : ctx.args[0]);
+        const specificCommand = targetCommand !== '' ? targetCommand : (ctx.type == EUmekoCommandContextType.SLASH_COMMAND ? (ctx.command as CommandInteraction).options.getString('command') : ctx.args[0]);
 
 
         if (commands.get(specificCommand)) {
             const command = commands.get(specificCommand);
 
-            const prefix = (ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).prefix : defaultPrefix;
+            const prefix = ctx.command.member ? guildSettings.get((ctx.command.member as GuildMember).guild.id).prefix : defaultPrefix;
 
             const helpEmbed = new MessageEmbed();
-            helpEmbed.setColor((ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).color : defaultPrimaryColor);
+            helpEmbed.setColor(ctx.command.member ? guildSettings.get((ctx.command.member as GuildMember).guild.id).color : defaultPrimaryColor);
             helpEmbed.setTitle(`Help For ${command.name}\n`);
             helpEmbed.setURL(`${process.env.WEBSITE}/commands?s=${command.name}`);
 
@@ -48,10 +48,10 @@ module.exports = {
         const buildHelpEmbed = (Section) => {
             const fields = [];
 
-            const prefix = (ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).prefix : defaultPrefix;
+            const prefix = ctx.command.member ? guildSettings.get((ctx.command.member as GuildMember).guild.id).prefix : defaultPrefix;
 
             const helpEmbed = new MessageEmbed();
-            helpEmbed.setColor((ctx.member !== null) ? perGuildSettings.get(ctx.member.guild.id).color : defaultPrimaryColor);
+            helpEmbed.setColor(ctx.command.member ? guildSettings.get((ctx.command.member as GuildMember).guild.id).color : defaultPrimaryColor);
             helpEmbed.setTitle('Help For Commands\n');
             helpEmbed.setURL(`${process.env.WEBSITE}/commands`);
 
@@ -79,15 +79,13 @@ module.exports = {
         const options = [];
 
         sections.forEach(function (value, index) {
-            const MenuOption = {};
 
-            MenuOption.label = value;
-
-            MenuOption.description = `View commands in the ${value} category`;
-
-            MenuOption.value = value;
-
-            MenuOption.default = index === 0;
+            const MenuOption: MessageSelectOptionData = {
+                label: value,
+                value: value,
+                description: `View commands in the ${value} category`,
+                default: index === 0,
+            };
 
             options.push(MenuOption);
 
@@ -124,15 +122,15 @@ module.exports = {
                     const options = [];
 
                     sections.forEach(function (value, index) {
-                        const MenuOption = {};
 
-                        MenuOption.label = value;
+                        console.log(selector);
 
-                        MenuOption.description = `View commands in the ${value} category`;
-
-                        MenuOption.value = value;
-
-                        MenuOption.default = value === selector.values[0];
+                        const MenuOption: MessageSelectOptionData = {
+                            label: value,
+                            value: value,
+                            description: `View commands in the ${value} category`,
+                            default: value === selector.values[0],
+                        };
 
                         options.push(MenuOption);
 
@@ -172,3 +170,5 @@ module.exports = {
         }
     }
 }
+
+export default result;

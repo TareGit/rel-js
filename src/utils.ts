@@ -1,5 +1,5 @@
-const axios = require('axios');
-const { bot, commandsPaths, commands, modulesLastReloadTime } = require("./dataBus");
+import axios from 'axios';
+import { bot, commandsPaths, commands, modulesLastReloadTime } from './dataBus';
 
 /**
  * Generates a random float (inclusive)
@@ -7,7 +7,7 @@ const { bot, commandsPaths, commands, modulesLastReloadTime } = require("./dataB
  * @param {Number}max
  * @returns {Number} The random float
  */
-function randomFloatInRange(min, max) {
+export function randomFloatInRange(min, max) {
     return Math.random() * (max - min) + min;
 }
 
@@ -17,7 +17,7 @@ function randomFloatInRange(min, max) {
  * @param {Number}max
  * @returns {Number} The random integer
  */
-function randomIntegerInRange(min, max) {
+export function randomIntegerInRange(min, max) {
     min = Math.ceil(min);
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min + 1) + min); //The maximum is inclusive and the minimum is inclusive
@@ -28,7 +28,7 @@ function randomIntegerInRange(min, max) {
  * @param {Number}level The current level
  * @returns {Number}The xp required
  */
-function getXpForNextLevel(level) {
+export function getXpForNextLevel(level) {
     return (level ** 2) * 3 + 100;
 }
 
@@ -37,11 +37,11 @@ function getXpForNextLevel(level) {
  * @param {Number}level The level to get the xp for
  * @returns {Number}The total xp
  */
-function getTotalXp(level) {
+export function getTotalXp(level) {
     return (0.5 * (level + 1)) * ((level ** 2) * 2 + level + 200);
 }
 
-function time(sep = '') {
+export function time(sep = '') {
 
     const currentDate = new Date();
 
@@ -68,23 +68,23 @@ function time(sep = '') {
  * Logs stuff
  * @param args What to log
  */
-function log() {
+export function log(...args) {
 
     const argumentValues = Object.values(arguments);
-    
+
     const stack = new Error().stack;
     const pathDelimiter = process.platform !== 'win32' ? '/' : '\\';
     const simplifiedStack = stack.split('\n')[2].split(pathDelimiter);
     const file = simplifiedStack[simplifiedStack.length - 1].split(')')[0];
     argumentValues.unshift(`${file} ::`);
 
-    if(bot && bot.cluster){
+    if (bot && bot.cluster) {
         argumentValues.unshift(`Cluster ${bot.cluster.id} ::`);
     }
-    else{
+    else {
         argumentValues.unshift(`Manager ::`);
-    } 
-    
+    }
+
     argumentValues.unshift(`${time(':')} ::`);
 
     console.log.apply(null, argumentValues);
@@ -96,38 +96,37 @@ function log() {
  * @param payload The content to send
  * @returns {Message} The reply
  */
-async function reply(ctx, payload) {
+export async function reply(ctx, payload) {
 
     try {
 
-        if(!ctx) return undefined;
+        if (!ctx) return undefined;
 
-        if(!ctx.channel.permissionsFor(ctx.guild.me).has("SEND_MESSAGES")){
-            if(ctx.author) return await ctx.author.send(payload).catch((error)=>log('Error sending message',error));
+        if (!ctx.channel.permissionsFor(ctx.guild.me).has("SEND_MESSAGES")) {
+            if (ctx.author) return await ctx.author.send(payload).catch((error) => log('Error sending message', error));
             return undefined;
         }
 
         if (ctx.cType === 'MESSAGE') {
-            return await ctx.reply(payload).catch((error)=>log('Error sending message',error));
+            return await ctx.reply(payload).catch((error) => log('Error sending message', error));
         }
         else {
             if (ctx.forceChannelReply !== undefined) {
-                if (ctx.forceChannelReply === true)
-                {
-                    return await ctx.channel.send(payload).catch((error)=>log('Error sending message',error));
-                } 
+                if (ctx.forceChannelReply === true) {
+                    return await ctx.channel.send(payload).catch((error) => log('Error sending message', error));
+                }
             }
 
             if (ctx.deferred !== undefined) {
 
-                if (ctx.replied) return await ctx.channel.send(payload).catch((error)=>log('Error sending message',error));
+                if (ctx.replied) return await ctx.channel.send(payload).catch((error) => log('Error sending message', error));
 
-                if (ctx.deferred) return await ctx.editReply(payload).catch((error)=>log('Error sending message',error));
+                if (ctx.deferred) return await ctx.editReply(payload).catch((error) => log('Error sending message', error));
 
-                return await ctx.reply(payload).catch((error)=>log('Error sending message',error));
+                return await ctx.reply(payload).catch((error) => log('Error sending message', error));
             }
             else {
-                return await ctx.reply(payload).catch((error)=>log('Error sending message',error));
+                return await ctx.reply(payload).catch((error) => log('Error sending message', error));
             }
         }
     } catch (error) {
@@ -136,9 +135,9 @@ async function reply(ctx, payload) {
 
 }
 
-const addNewCommand = async function (path) {
+export async function addNewCommand(path) {
 
-    if(!path.endsWith('.js')) return;
+    if (!path.endsWith('.js')) return;
 
     const pathAsArray = process.platform !== 'win32' ? path.split('/') : path.split('\\');
 
@@ -169,9 +168,9 @@ const addNewCommand = async function (path) {
     }
 }
 
-const reloadCommand = async function (path) {
+export async function reloadCommand(path) {
 
-    if(!path.endsWith('.js')) return;
+    if (!path.endsWith('.js')) return;
 
     const pathAsArray = process.platform !== 'win32' ? path.split('/') : path.split('\\');
 
@@ -201,10 +200,10 @@ const reloadCommand = async function (path) {
     }
 }
 
-const deleteCommand = async function (path) {
+export async function deleteCommand(path) {
 
-    if(!path.endsWith('.js')) return;
-    
+    if (!path.endsWith('.js')) return;
+
     const pathAsArray = process.platform !== 'win32' ? path.split('/') : path.split('\\');
 
     try {
@@ -235,7 +234,7 @@ const deleteCommand = async function (path) {
     }
 }
 
-const reloadCommandCategory = async function (category) {
+export async function reloadCommandCategory(category) {
 
     try {
         const commandsToReload = commandsPaths.get(category);
@@ -251,14 +250,14 @@ const reloadCommandCategory = async function (category) {
 
 }
 
-const reloadCommands = async function (category) {
+export async function reloadCommands(category) {
 
     const commandsToReload = commandsPaths.get(category);
 
     if (commandsToReload === undefined) return;
 }
 
-const handleCommandDirectoryChanges = async function (event, path) {
+export async function handleCommandDirectoryChanges(event, path) {
 
     const pathAsArray = process.platform !== 'win32' ? path.split('/') : path.split('\\');
 
@@ -279,7 +278,7 @@ const handleCommandDirectoryChanges = async function (event, path) {
 
 }
 
-async function getOsuApiToken() {
+export async function getOsuApiToken() {
     const request = {
         client_id: process.env.OSU_CLIENT_ID,
         client_secret: process.env.OSU_CLIENT_SECRETE,
@@ -296,7 +295,7 @@ async function getOsuApiToken() {
     log("Done fetching Osu Api Token");
 }
 
-async function getSpotifyApiToken() {
+export async function getSpotifyApiToken() {
 
     const params = new URLSearchParams({ grant_type: 'client_credentials' });
 
@@ -320,8 +319,7 @@ async function getSpotifyApiToken() {
 
 }
 
-function generateCardHtml(color,opacity,background,avatar,rankText,level,displayName,currentXp,requiredXp)
-{
+export function generateCardHtml(color, opacity, background, avatar, rankText, level, displayName, currentXp, requiredXp) {
     const card = `<!DOCTYPE html>
     <html lang="en">
     
@@ -524,23 +522,6 @@ function generateCardHtml(color,opacity,background,avatar,rankText,level,display
 
     return card;
 }
-
-module.exports = {
-    randomFloatInRange : randomFloatInRange,
-    randomIntegerInRange : randomIntegerInRange,
-    getXpForNextLevel : getXpForNextLevel,
-    getTotalXp : getTotalXp,
-    log : log,
-    reply : reply,
-    reloadCommands : reloadCommands,
-    handleCommandDirectoryChanges : handleCommandDirectoryChanges,
-    getOsuApiToken : getOsuApiToken,
-    getSpotifyApiToken : getSpotifyApiToken,
-    reloadCommandCategory : reloadCommandCategory,
-    generateCardHtml : generateCardHtml
-}
-
-
 
 if (modulesLastReloadTime.utils !== undefined) {
     log('Global Utils Reloaded\x1b[0m');

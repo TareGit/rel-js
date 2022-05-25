@@ -1,5 +1,5 @@
 const dataBus = require(`${process.cwd()}/dataBus.js`);
-const { sync, db, bot, modulesLastReloadTime, perGuildSettings, perGuildLeveling } = dataBus;
+const { sync, db, bot, modulesLastReloadTime, guildSettings, perGuildLeveling } = dataBus;
 
 const utils = sync.require(`${process.cwd()}/utils`);
 
@@ -20,25 +20,24 @@ async function onMessageCreate(message) {
         const userId = message.member.id;
         const username = message.member.displayName;
 
-        const options = perGuildSettings.get(guildId).leveling_options;
+        const options = guildSettings.get(guildId).leveling_options;
 
-        if(!options.get('location') || options.get('location') === 'disabled') return;
+        if (!options.get('location') || options.get('location') === 'disabled') return;
 
-        if (perGuildLeveling.get(guildId) === undefined) perGuildLeveling.set(guildId, { ranking : []});
+        if (perGuildLeveling.get(guildId) === undefined) perGuildLeveling.set(guildId, { ranking: [] });
 
         const levelingData = perGuildLeveling.get(guildId);
 
-        if (levelingData[userId] === undefined){
-            levelingData[userId] = {level : 0, currentXp : 0};
+        if (levelingData[userId] === undefined) {
+            levelingData[userId] = { level: 0, currentXp: 0 };
             levelingData.ranking.push(userId);
-        } 
+        }
 
         levelingData[userId].currentXp += utils.randomIntegerInRange(5, 10);
 
         const nextLevelXp = utils.getXpForNextLevel(levelingData[userId].level)
-        
-        if(levelingData[userId].currentXp >= nextLevelXp)
-        {
+
+        if (levelingData[userId].currentXp >= nextLevelXp) {
             levelingData[userId].level += 1;
             levelingData[userId].currentXp = levelingData[userId].currentXp - nextLevelXp;
 
@@ -47,18 +46,18 @@ async function onMessageCreate(message) {
                 levelingData.ranking.sort(function (userA, userB) {
                     const aData = levelingData[userA];
                     const bData = levelingData[userB];
-    
+
                     if (aData.level === bData.level) return aData.currentXp - bData.currentXp;
-    
+
                     return aData.level - bData.level;
                 });
 
                 levelingData.ranking.reverse();
-    
+
             }
-            
-            
-            let levelUpNotification = perGuildSettings.get(guildId).leveling_message;
+
+
+            let levelUpNotification = guildSettings.get(guildId).leveling_message;
 
             levelUpNotification = levelUpNotification.replace(/{user}/gi, `<@${userId}>`);
             levelUpNotification = levelUpNotification.replace(/{username}/gi, `${username}`);
@@ -67,45 +66,41 @@ async function onMessageCreate(message) {
             levelUpNotification = levelUpNotification.replace(/{id}/gi, `${userId}`);
 
             levelingData[userId].lastXpUpdateAmmount = levelingData[userId].currentXp - xpUpdateThreshold;//  force an update to the backend
-            
-            if(options.get('location') === 'channel' && options.get('channel'))
-            {
+
+            if (options.get('location') === 'channel' && options.get('channel')) {
                 const channel = await message.guild.channels.fetch(options.get('channel')).catch(utils.log);;
-                    if(channel)
-                    {
-                        channel.send(levelUpNotification);
-                    }
-                    else
-                    {
-                        message.forceChannelReply = true;
-                       utils.reply(message,levelUpNotification);
-                    }
+                if (channel) {
+                    channel.send(levelUpNotification);
+                }
+                else {
+                    message.forceChannelReply = true;
+                    utils.reply(message, levelUpNotification);
+                }
             }
-            else if(options.get('location') === "dm"){
-                message.author.send(levelUpNotification).catch((error)=>{utils.log('Error sending level up message',error)})
+            else if (options.get('location') === "dm") {
+                message.author.send(levelUpNotification).catch((error) => { utils.log('Error sending level up message', error) })
             }
-            else
-            {
-            message.forceChannelReply = true;
-               utils.reply(message,levelUpNotification);
+            else {
+                message.forceChannelReply = true;
+                utils.reply(message, levelUpNotification);
             }
-            
+
         }
 
         // update backend only if xp is past the specified threshold
-        if(levelingData[userId].lastXpUpdateAmmount !== undefined && (levelingData[userId].currentXp - levelingData[userId].lastXpUpdateAmmount) < xpUpdateThreshold) return;
+        if (levelingData[userId].lastXpUpdateAmmount !== undefined && (levelingData[userId].currentXp - levelingData[userId].lastXpUpdateAmmount) < xpUpdateThreshold) return;
 
         levelingData[userId].lastXpUpdateAmmount = levelingData[userId].currentXp;
 
         const postData = {
-            id : userId,
-            level : levelingData[userId].level,
-            xp_current : levelingData[userId].currentXp
+            id: userId,
+            level: levelingData[userId].level,
+            xp_current: levelingData[userId].currentXp
         }
 
-         
-        db.post(`/tables/guild_leveling_${guildId}/rows`,[postData]).then((levelingUpdateResponse) =>{
-        }).catch((error)=>{utils.log("Error updating back end XP",error.data)});
+
+        db.post(`/tables/guild_leveling_${guildId}/rows`, [postData]).then((levelingUpdateResponse) => {
+        }).catch((error) => { utils.log("Error updating back end XP", error.data) });
 
     } catch (error) {
         utils.log('Error handeling leveling', error)
@@ -157,8 +152,7 @@ else {
     utils.log('Leveling Module Loaded\x1b[0m');
 }
 
-if(bot)
-{
+if (bot) {
     modulesLastReloadTime.leveling = bot.uptime;
 }
 

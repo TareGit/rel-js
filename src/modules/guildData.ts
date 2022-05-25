@@ -1,7 +1,7 @@
 const { default: axios } = require("axios");
 const EventEmitter = require("events");
 
-const { sync, bot, db, perGuildSettings, perUserData, modulesLastReloadTime, socket, perGuildLeveling, guildsPendingUpdate, usersPendingUpdate, intervals } = require(`${process.cwd()}/dataBus.js`);
+const { sync, bot, db, guildSettings, perUserData, modulesLastReloadTime, socket, perGuildLeveling, guildsPendingUpdate, usersPendingUpdate, intervals } = require(`${process.cwd()}/dataBus.js`);
 const { dataUpdateInterval, defaultPrefix, defaultPrimaryColor, defaultLanguage, defaultNickname, defaultWelcomeMessage, defaultLeaveMessage, defaultTwitchMessage, defaultLevelingMessage, guildSettingsTableFormat, guildLevelingTableFormat, guildCommandsTableFormat, userSettingsTableFormat } = sync.require(`${process.cwd()}/config.json`);
 
 const utils = sync.require(`${process.cwd()}/utils`);
@@ -101,7 +101,7 @@ async function updateGuilds() {
 
                 const setting = convertFromDbSetting(dbSetting);
 
-                perGuildSettings.set(setting.id, setting);
+                guildSettings.set(setting.id, setting);
 
                 if (bot.guilds.cache.get(dbSetting.id).me.displayName !== dbSetting.nickname) {
                     const me = bot.guilds.cache.get(dbSetting.id).me;
@@ -206,14 +206,14 @@ async function loadLevelingAndUserData(guildId) {
                 levelingData.ranking.sort(function (userA, userB) {
                     const aData = levelingData[userA];
                     const bData = levelingData[userB];
-    
+
                     if (aData.level === bData.level) return aData.currentXp - bData.currentXp;
-    
+
                     return aData.level - bData.level;
                 });
 
                 levelingData.ranking.reverse();
-    
+
             }
         }
     } catch (error) {
@@ -241,7 +241,7 @@ async function onJoinedNewGuild(guild) {
 
     const settings = getDefaultGuildSettings(guildId);
 
-    perGuildSettings.set(guildId, settings);
+    guildSettings.set(guildId, settings);
 
     await postSettingsToDatabase(convertToDbSetting(settings));
 }
@@ -275,7 +275,7 @@ async function load() {
             if (guild_settings_data.error === 'Table does not exist') await db.post('/tables', [guildSettingsTableFormat]);
         }
         else {
-            
+
 
             const promises = [];
 
@@ -287,7 +287,7 @@ async function load() {
 
                 const setting = convertFromDbSetting(dbSetting);
 
-                perGuildSettings.set(setting.id, setting);
+                guildSettings.set(setting.id, setting);
 
                 promises.push(loadLevelingAndUserData(dbSetting.id));
 
@@ -301,7 +301,7 @@ async function load() {
                 guildsPendingUpdate.splice(guildsPendingUpdate.indexOf(setting.id), 1);
 
             });
-            
+
             await Promise.all(promises);
         }
     } catch (error) {
@@ -317,7 +317,7 @@ async function load() {
 
         const setting = getDefaultGuildSettings(guildId);
 
-        perGuildSettings.set(guildId, setting);
+        guildSettings.set(guildId, setting);
 
         settingsToPush.push(convertToDbSetting(setting));
 

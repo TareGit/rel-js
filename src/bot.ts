@@ -1,29 +1,16 @@
+
 process.chdir(__dirname);
 
-const Cluster = require("discord-hybrid-sharding");
+import { Cluster } from "discord-hybrid-sharding";
 
 const dataBus = require('./dataBus.js');
 
-Object.assign(dataBus,{
-    perGuildSettings : new Map(),
-    perUserData : new Map(),
-    colors: new Map(),
-    prefixes: new Map(),
-    queues : new Map(),
-    commands : new Map(),
-    commandsPaths : new Map(),
-    disabledCategories : [],
-    perGuildLeveling : new Map(),
-    guildsPendingUpdate : [],
-    usersPendingUpdate : [],
-    intervals : {}
-})
 
-const { Client, Intents, CommandInteractionOptionResolver,Options, Sweepers } = require('discord.js');
+const { Client, Intents, CommandInteractionOptionResolver, Options, Sweepers } = require('discord.js');
 
 const sync = dataBus.sync;
 
-const chokidar = require('chokidar');   
+const chokidar = require('chokidar');
 
 const { Manager } = require("lavacord");
 
@@ -56,15 +43,15 @@ bot.dataBus = dataBus;
 const utils = sync.require(`./utils`);
 
 bot.on('ready', async () => {
-    
 
-    
+
+
 
     utils.log('Bot Ready\x1b[0m');
 
-    setInterval(() => bot.user.setActivity(`${bot.guilds.cache.size} Servers`,{type: 'WATCHING'}), 20000);
+    setInterval(() => bot.user.setActivity(`${bot.guilds.cache.size} Servers`, { type: 'WATCHING' }), 20000);
 
-    
+
 
     // Volcano nodes
     const nodes = [
@@ -87,27 +74,26 @@ bot.on('ready', async () => {
 
     try {
         await LavaManager.connect();
-        
+
         utils.log("Connected to Music provider\x1b[0m");
     } catch (error) {
-        utils.log('Error connecting to music provider\x1b[0m\n',error);
+        utils.log('Error connecting to music provider\x1b[0m\n', error);
         dataBus.disabledCategories.push('Music');
     }
-    
+
 
     bot.ws
         .on("VOICE_SERVER_UPDATE", dataBus.LavaManager.voiceServerUpdate.bind(dataBus.LavaManager))
         .on("VOICE_STATE_UPDATE", dataBus.LavaManager.voiceStateUpdate.bind(dataBus.LavaManager))
         .on("GUILD_CREATE", async data => {
-            if(data.voice_states.length)
-            {
+            if (data.voice_states.length) {
                 for (const state of data.voice_states) await dataBus.LavaManager.voiceStateUpdate({ ...state, guild_id: data.id });
             }
-            
+
         });
 
     LavaManager.on("error", (error, node) => {
-        utils.log('Lavalink error\x1b[0m\n',error);
+        utils.log('Lavalink error\x1b[0m\n', error);
     });
 
 
@@ -118,7 +104,7 @@ bot.on('ready', async () => {
         const levelingModule = sync.require('./handlers/handleLeveling');
         const eventsModule = sync.require('./handlers/handleEvents');
     } catch (error) {
-        utils.log('Error loading modules\x1b[0m\n',error);
+        utils.log('Error loading modules\x1b[0m\n', error);
     }
 
     await utils.getOsuApiToken();
@@ -127,7 +113,7 @@ bot.on('ready', async () => {
 
     // Commands loading and reloading
     chokidar.watch('./commands', { persistent: true, usePolling: true }).on('all', (event, path) => {
-        utils.handleCommandDirectoryChanges(event,path);
+        utils.handleCommandDirectoryChanges(event, path);
     });
 
 });
