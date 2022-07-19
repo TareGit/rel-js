@@ -1,5 +1,15 @@
-import axios from 'axios';
-import { bot, commandsPaths, commands, modulesLastReloadTime } from './dataBus';
+import axios from "axios";
+import { MessagePayload, InteractionReplyOptions, CommandInteraction, Message } from "discord.js";
+import path from "path";
+import {
+  ECommandType,
+  EUmekoCommandContextType,
+  IUmekoCommand,
+  IUmekoCommandContext,
+  IUmekoContextMenuCommand,
+  IUmekoSlashCommand,
+  IUmekoUserCommand,
+} from "./types";
 
 /**
  * Generates a random float (inclusive)
@@ -8,7 +18,7 @@ import { bot, commandsPaths, commands, modulesLastReloadTime } from './dataBus';
  * @returns {Number} The random float
  */
 export function randomFloatInRange(min, max) {
-    return Math.random() * (max - min) + min;
+  return Math.random() * (max - min) + min;
 }
 
 /**
@@ -18,9 +28,9 @@ export function randomFloatInRange(min, max) {
  * @returns {Number} The random integer
  */
 export function randomIntegerInRange(min, max) {
-    min = Math.ceil(min);
-    max = Math.floor(max);
-    return Math.floor(Math.random() * (max - min + 1) + min); //The maximum is inclusive and the minimum is inclusive
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1) + min); //The maximum is inclusive and the minimum is inclusive
 }
 
 /**
@@ -29,7 +39,7 @@ export function randomIntegerInRange(min, max) {
  * @returns {Number}The xp required
  */
 export function getXpForNextLevel(level) {
-    return (level ** 2) * 3 + 100;
+  return level ** 2 * 3 + 100;
 }
 
 /**
@@ -38,30 +48,29 @@ export function getXpForNextLevel(level) {
  * @returns {Number}The total xp
  */
 export function getTotalXp(level) {
-    return (0.5 * (level + 1)) * ((level ** 2) * 2 + level + 200);
+  return 0.5 * (level + 1) * (level ** 2 * 2 + level + 200);
 }
 
-export function time(sep = '') {
+export function time(sep = "") {
+  const currentDate = new Date();
 
-    const currentDate = new Date();
+  if (sep === "") {
+    return currentDate.toUTCString();
+  }
 
-    if (sep === '') {
-        return currentDate.toUTCString();
-    }
+  const date = ("0" + currentDate.getUTCDate()).slice(-2);
 
-    const date = ("0" + currentDate.getUTCDate()).slice(-2);
+  const month = ("0" + (currentDate.getUTCMonth() + 1)).slice(-2);
 
-    const month = ("0" + (currentDate.getUTCMonth() + 1)).slice(-2);
+  const year = currentDate.getUTCFullYear();
 
-    const year = currentDate.getUTCFullYear();
+  const hours = ("0" + currentDate.getUTCHours()).slice(-2);
 
-    const hours = ("0" + (currentDate.getUTCHours())).slice(-2);
+  const minutes = ("0" + currentDate.getUTCMinutes()).slice(-2);
 
-    const minutes = ("0" + (currentDate.getUTCMinutes())).slice(-2);
+  const seconds = ("0" + currentDate.getUTCSeconds()).slice(-2);
 
-    const seconds = ("0" + currentDate.getUTCSeconds()).slice(-2);
-
-    return `${year}${sep}${month}${sep}${date}${sep}${hours}${sep}${minutes}${sep}${seconds}`;
+  return `${year}${sep}${month}${sep}${date}${sep}${hours}${sep}${minutes}${sep}${seconds}`;
 }
 
 /**
@@ -69,25 +78,24 @@ export function time(sep = '') {
  * @param args What to log
  */
 export function log(...args) {
+  const argumentValues = Object.values(arguments);
 
-    const argumentValues = Object.values(arguments);
+  const stack = new Error().stack;
+  const pathDelimiter = process.platform !== "win32" ? "/" : "\\";
+  const simplifiedStack = stack?.split("\n")[2].split(pathDelimiter) || [];
+  const file =
+    simplifiedStack[Math.max(simplifiedStack.length - 1, 0)].split(")")[0];
+  argumentValues.unshift(`${file} ::`);
 
-    const stack = new Error().stack;
-    const pathDelimiter = process.platform !== 'win32' ? '/' : '\\';
-    const simplifiedStack = stack.split('\n')[2].split(pathDelimiter);
-    const file = simplifiedStack[simplifiedStack.length - 1].split(')')[0];
-    argumentValues.unshift(`${file} ::`);
+  if (bus.bot && bus.cluster) {
+    argumentValues.unshift(`Cluster ${bus.cluster.id} ::`);
+  } else {
+    argumentValues.unshift(`Manager ::`);
+  }
 
-    if (bot && bot.cluster) {
-        argumentValues.unshift(`Cluster ${bot.cluster.id} ::`);
-    }
-    else {
-        argumentValues.unshift(`Manager ::`);
-    }
+  argumentValues.unshift(`${time(":")} ::`);
 
-    argumentValues.unshift(`${time(':')} ::`);
-
-    console.log.apply(null, argumentValues);
+  console.log.apply(null, argumentValues);
 }
 
 /**
@@ -96,231 +104,237 @@ export function log(...args) {
  * @param payload The content to send
  * @returns {Message} The reply
  */
-export async function reply(ctx, payload) {
+export async function reply(ctx: IUmekoCommandContext, payload: string | MessagePayload | InteractionReplyOptions, forceChannelReply = false) {
+  try {
 
-    try {
-
-        if (!ctx) return undefined;
-
-        if (!ctx.channel.permissionsFor(ctx.guild.me).has("SEND_MESSAGES")) {
-            if (ctx.author) return await ctx.author.send(payload).catch((error) => log('Error sending message', error));
-            return undefined;
-        }
-
-        if (ctx.cType === 'MESSAGE') {
-            return await ctx.reply(payload).catch((error) => log('Error sending message', error));
-        }
-        else {
-            if (ctx.forceChannelReply !== undefined) {
-                if (ctx.forceChannelReply === true) {
-                    return await ctx.channel.send(payload).catch((error) => log('Error sending message', error));
-                }
-            }
-
-            if (ctx.deferred !== undefined) {
-
-                if (ctx.replied) return await ctx.channel.send(payload).catch((error) => log('Error sending message', error));
-
-                if (ctx.deferred) return await ctx.editReply(payload).catch((error) => log('Error sending message', error));
-
-                return await ctx.reply(payload).catch((error) => log('Error sending message', error));
-            }
-            else {
-                return await ctx.reply(payload).catch((error) => log('Error sending message', error));
-            }
-        }
-    } catch (error) {
-        log(`Error sending message\x1b[0m\n`, error);
+    if (ctx.type === EUmekoCommandContextType.CHAT_MESSAGE) {
+      return await ctx.command
+        .reply(payload)
+        .catch((error) => log("Error sending message", error));
     }
+    else if (ctx.type === EUmekoCommandContextType.CONTEXT_MENU || ctx.type === EUmekoCommandContextType.SLASH_COMMAND) {
+      const cmdAsInt = ctx.command as CommandInteraction;
+      if (cmdAsInt.deferred) {
+        if (cmdAsInt.replied) {
+          return await cmdAsInt.channel?.send(payload)
+            .catch((error) => log("Error sending message", error));
+        }
 
+        return await cmdAsInt
+          .editReply(payload)
+          .catch((error) => log("Error sending message", error));
+      }
+      else {
+        return await cmdAsInt
+          .reply(payload)
+          .catch((error) => log("Error sending message", error));
+      }
+    }
+    else if (ctx.type === EUmekoCommandContextType.USER_COMMAND) {
+
+    }
+  } catch (error) {
+    log(`Error sending message\x1b[0m\n`, error);
+  }
 }
 
-export async function addNewCommand(path) {
+export async function addNewCommand(commandPath) {
+  if (!commandPath.endsWith(".js")) return;
 
-    if (!path.endsWith('.js')) return;
+  const pathAsArray =
+    process.platform !== "win32"
+      ? commandPath.split("/")
+      : commandPath.split("\\");
 
-    const pathAsArray = process.platform !== 'win32' ? path.split('/') : path.split('\\');
+  try {
+    const fileName: string = pathAsArray[pathAsArray.length - 1].slice(0, -3); // remove .js
 
-    try {
+    const command: IUmekoCommand = require(path.join(__dirname, commandPath)).default;
 
-
-        const command = require(`./${path}`);
-
-        const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);// remove .js
-
-        commands.set(fileName, command);
-
-        if (command.ContextMenu !== undefined && command.ContextMenu.name !== undefined) {
-            commands.set(command.ContextMenu.name, command);
-        }
-
-        if (commandsPaths.get(command.category) === undefined) {
-
-            commandsPaths.set(command.category, [])
-        }
-
-        commandsPaths.get(command.category).push(path);
-
-    } catch (error) {
-        const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
-
-        log(`Error loading ${fileName}\x1b[0m\n`, error);
+    switch (command.type) {
+      case ECommandType.CONTEXT_MENU:
+        bus.contextMenuCommands.set(
+          command.name,
+          command as IUmekoContextMenuCommand
+        );
+        break;
+      case ECommandType.SLASH:
+        bus.slashCommands.set(command.name, command as IUmekoSlashCommand);
+        break;
+      case ECommandType.USER:
+        bus.userCommands.set(command.name, command as IUmekoUserCommand);
+        break;
+      default:
+        break;
     }
+  } catch (error) {
+    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
+
+    log(`Error loading ${fileName}\x1b[0m\n`, error);
+  }
 }
 
-export async function reloadCommand(path) {
+export async function reloadCommand(commandPath) {
+  if (!commandPath.endsWith(".js")) return;
 
-    if (!path.endsWith('.js')) return;
+  const pathAsArray =
+    process.platform !== "win32"
+      ? commandPath.split("/")
+      : commandPath.split("\\");
 
-    const pathAsArray = process.platform !== 'win32' ? path.split('/') : path.split('\\');
+  try {
+    const cachedValue =
+      require.cache[require.resolve(path.join(__dirname, commandPath))];
 
-    try {
+    if (cachedValue !== undefined)
+      delete require.cache[require.resolve(path.join(__dirname, commandPath))];
 
-        const cachedValue = require.cache[require.resolve(`./${path}`)]
+    const fileName: string = pathAsArray[pathAsArray.length - 1].slice(0, -3); // remove .js
 
-        if (cachedValue !== undefined) delete require.cache[require.resolve(`./${path}`)];
+    const command: IUmekoCommand = require(path.join(__dirname, commandPath)).default;
 
-        const command = require(`./${path}`);
-
-        const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
-
-        commands.set(fileName, command);
-
-        if (command.ContextMenu !== undefined && command.ContextMenu.name !== undefined) {
-            commands.set(command.ContextMenu.name, command);
-        }
-
-
-
-    } catch (error) {
-
-        const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
-
-        log(`Error reloading command ${fileName}\x1b[0m\n`, error);
+    switch (command.type) {
+      case ECommandType.CONTEXT_MENU:
+        bus.contextMenuCommands.set(
+          command.name,
+          command as IUmekoContextMenuCommand
+        );
+        break;
+      case ECommandType.SLASH:
+        bus.slashCommands.set(command.name, command as IUmekoSlashCommand);
+        break;
+      case ECommandType.USER:
+        bus.userCommands.set(command.name, command as IUmekoUserCommand);
+        break;
+      default:
+        break;
     }
+  } catch (error) {
+    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
+
+    log(`Error reloading command ${fileName}\x1b[0m\n`, error);
+  }
 }
 
-export async function deleteCommand(path) {
+export async function deleteCommand(commandPath) {
+  if (!commandPath.endsWith(".js")) return;
 
-    if (!path.endsWith('.js')) return;
+  const pathAsArray =
+    process.platform !== "win32"
+      ? commandPath.split("/")
+      : commandPath.split("\\");
 
-    const pathAsArray = process.platform !== 'win32' ? path.split('/') : path.split('\\');
+  try {
+    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
+    const command: IUmekoCommand = require(path.join(__dirname, commandPath)).default;
 
-    try {
-
-        const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
-
-        if (commands.get(fileName)) {
-            const command = commands.get(fileName);
-
-            const categoryPaths = commandsPaths.get(command.category);
-
-            categoryPaths.splice(categoryPaths.indexOf(path), 1);
-            const cachedValue = require.cache[require.resolve(`./${path}`)]
-            if (cachedValue !== undefined) delete require.cache[require.resolve(`./${path}`)];
-
-            if (command.ContextMenu !== undefined && command.ContextMenu.name !== undefined) {
-                commands.delete(command.ContextMenu.name);
-            }
-
-            commands.delete(fileName);
-        }
-
-    } catch (error) {
-
-        const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
-
-        log(`Error deleting command ${fileName}\x1b[0m\n`, error);
-    }
-}
-
-export async function reloadCommandCategory(category) {
-
-    try {
-        const commandsToReload = commandsPaths.get(category);
-
-        if (commandsToReload === undefined) return;
-
-        commandsToReload.forEach(function (path, index) {
-            reloadCommand(path);
-        });
-    } catch (error) {
-        log(`Error reloading category ${category}\x1b[0m\n`, error);
+    switch (command.type) {
+      case ECommandType.CONTEXT_MENU:
+        bus.contextMenuCommands.delete(command.name);
+        break;
+      case ECommandType.SLASH:
+        bus.slashCommands.delete(command.name);
+        break;
+      case ECommandType.USER:
+        bus.userCommands.delete(command.name);
+        break;
+      default:
+        break;
     }
 
+    const cachedValue =
+      require.cache[require.resolve(path.join(__dirname, commandPath))];
+
+    if (cachedValue !== undefined)
+      delete require.cache[require.resolve(path.join(__dirname, commandPath))];
+  } catch (error) {
+    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
+
+    log(`Error deleting command ${fileName}\x1b[0m\n`, error);
+  }
 }
 
-export async function reloadCommands(category) {
+export async function handleCommandDirectoryChanges(event, path: string) {
+  const pathAsArray =
+    process.platform !== "win32" ? path.split("/") : path.split("\\");
 
-    const commandsToReload = commandsPaths.get(category);
+  switch (event) {
+    case "add":
+      addNewCommand(path);
+      break;
 
-    if (commandsToReload === undefined) return;
-}
+    case "change":
+      reloadCommand(path);
+      break;
 
-export async function handleCommandDirectoryChanges(event, path) {
-
-    const pathAsArray = process.platform !== 'win32' ? path.split('/') : path.split('\\');
-
-    switch (event) {
-
-        case 'add':
-            addNewCommand(path);
-            break;
-
-        case 'change':
-            reloadCommand(path);
-            break;
-
-        case 'unlink':
-            deleteCommand(path);
-            break;
-    }
-
+    case "unlink":
+      deleteCommand(path);
+      break;
+  }
 }
 
 export async function getOsuApiToken() {
-    const request = {
-        client_id: process.env.OSU_CLIENT_ID,
-        client_secret: process.env.OSU_CLIENT_SECRETE,
-        grant_type: "client_credentials",
-        scope: "public"
-    };
+  const request = {
+    client_id: process.env.OSU_CLIENT_ID,
+    client_secret: process.env.OSU_CLIENT_SECRETE,
+    grant_type: "client_credentials",
+    scope: "public",
+  };
 
-    const response = (await axios.post(`${process.env.OSU_API_AUTH}`, request)).data;
+  const response = (await axios.post(`${process.env.OSU_API_AUTH}`, request))
+    .data;
 
-    process.env.OSU_API_TOKEN = response.access_token;
+  process.env.OSU_API_TOKEN = response.access_token;
 
-    setTimeout(getOsuApiToken, (response.expires_in * 1000) - 200);
+  setTimeout(getOsuApiToken, response.expires_in * 1000 - 200);
 
-    log("Done fetching Osu Api Token");
+  log("Done fetching Osu Api Token");
 }
 
 export async function getSpotifyApiToken() {
+  const params = new URLSearchParams({ grant_type: "client_credentials" });
 
-    const params = new URLSearchParams({ grant_type: 'client_credentials' });
+  const headers = {
+    Authorization:
+      "Basic " +
+      Buffer.from(
+        process.env.SPOTIFY_CLIENT_ID + ":" + process.env.SPOTIFY_CLIENT_SECRETE
+      ).toString("base64"),
+    "Content-Type": "application/x-www-form-urlencoded",
+  };
 
-    const headers = {
-        Authorization: 'Basic ' + (Buffer.from(process.env.SPOTIFY_CLIENT_ID + ':' + process.env.SPOTIFY_CLIENT_SECRETE).toString('base64')),
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
+  try {
+    const response = (
+      await axios.post(`${process.env.SPOTIFY_API_AUTH}`, params, {
+        headers: headers,
+      })
+    ).data;
 
-    try {
+    process.env.SPOTIFY_API_TOKEN = response.access_token;
 
-        const response = (await axios.post(`${process.env.SPOTIFY_API_AUTH}`, params, { headers: headers })).data;
+    setTimeout(getSpotifyApiToken, response.expires_in * 1000 - 200);
 
-        process.env.SPOTIFY_API_TOKEN = response.access_token;
-
-        setTimeout(getSpotifyApiToken, (response.expires_in * 1000) - 200);
-
-        log("Done fetching Spotify Api Token");
-    } catch (error) {
-        log(`Error Fetching Spotify Token\n`, error)
-    }
-
+    log("Done fetching Spotify Api Token");
+  } catch (error) {
+    log(`Error Fetching Spotify Token\n`, error);
+  }
 }
 
-export function generateCardHtml(color, opacity, background, avatar, rankText, level, displayName, currentXp, requiredXp) {
-    const card = `<!DOCTYPE html>
+export async function addUserToDb(userId: string) {
+  axios.put()
+}
+export function generateCardHtml(
+  color: string,
+  opacity: number,
+  background: string,
+  avatar: string,
+  rankText: string,
+  level: number,
+  displayName: string,
+  currentXp: number,
+  requiredXp: number
+) {
+  const card = `<!DOCTYPE html>
     <html lang="en">
     
     <head>
@@ -518,21 +532,7 @@ export function generateCardHtml(color, opacity, background, avatar, rankText, l
         </div>
     </body>
     
-    </html>`
+    </html>`;
 
-    return card;
-}
-
-if (modulesLastReloadTime.utils !== undefined) {
-    log('Global Utils Reloaded\x1b[0m');
-}
-else {
-    log('Global Utils Loaded\x1b[0m');
-}
-
-if (bot) {
-    modulesLastReloadTime.utils = bot.uptime;
-}
-else {
-    modulesLastReloadTime.utils = 0;
+  return card;
 }
