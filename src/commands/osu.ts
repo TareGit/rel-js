@@ -1,20 +1,21 @@
-const { MessageEmbed } = require('discord.js');
-
-const { sync, guildSettings, bot } = require(`${process.cwd()}/dataBus.js`);
-
-const axios = require("axios");
-
-const { version, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.json`);
-
-const utils = sync.require(`${process.cwd()}/utils`);
+import { MessageEmbed, CommandInteraction, GuildMember, ColorResolvable } from 'discord.js';
 
 
+import axios from "axios";
+import path from "path";
+import { IUmekoSlashCommand, EUmekoCommandContextType, IParsedMessage, IOsuApiUser, ECommandType } from "../types";
 
-module.exports = {
+const { version, defaultPrimaryColor } = bus.sync.require(path.join(process.cwd(), 'config.json')) as typeof import('../config.json');
+
+const utils = bus.sync.require(path.join(process.cwd(), 'utils')) as typeof import('../utils');
+
+
+
+const command: IUmekoSlashCommand = {
     name: 'osu',
     category: 'Fun',
+    type: ECommandType.SLASH,
     description: 'Gets basic information about an Osu! player',
-    ContextMenu: {},
     syntax: '{prefix}{name} <osu id | osu username>',
     options: [
         {
@@ -27,13 +28,14 @@ module.exports = {
     async execute(ctx) {
 
 
-        const searchTerm = ctx.type == EUmekoCommandContextType.SLASH_COMMAND ? (ctx.command as CommandInteraction).options.getString('player') : (ctx.command as IParsedMessage).pureContent;
+        const searchTerm = ctx.type == EUmekoCommandContextType.SLASH_COMMAND ? (ctx.command as CommandInteraction).options.getString('player') as string : (ctx.command as IParsedMessage).pureContent;
 
         let response = undefined;
 
         const Embed = new MessageEmbed();
 
-        Embed.setColor(ctx.command.member ? guildSettings.get((ctx.command.member as GuildMember).guild.id).color : defaultPrimaryColor);
+
+        Embed.setColor((bus.guildSettings.get(ctx.command?.guildId || '')?.color || defaultPrimaryColor) as ColorResolvable);
 
         try {
 
@@ -42,13 +44,13 @@ module.exports = {
                     'Authorization': `Bearer ${process.env.OSU_API_TOKEN}`
                 }
             };
-            response = (await axios.get(`${process.env.OSU_API}/users/${searchTerm.replace(/\s+/g, '')}`, request)).data;
+            response = (await axios.get(`${process.env.OSU_API}/users/${encodeURIComponent(searchTerm.replace(/\s+/g, ''))}`, request)).data;
 
-            const user = response;
+            const user = (response as any) as IOsuApiUser;
 
             if (user === undefined) {
 
-                Embed.setFooter("User Not Found");
+                Embed.setFooter({ text: "User Not Found" });
                 utils.reply(ctx, { embeds: [Embed] });
 
                 return;
@@ -66,17 +68,20 @@ module.exports = {
 
             Embed.addField("Country", user.country.name);
 
-            Embed.setFooter(`Mode | ${user.playmode}`);
+            Embed.setFooter({ text: `Mode | ${user.playmode}` });
 
-            utils.reply(ctx, { embeds: [Embed] });
+            ctx.command.reply({ embeds: [Embed] })
+            //utils.reply(ctx, { embeds: [Embed] });
 
         } catch (error) {
             Embed.setFooter({ text: "User Not Found" });
 
-            utils.reply(ctx, { embeds: [Embed] });
+            //utils.reply(ctx, { embeds: [Embed] });
 
             utils.log(`Error fetching Osu Data\x1b[0m`, error);
         }
 
     }
 }
+
+export default command;

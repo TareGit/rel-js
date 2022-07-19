@@ -1,7 +1,7 @@
 import { MessageEmbed, MessageSelectMenu, MessageSelectOptionData, MessageActionRow, InteractionCollector, GuildMember } from 'discord.js';
 
 const { bot, sync, guildSettings, commands } = require(`${process.cwd()}/dataBus.js`);
-const { defaultPrimaryColor, defaultPrefix } = sync.require(`${process.cwd()}/config.json`);
+const { defaultPrimaryColor, defaultPrefix } = sync.require(path.join(process.cwd(), '../config.json'));
 
 const utils = sync.require(`${process.cwd()}/utils`);
 

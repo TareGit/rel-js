@@ -1,73 +1,73 @@
-const { sync, perGuildLeveling, guildSettings, db, perUserData } = require(`${process.cwd()}/dataBus.js`);
-const { XpRequiredForLevelOne, XpSecreteSauce } = sync.require(`${process.cwd()}/config.json`);
-const { MessageAttachment } = require('discord.js')
-const fs = require('fs');
-const axios = require('axios');
-const puppeteer = require('puppeteer');
-const utils = sync.require(`${process.cwd()}/utils`);
+import { CommandInteraction, GuildMember } from "discord.js";
+import path from "path";
+import { ECommandOptionType, ECommandType, EUmekoCommandContextType, IGuildLevelingData, IParsedMessage, IUmekoSlashCommand } from "../types";
+import { getPage, closePage } from '../modules/browser';
+import axios from 'axios';
 
-module.exports = {
+const utils = bus.sync.require(path.join(process.cwd(), 'utils')) as typeof import('../utils');
+
+const command: IUmekoSlashCommand = {
     name: 'level',
     category: 'Fun',
     description: 'Displays your level',
-    ContextMenu: {},
+    type: ECommandType.SLASH,
     syntax: '{prefix}{name} <specific user mention>',
     options: [
         {
             name: 'user',
             description: 'The user to check the level of',
-            type: 6,
+            type: ECommandOptionType.USER,
             required: false
         }
     ],
     async execute(ctx) {
-        if (ctx.guild === null) return utils.reply(ctx, `You need to be in a server to use this command`);
+        if (!ctx.command.guild) return utils.reply(ctx, `You need to be in a server to use this command`);
 
-        const options = guildSettings.get(ctx.guild.id).leveling_options;
+        const options = bus.guildSettings.get(ctx.command.guild.id)?.leveling_options || new URLSearchParams();
 
         // check if leveling is enabled
         if (!options.get('location') || options.get('location') === 'disabled') return await utils.reply(ctx, `Leveling is disabled in this server`);
 
         // defer the reply to give puppeter time to render and incase we make an API call
-        if (ctx.cType === 'COMMAND') await ctx.deferReply();
+        if (ctx.type === EUmekoCommandContextType.SLASH_COMMAND) await (ctx.command as CommandInteraction).deferReply();
 
         // select the member specified 
-        const specificUser = ctx.cType === 'COMMAND' ? ((ctx.command as CommandInteraction).options.getMember('user') || ctx.member) : (ctx.mentions.members.first() || ctx.member);
+        const specificUser = ctx.type === EUmekoCommandContextType.SLASH_COMMAND ? ((ctx.command as CommandInteraction).options.getMember('user') as GuildMember || ctx.command.member as GuildMember) : ((ctx.command as IParsedMessage).mentions.members?.first() || ctx.command.member as GuildMember);
 
         // no point in bots participating in leveling
-        if (specificUser.user.bot) return await utils.reply(ctx, 'Bots are too sweaty to participate in leveling');
+        if (specificUser?.user?.bot) return await utils.reply(ctx, 'Bots are too sweaty to participate in leveling');
 
         // get the guilds leveling data
-        const levelingData = perGuildLeveling.get(ctx.guild.id) || {};
+        const levelingData: IGuildLevelingData = bus.guildLeveling.get(ctx.command.guild.id) || { data: {}, rank: [] };
 
-        if (levelingData.ranking) {
+        if (levelingData.rank) {
 
-            levelingData.ranking.sort(function (userA, userB) {
-                const aData = levelingData[userA];
-                const bData = levelingData[userB];
+            levelingData.rank.sort(function (userA, userB) {
+                const aData = levelingData.data[userA];
+                const bData = levelingData.data[userB];
 
-                if (aData.level === bData.level) return aData.currentXp - bData.currentXp;
+                if (aData.level === bData.level) return aData.progress - bData.progress;
 
                 return aData.level - bData.level;
             });
 
-            levelingData.ranking.reverse();
+            levelingData.rank.reverse();
 
         }
 
         // get the specified users leveling data 
-        const levelData = levelingData[specificUser.id] || {};
+        const levelData = levelingData.data[specificUser?.id] || {};
 
         // get the users level or 0 if the user has no data
         const level = levelData.level || 0;
 
         // get the users current XP
-        const currentXp = ((levelData.currentXp || 1) / 1000).toFixed(2);
+        const currentXp = parseFloat(((levelData.progress || 1) / 1000).toFixed(2));
 
-        // fetch data from database since we don't currently have it
-        if (!perUserData.get(specificUser.id)) {
+        /*// fetch data from database since we don't currently have it
+        if (!bus.userSettings.get(specificUser.id)) {
 
-            const user_settings_response = await db.get(`/tables/user_settings/rows?data=${specificUser.id}`);
+            const user_settings_response = await bus.db.get(`/users?q=${specificUser.id}`);
 
             const user_settings_data = user_settings_response.data;
 
@@ -94,25 +94,25 @@ module.exports = {
                 }
 
             }
-        }
+        }*/
 
         // select the specific users background or use the default if it is not available
-        const userBackground = perUserData.get(specificUser.id) ? perUserData.get(specificUser.id).card_bg_url : `https://cdnb.artstation.com/p/marketplace/presentation_assets/000/106/277/large/file.jpg`;
+        const userBackground = bus.userSettings.get(specificUser.id)?.card_bg_url || `https://cdnb.artstation.com/p/marketplace/presentation_assets/000/106/277/large/file.jpg`;
 
         // the specific users avatar url
         const avatarUrl = specificUser.displayAvatarURL({ format: 'png', size: 1024 });
 
         const displayName = specificUser.displayName;
 
-        const rank = levelingData.ranking && levelingData.ranking.includes(specificUser.id) ? levelingData.ranking.indexOf(specificUser.id) + 1 : undefined;
+        const rank = levelingData.rank && levelingData.rank.includes(specificUser.id) ? levelingData.rank.indexOf(specificUser.id) + 1 : undefined;
 
         const rankText = typeof rank === 'number' ? `RANK ${rank}` : 'UNRANKED';
 
-        const requiredXp = (utils.getXpForNextLevel(level) / 1000).toFixed(2);
+        const requiredXp = parseFloat((utils.getXpForNextLevel(level) / 1000).toFixed(2));
 
-        const userColor = perUserData.get(specificUser.id) ? perUserData.get(specificUser.id).color : '#87ceeb';
+        const userColor = bus.userSettings.get(specificUser.id)?.color || '#87ceeb';
 
-        const userOpacity = perUserData.get(specificUser.id) ? perUserData.get(specificUser.id).card_opacity : '0.8';
+        const userOpacity = bus.userSettings.get(specificUser.id)?.card_opacity || 0.8;
 
         const cardAsHtml = utils.generateCardHtml(userColor, userOpacity, userBackground, avatarUrl, rankText, level, displayName, currentXp, requiredXp);
 
@@ -127,19 +127,19 @@ module.exports = {
         }*/
 
 
-        const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'], userDataDir: `${process.cwd()}/../puppeter` });
         // create a new window and capture the ranked card
-        const page = await browser.newPage();
+        const page = await getPage();
         page.setViewport({ width: 1200, height: 400 });
         await page.setContent(cardAsHtml);
         const content = await page.$("body");
-        const imageBuffer = await content.screenshot({ omitBackground: true });
+        if (content) {
+            const imageBuffer = await content.screenshot({ omitBackground: true });
+            utils.reply(ctx, { files: [{ attachment: imageBuffer }] });
+        }
 
-        // shut down puppeteer
-        await page.close();
-        await browser.close();
+        closePage(page);
 
-        // send the level card
-        await utils.reply(ctx, { files: [{ attachment: imageBuffer }] });
     }
 }
+
+export default command;

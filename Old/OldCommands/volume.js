@@ -1,3 +1,4 @@
+'use strict';
 
 const { sync, queues } = require(`${process.cwd()}/dataBus.js`);
 const { setVolume } = sync.require(`${process.cwd()}/handlers/handleMusic`);
@@ -9,7 +10,7 @@ module.exports = {
     category: 'Music',
     description: 'Sets the music volume',
     ContextMenu: {},
-    syntax : '{prefix}{name} <new volume level 1 - 100>',
+    syntax: '{prefix}{name} <new volume level 1 - 100>',
     options: [
         {
             name: 'volume',
@@ -19,15 +20,13 @@ module.exports = {
         }
     ],
     async execute(ctx) {
-        
-            if (!ctx.guild || !ctx.member.voice.channel) return utils.reply(ctx,"You need to be in a voice channel to use this command");
 
-            const Queue = queues.get(ctx.member.guild.id);
+        if (!ctx.guild || !ctx.member.voice.channel) return utils.reply(ctx, "You need to be in a voice channel to use this command");
 
-            if (Queue == undefined) return utils.reply(ctx,"Theres no Queue");
+        const Queue = queues.get(ctx.member.guild.id);
 
-            setVolume(ctx,Queue);
-        
+        if (Queue == undefined) return utils.reply(ctx, "Theres no Queue");
 
+        setVolume(ctx, Queue);
     }
 }

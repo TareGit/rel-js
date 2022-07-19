@@ -1,127 +1,43 @@
-
 process.chdir(__dirname);
 
-import { Cluster } from "discord-hybrid-sharding";
+import "./bus";
 
-const dataBus = require('./dataBus.js');
+import { data, Client as ClusterClient } from "discord-hybrid-sharding";
 
+import {
+  Client,
+  Intents,
+  PartialTypes,
+} from "discord.js";
+import path from "path";
 
-const { Client, Intents, CommandInteractionOptionResolver, Options, Sweepers } = require('discord.js');
+const fs = require("fs");
 
-const sync = dataBus.sync;
-
-const chokidar = require('chokidar');
-
-const { Manager } = require("lavacord");
-
-const fs = require('fs');
-const { defaultPrefix, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.json`);
+const { defaultPrefix, defaultPrimaryColor } = bus.sync.require(
+  path.join(process.cwd(), "config.json")
+) as typeof import("./config.json");
 
 // bot Intents
 const clientOptions = {
-    intents: [
-        Intents.FLAGS.GUILDS,
-        Intents.FLAGS.GUILD_MEMBERS,
-        Intents.FLAGS.GUILD_MESSAGES,
-        Intents.FLAGS.GUILD_PRESENCES,
-        Intents.FLAGS.DIRECT_MESSAGES,
-        Intents.FLAGS.GUILD_VOICE_STATES
-    ],
-    shards: Cluster.data.SHARD_LIST,
-    shardCount: Cluster.data.TOTAL_SHARDS,
+  intents: [
+    Intents.FLAGS.GUILDS,
+    Intents.FLAGS.GUILD_MEMBERS,
+    Intents.FLAGS.GUILD_MESSAGES,
+    Intents.FLAGS.GUILD_PRESENCES,
+    Intents.FLAGS.DIRECT_MESSAGES,
+    Intents.FLAGS.GUILD_VOICE_STATES,
+  ],
+  shards: data.SHARD_LIST,
+  shardCount: data.TOTAL_SHARDS,
 
-    partials: ['MESSAGE', 'CHANNEL']
-}
+  partials: ["MESSAGE", "CHANNEL"] as PartialTypes[],
+};
 
 // Setup settings and configs
-const bot = new Client(clientOptions);
-Object.assign(dataBus, { bot: bot });
+bus.bot = new Client(clientOptions);
 
-bot.cluster = new Cluster.Client(bot); //Init the Client & So we can also access broadcastEval...
-bot.dataBus = dataBus;
+bus.cluster = new ClusterClient(bus.bot); //Init the Client & So we can also access broadcastEval...
 
-const utils = sync.require(`./utils`);
+bus.sync.require("./events");
 
-bot.on('ready', async () => {
-
-
-
-
-    utils.log('Bot Ready\x1b[0m');
-
-    setInterval(() => bot.user.setActivity(`${bot.guilds.cache.size} Servers`, { type: 'WATCHING' }), 20000);
-
-
-
-    // Volcano nodes
-    const nodes = [
-        { id: "1", host: "localhost", port: 2333, password: process.env.LAVALINK_PASSWORD }
-    ];
-
-    // Initilize the Manager with all the data it needs
-    const LavaManager = new Manager(nodes, {
-        user: bot.user.id,
-        shards: bot.options.shardCount,
-        send: (packet) => {
-
-            const guild = bot.guilds.cache.get(packet.d.guild_id);
-            return guild.shard.send(packet);
-
-        }
-    });
-
-    Object.assign(dataBus, { LavaManager: LavaManager });
-
-    try {
-        await LavaManager.connect();
-
-        utils.log("Connected to Music provider\x1b[0m");
-    } catch (error) {
-        utils.log('Error connecting to music provider\x1b[0m\n', error);
-        dataBus.disabledCategories.push('Music');
-    }
-
-
-    bot.ws
-        .on("VOICE_SERVER_UPDATE", dataBus.LavaManager.voiceServerUpdate.bind(dataBus.LavaManager))
-        .on("VOICE_STATE_UPDATE", dataBus.LavaManager.voiceStateUpdate.bind(dataBus.LavaManager))
-        .on("GUILD_CREATE", async data => {
-            if (data.voice_states.length) {
-                for (const state of data.voice_states) await dataBus.LavaManager.voiceStateUpdate({ ...state, guild_id: data.id });
-            }
-
-        });
-
-    LavaManager.on("error", (error, node) => {
-        utils.log('Lavalink error\x1b[0m\n', error);
-    });
-
-
-    try {
-        // Loads other modules once done
-        const guildDataModule = sync.require('./handlers/handleGuildData');
-        await guildDataModule.load();
-        const levelingModule = sync.require('./handlers/handleLeveling');
-        const eventsModule = sync.require('./handlers/handleEvents');
-    } catch (error) {
-        utils.log('Error loading modules\x1b[0m\n', error);
-    }
-
-    await utils.getOsuApiToken();
-
-    await utils.getSpotifyApiToken();
-
-    // Commands loading and reloading
-    chokidar.watch('./commands', { persistent: true, usePolling: true }).on('all', (event, path) => {
-        utils.handleCommandDirectoryChanges(event, path);
-    });
-
-});
-
-bot.login(process.env.CURRENT_BOT_TOKEN);
-
-
-sync.events.on("error", console.log);
-
-
-
+bus.bot.login(process.env.CURRENT_BOT_TOKEN);

@@ -1,55 +1,47 @@
-const { manager, sync, modulesLastReloadTime } = require('./dataBus');
-const utils = sync.require(`./utils`);
+const utils = bus.sync.require(`./utils`) as typeof import("./utils");
 
-async function getServerInfo(request, response) {
-    const data = await manager.broadcastEval(function (bot) { return bot.guilds.cache.size; })
+export async function getServerInfo(request, response) {
+  const data = await bus.cluster?.broadcastEval(function (cluster) {
+    return cluster.client.guilds.cache.size;
+  });
 
-    const guildsCount = data.reduce(function (previous, current) {
-        return previous + current;
-    });
+  const guildsCount = data?.reduce(function (previous, current) {
+    return previous + current;
+  });
 
-    response.send({ id: 'umeko', guilds: guildsCount });
+  response.send({ id: "umeko", guilds: guildsCount });
 }
 
-async function getServerPing(request, response) {
-    response.send({ recieved_at: Date.now() });
+export async function getServerPing(request, response) {
+  response.send({ recieved_at: Date.now() });
 }
 
-async function updateGuild(request, response) {
-    const guildId = request.body.id;
-
-    manager.broadcastEval(`
-    if(this.dataBus.guildSettings.get('${guildId}') && !this.dataBus.guildsPendingUpdate.includes('${guildId}'))
+export async function updateGuild(request, response) {
+  const guildId = request.body.id;
+  console.log(guildId)
+  bus.manager?.broadcastEval(`
+    if(bus.guildSettings.get('${guildId}') && !bus.guildsPendingUpdate.includes('${guildId}'))
     {
-        this.dataBus.guildsPendingUpdate.push('${guildId}');
+        bus.guildsPendingUpdate.push('${guildId}');
     }
     `);
 
-    utils.log(`Recieved Update For Guild ${guildId}`);
+  utils.log(`Queued Update For Guild ${guildId}`);
 
-    response.send({ result: 'recieved' });
+  response.send({ result: "recieved" });
 }
 
-async function updateUser(request, response) {
-    const userId = request.body.id;
+export async function updateUser(request, response) {
+  const userId = request.body.id;
 
-
-    manager.broadcastEval(`
-        if(this.dataBus.perUserData.get('${userId}') && !this.dataBus.usersPendingUpdate.includes('${userId}'))
+  bus.manager?.broadcastEval(`
+        if(bus.perUserData.get('${userId}') && !bus.usersPendingUpdate.includes('${userId}'))
         {
-            this.dataBus.usersPendingUpdate.push('${userId}');
+            bus.usersPendingUpdate.push('${userId}');
         }
         `);
 
-    utils.log(`Recieved Update For User ${userId}`);
+  utils.log(`Queued Update For User ${userId}`);
 
-    response.send({ result: 'recieved' });
-}
-
-
-module.exports = {
-    getServerInfo: getServerInfo,
-    getServerPing: getServerPing,
-    updateGuild: updateGuild,
-    updateUser: updateUser
+  response.send({ result: "recieved" });
 }

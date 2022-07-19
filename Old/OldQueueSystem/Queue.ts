@@ -1,7 +1,8 @@
-import { Base, BaseCommandInteraction, CommandInteraction, ContextMenuInteraction, GuildMember, Interaction, Message, MessageButton, TextBasedChannel, VoiceBasedChannel } from "discord.js";
+import { Base, BaseCommandInteraction, CommandInteraction, ContextMenuInteraction, GuildMember, Interaction, InteractionCollector, Message, MessageActionRow, MessageButton, MessageEmbed, TextBasedChannel, VoiceBasedChannel } from "discord.js";
 import { Manager, Player } from "lavacord";
 import path from "path";
-const { queueTimeout, queueItemsPerPage, maxQueueFetchTime, maxRawVolume, defaultVolumeMultiplier, leftArrowEmoji, rightArrowEmoji } = sync.require(`${process.cwd()}/config.json`);
+import { ISong, ELoopType, IUmekoCommandContext, ILoadedQueue, IMusicUrlCheck, EMusicCheckType, ISavedSong, ISavedQueue, EUmekoCommandContextType, IParsedMessage } from "../src/types";
+const { queueTimeout, queueItemsPerPage, maxQueueFetchTime, maxRawVolume, defaultVolumeMultiplier, leftArrowEmoji, rightArrowEmoji } = sync.require(path.join(process.cwd(), '../config.json'));
 
 const queuesPath = `${process.cwd().slice(0, -4)}/queues`;
 const spotifyExpression = /^(?:spotify:|(?:https?:\/\/(?:open|play)\.spotify\.com\/)(?:embed)?\/?(track|album|playlist)(?::|\/)((?:[0-9a-zA-Z]){22}))/;

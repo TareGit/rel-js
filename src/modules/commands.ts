@@ -1,47 +1,58 @@
-const { bot, sync, guildSettings, commands, modulesLastReloadTime, disabledCategories } = require(`${process.cwd()}/dataBus`);
-const { Interaction, BaseCommandInteraction, CommandInteraction } = require('discord.js');
-const fs = require('fs');
+import {
+  Interaction,
+  BaseCommandInteraction,
+  Message,
+  CommandInteraction,
+} from "discord.js";
+import fs from "fs";
+import path from "path";
+import { ECommandType, EUmekoCommandContextType, IParsedMessage, IUmekoCommandContext, IUmekoSlashCommand } from "../types";
 
-const utils = sync.require(`${process.cwd()}/utils`);
+const utils = bus.sync.require(
+  `${process.cwd()}/utils`
+) as typeof import("../utils");
 
-const { defaultPrefix } = sync.require(`${process.cwd()}/config.json`);
+const { defaultPrefix } = bus.sync.require(
+  path.join(process.cwd(), "config.json")
+) as typeof import("../config.json");
 
 /**
  * Tries to derive a command from a message
  * @param {Message}message The message to parse
  * @returns {Command} A command or undefined if the message could not be parsed
  */
-module.exports.parseMessage = async (message) => {
+export async function parseMessage(message: Message): Promise<{ command: IUmekoSlashCommand; ctx: IUmekoCommandContext; } | undefined> {
+  const content = message.content;
+  const guildData =
+    message.member !== null
+      ? bus.guildSettings.get(message.member.guild.id)
+      : undefined;
 
-    const content = message.content;
-    const guildData = (message.member !== null) ? guildSettings.get(message.member.guild.id) : undefined;
+  const prefix =
+    bus.guildSettings.get(message.member?.guild?.id || "")?.prefix ||
+    defaultPrefix;
 
+  if (!content.startsWith(prefix)) {
+    return undefined;
+  }
 
+  const contentWithoutprefix = content.slice(prefix.length);
+  const contentSplit = contentWithoutprefix.split(/\s+/);
+  const actualAlias = contentSplit[0].toLowerCase();
 
-    const prefix = (message.member !== null) ? guildSettings.get(message.member.guild.id).prefix : defaultPrefix;
+  if (bus.slashCommands.get(actualAlias) === undefined) {
+    return undefined;
+  }
 
-    if (!content.startsWith(prefix)) {
-        return undefined
-    }
+  const argsNotSplit = content.slice(prefix.length + actualAlias.length);
 
-    const contentWithoutprefix = content.slice(prefix.length);
-    const contentSplit = contentWithoutprefix.split(/\s+/);
-    const actualAlias = contentSplit[0].toLowerCase();
+  const messageWithoutType = message as any;
+  messageWithoutType.args = argsNotSplit.trim().split(/\s+/);
+  messageWithoutType.pureContent = argsNotSplit.trim();
 
-    if (commands.get(actualAlias) === undefined) {
-        return undefined;
-    }
+  const parsedMessage = messageWithoutType as IParsedMessage;
 
-    if (disabledCategories.includes(commands.get(actualAlias).category)) {
-        return undefined;
-    }
-
-    message.cType = 'MESSAGE';
-
-    const argsNotSplit = content.slice(prefix.length + actualAlias.length);
-    message.pureContent = argsNotSplit.trim();
-    message.args = (argsNotSplit.trim()).split(/\s+/);
-    return commands.get(actualAlias);
+  return { command: bus.slashCommands.get(actualAlias) as IUmekoSlashCommand, ctx: { command: parsedMessage, type: EUmekoCommandContextType.CHAT_MESSAGE } };
 }
 
 /**
@@ -49,35 +60,14 @@ module.exports.parseMessage = async (message) => {
  * @param {CommandInteraction}interaction The interaction to parse
  * @returns {Command} A command or undefined if the interaction could not be parsed
  */
-module.exports.parseInteractionCommand = async (interaction) => {
+export async function parseInteractionCommand(interaction: Interaction) {
+  if (interaction.isContextMenu()) {
+    return bus.contextMenuCommands.get(interaction.commandName);
+  }
 
-    if (interaction.isContextMenu()) {
-        interaction.cType = 'CONTEXT_MENU';
-    }
+  if (interaction.isCommand()) {
+    return bus.slashCommands.get(interaction.commandName);
+  }
 
-    if (interaction.isCommand()) {
-        interaction.cType = 'COMMAND';
-    }
-
-    if (commands.get(interaction.commandName) && disabledCategories && disabledCategories.includes(commands.get(interaction.commandName).category)) {
-        return undefined;
-    }
-
-    return commands.get(interaction.commandName);
+  return null;
 }
-
-
-
-
-if (modulesLastReloadTime.commands !== undefined) {
-    utils.log('Commands Module Reloaded\x1b[0m');
-}
-else {
-    utils.log('Commands Module Loaded\x1b[0m');
-}
-
-if (bot) {
-    modulesLastReloadTime.commands = bot.uptime;
-}
-
-

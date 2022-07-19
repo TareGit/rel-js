@@ -6,7 +6,7 @@ const { sync, guildSettings }: IDataBus = require(`${process.cwd()}/dataBus.js`)
 
 const axios = require("axios");
 
-const { version, defaultPrimaryColor } = sync.require(`${process.cwd()}/config.json`);
+const { version, defaultPrimaryColor } = sync.require(path.join(process.cwd(), '../config.json'));
 
 const utils = sync.require(`${process.cwd()}/utils`);
 

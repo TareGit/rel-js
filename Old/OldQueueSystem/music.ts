@@ -5,7 +5,8 @@ const { sync, queues, lavacordManager, db }: IDataBus = require('../dataBus');
 
 import { Player } from "lavacord";
 import path from "path";
-import Queue from "../classes/Queue";
+import Queue from "./Queue";
+import { IDataBus, IUmekoCommandContext, ISavedSong, ISong, ISavedQueue, ILoadedQueue } from "../src/types";
 
 const queuesPath = `${process.cwd().slice(0, -4)}/queues`;
 const utils = sync.require(`${process.cwd()}/utils`);
@@ -23,7 +24,7 @@ const fs = require('fs/promises');
  */
 export function createQueue(ctx: IUmekoCommandContext) {
 
-    const newQueue = new Queue(ctx, l);
+    const newQueue = new Queue(ctx, bus.lavacordManager);
 
     queues.set((ctx.command.member as GuildMember).guild.id, newQueue);
 
