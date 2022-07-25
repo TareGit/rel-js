@@ -6,18 +6,14 @@ const utils = bus.sync.require(
   path.join(process.cwd(), "utils")
 ) as typeof import("../utils");
 
-async function onMessageCreate(message: Message) {
+export async function updateServerLeveling(message: Message) {
   const bot = bus.bot;
   if (!bot) return;
 
   try {
-    if (message.author.id === bot.user?.id) return;
-    if (message.author.bot) return;
-    if (message.guild === null || message.member === null) return;
-
-    const guildId = message.guild.id;
-    const userId = message.member.id;
-    const username = message.member.displayName;
+    const guildId = message.guild!.id;
+    const userId = message.member!.id;
+    const username = message.member!.displayName;
 
     const options =
       bus.guildSettings.get(guildId)?.leveling_options || new URLSearchParams();
@@ -30,12 +26,25 @@ async function onMessageCreate(message: Message) {
 
     const levelingData = bus.guildLeveling.get(guildId) as IGuildLevelingData;
 
-    if (levelingData.data[userId] === undefined) {
-      levelingData.data[userId] = { level: 0, progress: 0 };
+    if (!levelingData.data[userId]) {
+      levelingData.data[userId] = {
+        user: userId,
+        guild: guildId,
+        level: 0,
+        progress: 0
+      };
+
       levelingData.rank.push(userId);
+
+      await bus.db.put('/levels', [levelingData.data[userId]]);
     }
 
-    levelingData.data[userId].progress += utils.randomIntegerInRange(5, 10);
+    levelingData.data[userId].progress += utils.randomIntegerInRange(5, 10) * 100;
+
+    if (!bus.levelingDataPendingUpload.get(guildId)) bus.levelingDataPendingUpload.set(guildId, []);
+
+    if (!bus.levelingDataPendingUpload.get(guildId)!.includes(userId)) bus.levelingDataPendingUpload.get(guildId)!.push(userId);
+
 
     const nextLevelXp = utils.getXpForNextLevel(
       levelingData.data[userId].level
@@ -61,31 +70,31 @@ async function onMessageCreate(message: Message) {
       }
 
       const levelUpMsg = options
-        .get("message")
+        .get("msg")
         ?.replace(/{user}/gi, `<@${userId}>`)
         .replace(/{username}/gi, `${username}`)
         .replace(/{level}/gi, `${levelingData.data[userId].level}`)
-        .replace(/{server}/gi, `${message.guild.name}`)
-        .replace(/{id}/gi, `${userId}`);
+        .replace(/{server}/gi, `${message.guild!.name}`)
+        .replace(/{id}/gi, `${userId}`) || '';
 
       //levelingData.data[userId].lastXpUpdateAmmount = levelingData.data[userId].progress - xpUpdateThreshold;//  force an update to the backend
 
       if (levelUpMsg) {
         if (options.get("location") === "channel" && options.get("channel")) {
-          const channel = (await message.guild.channels
+          const channel = (await message.guild!.channels
             .fetch(options.get("channel") as string)
             .catch(utils.log)) as TextBasedChannel;
           if (channel) {
             channel.send(levelUpMsg);
           } else {
-            message.reply(levelUpMsg)
+            message.reply(levelUpMsg);
           }
         } else if (options.get("location") === "dm") {
           message.author.send(levelUpMsg).catch((error) => {
             utils.log("Error sending level up message", error);
           });
         } else {
-          message.reply(levelUpMsg)
+          message.reply(levelUpMsg);
         }
       }
     }
@@ -121,7 +130,7 @@ async function onMessageCreate(message: Message) {
 async function onGuildCreate(guild) { }
 
 const levelingEvents = [
-  { id: "messageCreate", event: onMessageCreate },
+  { id: "messageCreate", event: updateServerLeveling },
   { id: "guildCreate", event: onGuildCreate },
 ];
 /*

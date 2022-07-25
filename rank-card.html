@@ -7,9 +7,9 @@
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500&display=swap");
 
-      :root {
-        --main-color: #87ceeb;
-        --progress-percent: 50%;
+      body {
+        --main: #87ceeb;
+        --progress: 50%;
         --opacity: 0.8;
       }
 
@@ -100,8 +100,8 @@
 
       .user-rank-info-progress {
         display: block;
-        background-color: var(--main-color);
-        width: var(--progress-percent);
+        background-color: var(--main);
+        width: var(--progress);
         height: 30px;
         box-sizing: border-box;
         border-radius: 20px;
@@ -112,7 +112,7 @@
         display: block;
         height: 1px;
         width: 686px;
-        background-color: var(--main-color);
+        background-color: var(--main);
         position: absolute;
         top: 100%;
       }
@@ -154,7 +154,7 @@
         border-radius: 8px;
       }
 
-      .background {
+      #background {
         width: 1000px;
         height: 300px;
         object-fit: cover;
@@ -163,22 +163,26 @@
       }
     </style>
   </head>
-
-  <body>
-    <img class="background" src="${backgroundUrl}" />
+  <body style="--opacity: {opacity}; --main: {color}; --progress: {percent}%">
+    <img
+      id="background"
+      src="{bg}"
+    />
     <div class="main">
       <div class="user-profile">
-        <img src="${avatarUrl}" />
-        <div class="online-status"></div>
+        <img
+          id="avatar-url"
+          src="{avatar}"
+        />
       </div>
       <div class="user-rank-info">
         <div class="user-rank-info-row" pos="top">
-          <h1>${displayName}</h1>
-          <h1>RANK ${rank}</h1>
+          <h1 id="display-name">{username}</h1>
+          <h1 id="rank">RANK {rank}</h1>
         </div>
         <div class="user-rank-info-row" pos="middle">
-          <h2>Level ${level}</h2>
-          <h2>${currentXp}k/${requiredXp}k</h2>
+          <h2 id="level">Level {level}</h2>
+          <h2 id="progress-text">{progress}K/{required}K</h2>
         </div>
         <div class="user-rank-info-row">
           <div class="user-rank-info-bar">

@@ -4,6 +4,7 @@ import {
   Manager as ClusterManager,
 } from "discord-hybrid-sharding";
 import {
+  ButtonInteraction,
   Client,
   ClientEvents,
   CommandInteraction,
@@ -14,27 +15,35 @@ import {
 } from "discord.js";
 import Sync from "heatsync";
 import { Manager as LavaManager } from "lavacord";
+import { Queue } from "./modules/music";
 
-export enum ELoopType {
+export const enum ELoopType {
   NONE = "off",
   SONG = "song",
   QUEUE = "queue",
 }
 
-export enum ECommandType {
+export const enum EQueueSource {
+  COMMAND = 0,
+  QUEUE = 1,
+  SAVED_QUEUE = 2,
+}
+
+export const enum ECommandType {
   SLASH = 1,
   USER = 2,
   CONTEXT_MENU = 3,
 }
 
-export enum EUmekoCommandContextType {
+export const enum EUmekoCommandContextType {
   CHAT_MESSAGE = 0,
   SLASH_COMMAND = 1,
-  CONTEXT_MENU = 2,
-  USER_COMMAND = 3,
+  MESSAGE_CONTEXT_MENU = 2,
+  USER_CONTEXT_MENU = 3,
 }
 
-export enum ECommandOptionType {
+export const enum ECommandOptionType {
+  SUB_COMMAND = 1,
   STRING = 3,
   INTEGER = 4,
   BOOLEAN = 5,
@@ -43,7 +52,7 @@ export enum ECommandOptionType {
   ROLE = 8,
 }
 
-export enum EMusicCheckType {
+export const enum EMusicCheckType {
   SEARCH = 0,
   SPOTIFY_TRACK = 1,
   SPOTIFY_ALBUMN = 2,
@@ -55,11 +64,12 @@ export interface IMusicUrlCheck {
   id?: string;
 }
 
-export interface IUmekoCommandOption {
+export interface ICommandOption {
   name: string;
   description: string;
   type: ECommandOptionType;
   required: boolean;
+  choices?: { name: string, value: string }[];
 }
 
 export interface IParsedMessage extends Message {
@@ -69,7 +79,7 @@ export interface IParsedMessage extends Message {
 }
 
 export interface IUmekoCommandContext {
-  command: IParsedMessage | CommandInteraction;
+  command: IParsedMessage | CommandInteraction | ButtonInteraction;
   type: EUmekoCommandContextType;
 }
 
@@ -77,17 +87,19 @@ export interface IUmekoCommand {
   name: string;
   type: ECommandType;
   description: string;
-  execute: (ctx: IUmekoCommandContext) => Promise<any>;
+  dependencies: string[];
+  execute: (ctx: IUmekoCommandContext, ...args: any[]) => Promise<any>;
 }
 
 export interface IUmekoSlashCommand extends IUmekoCommand {
   category: string;
+  group?: string;
   syntax: string;
-  options: IUmekoCommandOption[];
+  options: ICommandOption[];
 }
 
 export interface IUmekoUserCommand extends IUmekoCommand {
-  options: IUmekoCommandOption[];
+  options: ICommandOption[];
 }
 
 export interface IUmekoContextMenuCommand extends IUmekoCommand {
@@ -101,6 +113,8 @@ export interface IUmekoMessageChat extends IUmekoCommand {
 }
 
 export interface IUserLevelData {
+  user: string;
+  guild: string;
   level: number;
   progress: number;
 }
@@ -110,9 +124,9 @@ export interface IGuildLevelingData {
   rank: string[];
 }
 
-export interface IBotEvent<T extends keyof ClientEvents> {
-  event: T;
-  funct: (...args: ClientEvents[T]) => void;
+export interface IBotEvent {
+  event: keyof ClientEvents;
+  funct: (...args: any[]) => void;
 }
 
 export interface IGuildSettings {
@@ -194,8 +208,8 @@ export interface IOsuApiUser {
   id: string;
   avatar_url: string;
   country_code: string;
-  is_online: boolean,
-  username: string,
+  is_online: boolean;
+  username: string;
   country: {
     code: string;
     name: string;
@@ -204,7 +218,34 @@ export interface IOsuApiUser {
   statistics: {
     global_rank: number;
     hit_accuracy: number;
-  }
+  };
+}
+
+export interface IWallpaperzWallpaper {
+  id: string;
+
+  width: number;
+
+  height: number;
+
+  downloads: number;
+
+  uploaded_at: number;
+
+  uploader: string;
+
+  tags: string;
+}
+
+export interface IMALAnime {
+
+}
+
+export interface IDiscordApiCommand {
+  name: string;
+  description?: string;
+  options?: IDiscordApiCommand[] | ICommandOption[];
+  type?: ECommandType | ECommandOptionType,
 }
 
 export interface bus {
@@ -222,10 +263,14 @@ export interface bus {
   sync: Sync;
   db: AxiosInstance;
   bot: Client | null;
+  queues: Map<string, Queue>;
+  levelingDataPendingUpload: Map<string, string[]>;
   cluster: ClusterClient | null;
   lavacordManager: LavaManager | null;
   boundBotEvents: Map<keyof ClientEvents, (...args: any[]) => void>;
   manager: ClusterManager | null;
+  loadedSyncFiles: string[];
+  dependencies: Map<string, string[]>
 }
 
 declare global {

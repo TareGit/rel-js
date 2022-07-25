@@ -18,7 +18,7 @@ export async function getServerPing(request, response) {
 
 export async function updateGuild(request, response) {
   const guildId = request.body.id;
-  console.log(guildId)
+  console.log(guildId);
   bus.manager?.broadcastEval(`
     if(bus.guildSettings.get('${guildId}') && !bus.guildsPendingUpdate.includes('${guildId}'))
     {

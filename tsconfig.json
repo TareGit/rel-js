@@ -8,7 +8,10 @@
     "emitDecoratorMetadata": false,
     "experimentalDecorators": false,
     "incremental": false,
-    "lib": ["esnext", "dom"],
+    "lib": [
+      "esnext",
+      "dom"
+    ],
     "module": "commonjs",
     "moduleResolution": "node",
     "noUnusedLocals": false,
@@ -22,8 +25,14 @@
     "strictBindCallApply": true,
     "strictNullChecks": true,
     "target": "ES2020",
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "types": ["node"],
-  "include": ["./src/**/*"]
+  "types": [
+    "node"
+  ],
+  "include": [
+    "./src/**/*"
+  ]
 }

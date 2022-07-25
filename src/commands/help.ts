@@ -1,37 +1,43 @@
-import { MessageEmbed, MessageSelectMenu, MessageSelectOptionData, MessageActionRow, InteractionCollector, GuildMember } from 'discord.js';
+import { MessageEmbed, MessageSelectMenu, MessageSelectOptionData, MessageActionRow, InteractionCollector, GuildMember, CommandInteraction, ColorResolvable, SelectMenuInteraction, Message } from 'discord.js';
+import path from 'path';
+import { IUmekoSlashCommand, ECommandType, EUmekoCommandContextType, IParsedMessage, ECommandOptionType } from '../types';
 
-const { bot, sync, guildSettings, commands } = require(`${process.cwd()}/dataBus.js`);
-const { defaultPrimaryColor, defaultPrefix } = sync.require(path.join(process.cwd(), '../config.json'));
+const { defaultPrimaryColor, defaultPrefix } = bus.sync.require(
+    path.join(process.cwd(), "config.json")
+) as typeof import("../config.json");
 
-const utils = sync.require(`${process.cwd()}/utils`);
+const utils = bus.sync.require(
+    path.join(process.cwd(), "utils")
+) as typeof import("../utils");
 
-const result: IUmekoSlashCommand = {
+const command: IUmekoSlashCommand = {
     name: 'help',
     category: 'General',
     description: 'shows help',
     type: ECommandType.SLASH,
+    dependencies: ['utils'],
     syntax: '{prefix}{name} <specific command>',
     options: [
         {
             name: 'command',
             description: "The specific command to get help on",
-            type: 3,
+            type: ECommandOptionType.STRING,
             required: false
         }
     ],
-    async execute(ctx, targetCommand = '') {
+    async execute(ctx, targetCommand: string = '') {
 
 
-        const specificCommand = targetCommand !== '' ? targetCommand : (ctx.type == EUmekoCommandContextType.SLASH_COMMAND ? (ctx.command as CommandInteraction).options.getString('command') : ctx.args[0]);
+        const specificCommand = targetCommand !== '' ? targetCommand : (ctx.type == EUmekoCommandContextType.SLASH_COMMAND ? (ctx.command as CommandInteraction).options.getString('command')! : (ctx.command as IParsedMessage).args[0]);
 
 
-        if (commands.get(specificCommand)) {
-            const command = commands.get(specificCommand);
+        if (bus.slashCommands.get(specificCommand)) {
+            const command = bus.slashCommands.get(specificCommand)!;
 
-            const prefix = ctx.command.member ? guildSettings.get((ctx.command.member as GuildMember).guild.id).prefix : defaultPrefix;
+            const prefix = bus.guildSettings.get(ctx.command.guild?.id || '')?.prefix || defaultPrefix;
 
             const helpEmbed = new MessageEmbed();
-            helpEmbed.setColor(ctx.command.member ? guildSettings.get((ctx.command.member as GuildMember).guild.id).color : defaultPrimaryColor);
+            helpEmbed.setColor((bus.guildSettings.get(ctx.command.guild?.id || '')?.color || defaultPrimaryColor) as ColorResolvable);
             helpEmbed.setTitle(`Help For ${command.name}\n`);
             helpEmbed.setURL(`${process.env.WEBSITE}/commands?s=${command.name}`);
 
@@ -48,14 +54,14 @@ const result: IUmekoSlashCommand = {
         const buildHelpEmbed = (Section) => {
             const fields = [];
 
-            const prefix = ctx.command.member ? guildSettings.get((ctx.command.member as GuildMember).guild.id).prefix : defaultPrefix;
+            const prefix = bus.guildSettings.get(ctx.command.guild?.id || '')?.prefix || defaultPrefix;
 
             const helpEmbed = new MessageEmbed();
-            helpEmbed.setColor(ctx.command.member ? guildSettings.get((ctx.command.member as GuildMember).guild.id).color : defaultPrimaryColor);
+            helpEmbed.setColor((bus.guildSettings.get(ctx.command.guild?.id || '')?.color || defaultPrimaryColor) as ColorResolvable);
             helpEmbed.setTitle('Help For Commands\n');
             helpEmbed.setURL(`${process.env.WEBSITE}/commands`);
 
-            commands.forEach(function (value, key) {
+            bus.slashCommands.forEach(function (value, key) {
 
                 if (value.category === Section) {
                     if (key === value.name) {
@@ -76,19 +82,14 @@ const result: IUmekoSlashCommand = {
 
         const sections = ['General', 'Moderation', 'Music', 'Fun'];
 
-        const options = [];
+        const options = sections.map(function (value, index) {
 
-        sections.forEach(function (value, index) {
-
-            const MenuOption: MessageSelectOptionData = {
+            return {
                 label: value,
                 value: value,
                 description: `View commands in the ${value} category`,
                 default: index === 0,
             };
-
-            options.push(MenuOption);
-
         });
 
         const Menu = new MessageSelectMenu();
@@ -105,35 +106,31 @@ const result: IUmekoSlashCommand = {
 
         if (message) {
 
-            const helpCollector = new InteractionCollector(bot, { message: message, componentType: 'SELECT_MENU', idle: 15000 });
+            const helpCollectorData = { owner: (ctx.command as any).user?.id || (ctx.command as any).author.id, generateEmbed: buildHelpEmbed }
+            const helpCollector = new InteractionCollector<SelectMenuInteraction>(bus.bot!, { message: message, componentType: 'SELECT_MENU', idle: 15000 });
             helpCollector.resetTimer({ time: 15000 });
-            helpCollector.generateEmbed = buildHelpEmbed;
-            helpCollector.owner = (ctx.author !== null && ctx.author !== undefined) ? ctx.author.id : ctx.user.id;
 
 
-            helpCollector.on('collect', async (selector) => {
+            helpCollector.on('collect', (async (selector) => {
+                const data = this as any as typeof helpCollectorData
                 try {
-                    if (selector.user.id !== helpCollector.owner) {
-                        return utils.reply(ctx, { ephemeral: true, content: "why must thou choose violence ?" });
+                    if (selector.user.id !== data.owner) {
+                        utils.reply(ctx, { ephemeral: true, content: "why must thou choose violence ?" });
+                        return;
                     }
 
                     const sections = ['General', 'Moderation', 'Music', 'Fun'];
 
-                    const options = [];
-
-                    sections.forEach(function (value, index) {
+                    const options = sections.map(function (value) {
 
                         console.log(selector);
 
-                        const MenuOption: MessageSelectOptionData = {
+                        return {
                             label: value,
                             value: value,
                             description: `View commands in the ${value} category`,
                             default: value === selector.values[0],
                         };
-
-                        options.push(MenuOption);
-
                     });
 
                     const Menu = new MessageSelectMenu();
@@ -144,17 +141,17 @@ const result: IUmekoSlashCommand = {
                     const MenuRow = new MessageActionRow();
                     MenuRow.addComponents(Menu);
 
-                    await selector.update({ embeds: [helpCollector.generateEmbed(selector.values[0])], components: [MenuRow] });
+                    await selector.update({ embeds: [data.generateEmbed(selector.values[0])], components: [MenuRow] });
                 } catch (error) {
                     utils.log(`Error In Help Message Collector\x1b[0m\n`, error);
                 }
 
-            });
+            }).bind(helpCollectorData));
 
             helpCollector.on('end', (collected, reason) => {
                 try {
 
-                    helpCollector.options.message.fetch().then((message) => {
+                    (helpCollector.options.message as Message).fetch().then((message) => {
                         if (message) {
                             message.components[0].components[0].disabled = true
                             message.edit({ embeds: [message.embeds[0]], components: message.components });
@@ -166,9 +163,8 @@ const result: IUmekoSlashCommand = {
 
 
             });
-
         }
     }
 }
 
-export default result;
+export default command;

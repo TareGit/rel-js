@@ -36,4 +36,4 @@ app.listen(port, () => {
   utils.log(`Umeko HTTP Server listening at ${process.env.CLUSTER_API}/`);
 });
 
-export { };
+export {};

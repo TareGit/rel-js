@@ -1,21 +1,26 @@
-import { CommandInteraction, GuildMember } from "discord.js";
+import { ColorResolvable, CommandInteraction, GuildMember } from "discord.js";
+import path from "path";
+import { IUmekoSlashCommand, ECommandType, EUmekoCommandContextType, IParsedMessage } from "../types";
 
-const { MessageEmbed } = require('discord.js');
+import { MessageEmbed } from 'discord.js';
 
-const { sync, guildSettings }: IDataBus = require(`${process.cwd()}/dataBus.js`);
+import axios from "axios";
 
-const axios = require("axios");
+const { version, defaultPrimaryColor } = bus.sync.require(
+    path.join(process.cwd(), "config.json")
+) as typeof import("../config.json");
 
-const { version, defaultPrimaryColor } = sync.require(path.join(process.cwd(), '../config.json'));
+const utils = bus.sync.require(
+    path.join(process.cwd(), "utils")
+) as typeof import("../utils");
 
-const utils = sync.require(`${process.cwd()}/utils`);
 
 
-
-const result: IUmekoSlashCommand = {
+const command: IUmekoSlashCommand = {
     name: 'actor',
     category: 'Fun',
     type: ECommandType.SLASH,
+    dependencies: ['utils'],
     description: 'Gets basic information about an actor',
     syntax: '{prefix}{name} <actor name>',
     options: [
@@ -32,12 +37,12 @@ const result: IUmekoSlashCommand = {
         const searchTerm = ctx.type == EUmekoCommandContextType.SLASH_COMMAND ? (ctx.command as CommandInteraction).options.getString('actor') : (ctx.command as IParsedMessage).pureContent;
 
         const params = new URLSearchParams();
-        params.append("query", searchTerm);
+        params.append("query", searchTerm!);
 
-        let response = undefined;
+        let response: any = undefined;
 
         const Embed = new MessageEmbed();
-        Embed.setColor(ctx.command.member ? guildSettings.get((ctx.command.member as GuildMember).guild.id).color : defaultPrimaryColor);
+        Embed.setColor((bus.guildSettings.get(ctx.command.guild?.id || '')?.color || defaultPrimaryColor) as ColorResolvable);
 
         try {
 
@@ -52,7 +57,7 @@ const result: IUmekoSlashCommand = {
 
             const actorData = response.results[0];
 
-            Embed.setURL(process.env.WEBSITE);
+            Embed.setURL(process.env.WEBSITE!);
 
             Embed.setTitle(actorData.name);
 
@@ -72,4 +77,4 @@ const result: IUmekoSlashCommand = {
     }
 }
 
-export default result;
+export default command;

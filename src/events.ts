@@ -3,7 +3,7 @@ import fs from "fs";
 import { Manager } from "lavacord";
 import { watch } from "chokidar";
 import { IBotEvent } from "./types";
-import { ClientEvents, Message } from "discord.js";
+import { BaseCommandInteraction, ClientEvents, Interaction, Message } from "discord.js";
 const utils = bus.sync.require(
   path.join(process.cwd(), "utils")
 ) as typeof import("./utils");
@@ -11,7 +11,7 @@ const utils = bus.sync.require(
 const guildDataModule = bus.sync.require(
   "./modules/guildData"
 ) as typeof import("./modules/guildData");
-const levelingModule = bus.sync.require(
+const { updateServerLeveling } = bus.sync.require(
   "./modules/leveling"
 ) as typeof import("./modules/leveling");
 
@@ -21,11 +21,14 @@ const commandsModule = bus.sync.require(
 
 async function onMessageCreate(message: Message) {
   const bot = bus.bot;
-  if (!bot || !bot.user) return;
+  if (!bot || !bot.user || message.author.bot) return;
+
 
   try {
-    if (message.author.id === bus.bot?.user?.id) return;
-    if (message.author.bot) return;
+
+    if (message.guild) {
+      updateServerLeveling(message);
+    }
 
     if (
       message.mentions.users.has(bot.user.id) &&
@@ -34,10 +37,11 @@ async function onMessageCreate(message: Message) {
     ) {
       const argument = message.content.split(">")[1].trim().toLowerCase();
       if (argument === "" || argument === "help") {
-
       }
     }
-    const command = await commandsModule.parseMessage(message).catch((error) => utils.log(`Error parsing message\x1b[0m\n`, error));
+    const command = await commandsModule
+      .parseMessage(message)
+      .catch((error) => utils.log(`Error parsing message\x1b[0m\n`, error));
 
     if (command) {
       command.command.execute(command.ctx).catch((error) => {
@@ -49,27 +53,25 @@ async function onMessageCreate(message: Message) {
   }
 }
 
-async function onInteractionCreate(interaction) {
-  /*
+async function onInteractionCreate(interaction: Interaction) {
   try {
     if (!interaction.isCommand() && !interaction.isContextMenu()) {
       return;
     }
-
-    const commandToExecute = await parser
+    const cmd = await commandsModule
       .parseInteractionCommand(interaction)
       .catch((error) => utils.log(`Error parsing interaction\x1b[0m\n`, error));
 
-    if (commandToExecute == undefined) {
+    if (!cmd) {
       interaction.reply("Command not yet implemented");
     } else {
-      commandToExecute.execute(interaction).catch((error) => {
+      cmd.command.execute(cmd.ctx).catch((error) => {
         utils.log(`Error Executing Interaction Command\x1b[0m\n`, error);
       });
     }
   } catch (error) {
     utils.log(error);
-  }*/
+  }
 }
 
 async function onGuildMemberUpdate(oldMember, newMember) { }
@@ -123,7 +125,7 @@ async function onPresenceUpdate(oldPresence, newPresence) {
       const url = targetActivity.url;
 
       // Twitch online message here
-      const twitchOnlineMsg = (options.get("message") || "")
+      const twitchOnlineMsg = (options.get("msg") || "")
         .replace(/{user}/gi, `<@${userId}>`)
         .replace(/{username}/gi, `${username}`)
         .replace(/{link}/gi, `${url}`);
@@ -190,9 +192,12 @@ async function onBotReady() {
 
   // Volcano nodes
 
-  const owner = await bot.users.fetch('604699803468824676');
+  const owner = await bot.users.fetch("604699803468824676");
 
-  if (owner) await owner.send(`I just woke up for some reason | ${new Date().toLocaleString()}`);
+  if (owner)
+    await owner.send(
+      `I just woke up for some reason | ${new Date().toLocaleString()}`
+    );
   const nodes = [
     {
       id: "1",
@@ -247,7 +252,6 @@ async function onBotReady() {
 
   try {
     await guildDataModule.load();
-
   } catch (error) {
     utils.log("Error loading modules\x1b[0m\n", error);
   }
@@ -265,28 +269,23 @@ async function onBotReady() {
   );
 }
 
-async function onJoinedNewGuild() {
+async function onJoinedNewGuild() { }
 
-}
-
-const eventsToBind: IBotEvent<keyof ClientEvents>[] = [
-  { event: "messageCreate", funct: (message: Message) => { } }
-]
-/*
-const eventsToBind: IBotEvent<keyof ClientEvents>[] = [
+const eventsToBind: IBotEvent[] = [
   { event: "messageCreate", funct: onMessageCreate },
   { event: "interactionCreate", funct: onInteractionCreate },
   { event: "guildMemberUpdate", funct: onGuildMemberUpdate },
   { event: "guildCreate", funct: onGuildCreate },
   { event: "presenceUpdate", funct: onPresenceUpdate },
   { event: "ready", funct: onBotReady },
-  { event: 'guildCreate', funct: onJoinedNewGuild },
-];*/
+  { event: "guildCreate", funct: onJoinedNewGuild },
+];
 
 if (bus.bot) {
   const bot = bus.bot;
+
   bus.boundBotEvents.forEach((funct, event) => {
-    bot.removeListener(event, funct);
+    bot.off(event, funct);
     bus.boundBotEvents.delete(event);
   });
 

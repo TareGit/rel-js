@@ -1,22 +1,28 @@
-import { GuildMember } from "discord.js";
+import { ColorResolvable, CommandInteraction, GuildMember } from "discord.js";
 
-const { MessageEmbed, Comm } = require('discord.js');
-
-const { sync, guildSettings, bot } = require(`${process.cwd()}/dataBus.js`);
+import { MessageEmbed } from 'discord.js';
+import path from "path";
+import { IUmekoSlashCommand, ECommandType, EUmekoCommandContextType, IParsedMessage } from "../types";
+import result from "./actor";
 
 const axios = require("axios");
 
-const { version, defaultPrimaryColor } = sync.require(path.join(process.cwd(), '../config.json'));
+const { version, defaultPrimaryColor } = bus.sync.require(
+  path.join(process.cwd(), "config.json")
+) as typeof import("../config.json");
 
-const utils = sync.require(`${process.cwd()}/utils`);
+const utils = bus.sync.require(
+  path.join(process.cwd(), "utils")
+) as typeof import("../utils");
 
 
 
-const result: IUmekoSlashCommand = {
+const command: IUmekoSlashCommand = {
   name: 'anime',
   category: 'Fun',
   description: 'Gets basic information about an anime',
   type: ECommandType.SLASH,
+  dependencies: ['utils'],
   syntax: '{prefix}{name} <anime name>',
   options: [
     {
@@ -32,15 +38,15 @@ const result: IUmekoSlashCommand = {
     const searchTerm = ctx.type == EUmekoCommandContextType.SLASH_COMMAND ? (ctx.command as CommandInteraction).options.getString('anime') : (ctx.command as IParsedMessage).pureContent;
 
     const params = new URLSearchParams();
-    params.append("q", searchTerm);
+    params.append("q", searchTerm!);
     params.append("limit", "1");
     params.append("nsfw", "string");
     params.append("fields", "status,num_episodes,synopsis,rank,anime_score");
 
-    let response = undefined;
+    let response: any = undefined;
 
     const Embed = new MessageEmbed();
-    Embed.setColor(ctx.command.member ? guildSettings.get((ctx.command.member as GuildMember).guild.id).color : defaultPrimaryColor);
+    Embed.setColor((bus.guildSettings.get(ctx.command.guild?.id || '')?.color || defaultPrimaryColor) as ColorResolvable);
 
     try {
       response = (await axios.get(`${process.env.MAL_API}/anime?`, { headers: { 'X-MAL-CLIENT-ID': process.env.MAL_API_KEY }, params: params })).data;
@@ -70,4 +76,4 @@ const result: IUmekoSlashCommand = {
   }
 }
 
-export default result;
+export default command;

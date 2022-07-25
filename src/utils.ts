@@ -1,14 +1,29 @@
 import axios from "axios";
-import { MessagePayload, InteractionReplyOptions, CommandInteraction, Message } from "discord.js";
-import path from "path";
+import { Utils } from "discord-api-types";
 import {
+  MessagePayload,
+  InteractionReplyOptions,
+  CommandInteraction,
+  Message,
+  GuildMember,
+  BaseCommandInteraction,
+} from "discord.js";
+import fs from "fs/promises";
+import path from "path";
+import constants from "./constants";
+import {
+  ECommandOptionType,
   ECommandType,
   EUmekoCommandContextType,
+  IDiscordApiCommand,
+  IGuildLevelingData,
+  IParsedMessage,
   IUmekoCommand,
   IUmekoCommandContext,
   IUmekoContextMenuCommand,
   IUmekoSlashCommand,
   IUmekoUserCommand,
+  IUserSettings,
 } from "./types";
 
 /**
@@ -38,7 +53,7 @@ export function randomIntegerInRange(min, max) {
  * @param {Number}level The current level
  * @returns {Number}The xp required
  */
-export function getXpForNextLevel(level) {
+export function getXpForNextLevel(level: number) {
   return level ** 2 * 3 + 100;
 }
 
@@ -47,7 +62,7 @@ export function getXpForNextLevel(level) {
  * @param {Number}level The level to get the xp for
  * @returns {Number}The total xp
  */
-export function getTotalXp(level) {
+export function getTotalXp(level: number) {
   return 0.5 * (level + 1) * (level ** 2 * 2 + level + 200);
 }
 
@@ -85,15 +100,18 @@ export function log(...args) {
   const simplifiedStack = stack?.split("\n")[2].split(pathDelimiter) || [];
   const file =
     simplifiedStack[Math.max(simplifiedStack.length - 1, 0)].split(")")[0];
-  argumentValues.unshift(`${file} ::`);
+
+
+  argumentValues.unshift(`${file.padEnd(25)}::`);
 
   if (bus.bot && bus.cluster) {
-    argumentValues.unshift(`Cluster ${bus.cluster.id} ::`);
+    const clusterText = `Cluster ${bus.cluster.id}`.padEnd(13);
+    argumentValues.unshift(`${clusterText}::`);
   } else {
-    argumentValues.unshift(`Manager ::`);
+    argumentValues.unshift(`${'Manager'.padEnd(13)}::`);
   }
 
-  argumentValues.unshift(`${time(":")} ::`);
+  argumentValues.unshift(`${new Date().toLocaleString().padEnd(25)}::`);
 
   console.log.apply(null, argumentValues);
 }
@@ -104,52 +122,66 @@ export function log(...args) {
  * @param payload The content to send
  * @returns {Message} The reply
  */
-export async function reply(ctx: IUmekoCommandContext, payload: string | MessagePayload | InteractionReplyOptions, forceChannelReply = false) {
+export async function reply(
+  ctx: IUmekoCommandContext,
+  payload: string | MessagePayload | InteractionReplyOptions,
+  forceChannelReply = false
+) {
   try {
-
     if (ctx.type === EUmekoCommandContextType.CHAT_MESSAGE) {
-      return await ctx.command
+      return await (ctx.command as IParsedMessage)
         .reply(payload)
         .catch((error) => log("Error sending message", error));
-    }
-    else if (ctx.type === EUmekoCommandContextType.CONTEXT_MENU || ctx.type === EUmekoCommandContextType.SLASH_COMMAND) {
-      const cmdAsInt = ctx.command as CommandInteraction;
+    } else if (
+      ctx.type === EUmekoCommandContextType.MESSAGE_CONTEXT_MENU ||
+      ctx.type === EUmekoCommandContextType.SLASH_COMMAND
+    ) {
+      const cmdAsInt = ctx.command as BaseCommandInteraction;
       if (cmdAsInt.deferred) {
         if (cmdAsInt.replied) {
-          return await cmdAsInt.channel?.send(payload)
+          return await cmdAsInt.channel
+            ?.send(payload)
             .catch((error) => log("Error sending message", error));
         }
 
         return await cmdAsInt
           .editReply(payload)
           .catch((error) => log("Error sending message", error));
-      }
-      else {
+      } else {
+        if (cmdAsInt.replied) {
+          return await cmdAsInt.channel
+            ?.send(payload)
+            .catch((error) => log("Error sending message", error));
+        }
+
         return await cmdAsInt
           .reply(payload)
           .catch((error) => log("Error sending message", error));
       }
-    }
-    else if (ctx.type === EUmekoCommandContextType.USER_COMMAND) {
-
+    } else if (ctx.type === EUmekoCommandContextType.USER_CONTEXT_MENU) {
     }
   } catch (error) {
     log(`Error sending message\x1b[0m\n`, error);
   }
 }
 
-export async function addNewCommand(commandPath) {
+export async function addNewCommand(commandPath: string) {
   if (!commandPath.endsWith(".js")) return;
 
-  const pathAsArray =
-    process.platform !== "win32"
-      ? commandPath.split("/")
-      : commandPath.split("\\");
-
   try {
-    const fileName: string = pathAsArray[pathAsArray.length - 1].slice(0, -3); // remove .js
+    const command: IUmekoCommand = require(path.join(
+      __dirname,
+      commandPath
+    )).default;
 
-    const command: IUmekoCommand = require(path.join(__dirname, commandPath)).default;
+    command.dependencies.forEach(dep => {
+      if (!bus.dependencies.get(dep)) {
+        bus.dependencies.set(dep, [commandPath]);
+      }
+      else {
+        bus.dependencies.get(dep)!.push(commandPath);
+      }
+    });
 
     switch (command.type) {
       case ECommandType.CONTEXT_MENU:
@@ -168,65 +200,27 @@ export async function addNewCommand(commandPath) {
         break;
     }
   } catch (error) {
-    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
 
-    log(`Error loading ${fileName}\x1b[0m\n`, error);
+    log(`Error loading ${commandPath}\x1b[0m\n`, error);
   }
 }
 
-export async function reloadCommand(commandPath) {
+export async function deleteCommand(commandPath: string) {
   if (!commandPath.endsWith(".js")) return;
 
-  const pathAsArray =
-    process.platform !== "win32"
-      ? commandPath.split("/")
-      : commandPath.split("\\");
 
   try {
-    const cachedValue =
-      require.cache[require.resolve(path.join(__dirname, commandPath))];
+    const command: IUmekoCommand = require(path.join(
+      __dirname,
+      commandPath
+    )).default;
 
-    if (cachedValue !== undefined)
-      delete require.cache[require.resolve(path.join(__dirname, commandPath))];
-
-    const fileName: string = pathAsArray[pathAsArray.length - 1].slice(0, -3); // remove .js
-
-    const command: IUmekoCommand = require(path.join(__dirname, commandPath)).default;
-
-    switch (command.type) {
-      case ECommandType.CONTEXT_MENU:
-        bus.contextMenuCommands.set(
-          command.name,
-          command as IUmekoContextMenuCommand
-        );
-        break;
-      case ECommandType.SLASH:
-        bus.slashCommands.set(command.name, command as IUmekoSlashCommand);
-        break;
-      case ECommandType.USER:
-        bus.userCommands.set(command.name, command as IUmekoUserCommand);
-        break;
-      default:
-        break;
-    }
-  } catch (error) {
-    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
-
-    log(`Error reloading command ${fileName}\x1b[0m\n`, error);
-  }
-}
-
-export async function deleteCommand(commandPath) {
-  if (!commandPath.endsWith(".js")) return;
-
-  const pathAsArray =
-    process.platform !== "win32"
-      ? commandPath.split("/")
-      : commandPath.split("\\");
-
-  try {
-    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
-    const command: IUmekoCommand = require(path.join(__dirname, commandPath)).default;
+    command.dependencies.forEach(dep => {
+      const busDeps = bus.dependencies.get(dep)
+      if (busDeps && busDeps.includes(commandPath)) {
+        busDeps.splice(busDeps.indexOf(commandPath), 1);
+      }
+    });
 
     switch (command.type) {
       case ECommandType.CONTEXT_MENU:
@@ -248,9 +242,35 @@ export async function deleteCommand(commandPath) {
     if (cachedValue !== undefined)
       delete require.cache[require.resolve(path.join(__dirname, commandPath))];
   } catch (error) {
-    const fileName = pathAsArray[pathAsArray.length - 1].slice(0, -3);
 
-    log(`Error deleting command ${fileName}\x1b[0m\n`, error);
+    log(`Error deleting command ${commandPath}\x1b[0m\n`, error);
+  }
+}
+
+export async function reloadCommand(commandPath: string) {
+  if (!commandPath.endsWith(".js")) return;
+
+  try {
+    deleteCommand(commandPath);
+    addNewCommand(commandPath)
+  } catch (error) {
+    log(`Error reloading command ${commandPath}\x1b[0m\n`, error);
+  }
+}
+
+export async function reloadDependentCommands(dependency: string) {
+  try {
+    if (!bus.dependencies.get(dependency)) return
+
+    const commandList = bus.dependencies.get(dependency)!
+
+    commandList.forEach(reloadCommand);
+
+    log('reloaded Dependent Commands', dependency, commandList)
+
+  } catch (error) {
+
+    log(`Error reloadin dependent commands for ${dependency}`, error);
   }
 }
 
@@ -320,219 +340,89 @@ export async function getSpotifyApiToken() {
   }
 }
 
-export async function addUserToDb(userId: string) {
-  axios.put()
-}
-export function generateCardHtml(
-  color: string,
-  opacity: number,
-  background: string,
-  avatar: string,
-  rankText: string,
-  level: number,
-  displayName: string,
-  currentXp: number,
-  requiredXp: number
-) {
-  const card = `<!DOCTYPE html>
-    <html lang="en">
-    
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500&display=swap');
-    
-            :root {
-                --main-color: ${color};
-                --progress-percent: ${(currentXp / requiredXp) * 100}%;
-                --opacity : ${opacity};
-            }
-    
-            h1 {
-                font-family: 'Poppins', sans-serif;
-                font-weight: 500;
-                font-size: 40px;
-                display: block;
-                color: white;
-                margin: 0;
-            }
-    
-            h2 {
-                font-family: 'Poppins', sans-serif;
-                font-weight: 300;
-                font-size: 30px;
-                display: block;
-                color: white;
-                margin: 0;
-            }
-    
-            h3 {
-                font-family: 'Poppins', sans-serif;
-                font-weight: 200;
-                font-size: 20px;
-                display: block;
-                color: white;
-                margin: 0;
-            }
-    
-            body {
-                font-family: "Poppins", Arial, Helvetica, sans-serif;
-                background: rgb(22, 22, 22);
-                color: #222;
-                width: 1000px;
-                height: 300px;
-                overflow: hidden;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                background: transparent;
-            }
-    
-            .user-profile {
-                position: relative;
-                min-width: 184px;
-                width: 184px;
-                height: 184px;
-                display: block;
-            }
-    
-            .user-rank-info {
-                width: inherit;
-                height: inherit;
-                display: flex;
-                flex-direction: column;
-                justify-content: flex-end;
-            }
-    
-    
-    
-    
-            .user-rank-info-row {
-                width: 100%;
-                height: 50px;
-                display: flex;
-                flex-direction: row;
-                position: relative;
-                justify-content: space-between;
-                box-sizing: border-box;
-                padding: 0 20px;
-            }
-    
-            .user-rank-info-row[pos='top'] {
-                height: 70px;
-            }
-    
-            .user-rank-info-row[pos='middle'] {
-                height: 60px;
-                align-items: center;
-            }
-    
-            .user-rank-info-bar{
-                display: block;
-                background-color: grey;
-                width: 100%;
-                height: 30px;
-                box-sizing: border-box;
-                border-radius: 20px;
-            }
-    
-            .user-rank-info-progress{
-                display: block;
-                background-color: var(--main-color);
-                width: var(--progress-percent);
-                height: 30px;
-                box-sizing: border-box;
-                border-radius: 20px;
-            }
-    
-    
-    
-            .user-rank-info-row[pos='top']::after {
-                content: '';
-                display: block;
-                height: 1px;
-                width: 686px;
-                background-color: var(--main-color);
-                position: absolute;
-                top: 100%;
-            }
-    
-    
-    
-            .user-profile img {
-                position: absolute;
-                width: 180px;
-                height: 180px;
-                border-radius: 110px;
-                border: 2px groove black;
-                display: inline-block;
-            }
-    
-            .online-status {
-                position: absolute;
-                width: 30px;
-                height: 30px;
-                border-radius: 100px;
-                background-color: green;
-                border: 2px solid black;
-                display: inline-block;
-                transform: translateY(-50%) translateX(-50%);
-                left: 85%;
-                top: 85%;
-            }
-    
-            .main {
-                position: relative;
-                width: 950px;
-                height: 220px;
-                display: flex;
-                flex-direction: row;
-                overflow: hidden;
-                background-color: rgba(34, 34, 34, var(--opacity));
-                justify-content: flex-start;
-                align-items: center;
-                box-sizing: border-box;
-                padding: 20px;
-                border-radius: 8px;
-            }
-    
-            .background {
-                width: 1000px;
-                height: 300px;
-                object-fit: cover;
-                position: fixed;
-                border-radius: 8px;
-            }
-        </style>
-    </head>
-    
-    <body>
-        <img class="background" src="${background}" />
-        <div class="main">
-            <div class="user-profile">
-                <img
-                    src="${avatar}" />
-                
-            </div>
-            <div class="user-rank-info">
-                <div class="user-rank-info-row" pos='top'>
-                    <h1>${displayName}</h1> <h1>${rankText}</h1>
-                </div>
-                <div class="user-rank-info-row" pos='middle'>
-                    <h2>Level ${level}</h2> <h2>${currentXp}k/${requiredXp}k</h2>
-                </div>
-                <div class="user-rank-info-row">
-                    <div class="user-rank-info-bar">
-                        <div class="user-rank-info-progress"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </body>
-    
-    </html>`;
+let loadedCard: string | null = null;
+loadedCard = null;
+export async function generateCardHtml(user: GuildMember) {
+  if (!loadedCard) {
+    loadedCard = await fs.readFile(
+      path.join(__dirname, "../rank-card.html"),
+      "utf8"
+    );
+  }
 
-  return card;
+  const levelingData = bus.guildLeveling.get(user.guild.id) as IGuildLevelingData;
+
+  if (!levelingData.data[user.id]) levelingData.data[user.id] = { ...constants.DEFAULT_USER_LEVEL_DATA, guild: user.guild.id, user: user.id }
+
+  const userLevelingData = levelingData.data[user.id];
+  const userSettings = bus.userSettings.get(user.id) as IUserSettings;
+
+  const progress = userLevelingData.progress || 0.001;
+  const required = getXpForNextLevel(userLevelingData.level);
+
+  const customizedCard = loadedCard
+    .replaceAll("{opacity}", `${userSettings.card_opacity}`)
+    .replaceAll("{color}", `${userSettings.color}`)
+    .replaceAll("{percent}", `${Math.min((progress / required), 1) * 100}`)
+    .replaceAll("{bg}", userSettings.card_bg_url.split('|')[0] || 'https://r4.wallpaperflare.com/wallpaper/108/140/869/digital-digital-art-artwork-fantasy-art-drawing-hd-wallpaper-d8b62d28c0f06c48d03c114ec8f2b4aa.jpg')
+    .replaceAll("{avatar}", user.displayAvatarURL())
+    .replaceAll("{username}", user.displayName)
+    .replaceAll("{rank}", `${levelingData.rank.indexOf(user.id) + 1}`)
+    .replaceAll("{level}", `${userLevelingData.level}`)
+    .replaceAll("{progress}", `${progress / 1000}`)
+    .replaceAll("{required}", `${required / 1000}`);
+
+  return customizedCard;
+}
+
+export function exportCommands() {
+  const commandsToExport: IDiscordApiCommand[] = [];
+  const groups: { [group: string]: IDiscordApiCommand } = {}
+
+  bus.slashCommands.forEach(command => {
+    if (command.group) {
+      if (!groups[command.group]) {
+        groups[command.group] = {
+          name: command.group,
+          description: `${command.group} interface`,
+          options: []
+        }
+      }
+      (groups[command.group!]!.options as IDiscordApiCommand[]).push({ name: command.name, description: command.description, options: command.options, type: ECommandOptionType.SUB_COMMAND })
+    }
+    else {
+      commandsToExport.push({ name: command.name, description: command.description, options: command.options, type: command.type })
+    }
+  })
+
+
+  commandsToExport.push.apply(commandsToExport, Object.values(groups));
+
+  commandsToExport.push.apply(commandsToExport, Array.from(bus.userCommands.values()).map(com => ({ name: com.name, type: com.type })));
+
+  commandsToExport.push.apply(commandsToExport, Array.from(bus.contextMenuCommands.values()).map(com => ({ name: com.name, type: com.type })));
+  return commandsToExport;
+}
+
+export async function uploadCommands(guild?: string) {
+  const payload = exportCommands();
+
+  const config = {
+    headers: {
+      Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`
+    }
+  }
+
+  if (guild) {
+    await axios.put(`https://discord.com/api/v10/applications/895104527001354313/guilds/${guild}/commands`, payload, config);
+  }
+  else {
+    await axios.put(`https://discord.com/api/v10/applications/895104527001354313/commands`, payload, config);
+  }
+}
+
+if (!bus.loadedSyncFiles.includes('utils')) {
+  bus.loadedSyncFiles.push('utils');
+} else {
+  reloadDependentCommands('utils')
 }

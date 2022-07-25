@@ -1,26 +1,31 @@
-const { MessageEmbed } = require('discord.js');
+import { ColorResolvable, CommandInteraction, GuildMember } from "discord.js";
+import path from "path";
+import { IUmekoSlashCommand, EUmekoCommandContextType, IParsedMessage, ECommandType, ECommandOptionType } from "../types";
+import { MessageEmbed } from 'discord.js';
+import axios from "axios";
 
-const { sync, guildSettings, bot } = require(`${process.cwd()}/dataBus.js`);
+const { version, defaultPrimaryColor } = bus.sync.require(
+    path.join(process.cwd(), "config.json")
+) as typeof import("../config.json");
 
-const axios = require("axios");
-
-const { version, defaultPrimaryColor } = sync.require(path.join(process.cwd(), '../config.json'));
-
-const utils = sync.require(`${process.cwd()}/utils`);
+const utils = bus.sync.require(
+    path.join(process.cwd(), "utils")
+) as typeof import("../utils");
 
 
 
-module.exports = {
+const command: IUmekoSlashCommand = {
     name: 'movie',
     category: 'Fun',
     description: 'Gets basic information about a movie',
-    ContextMenu: {},
+    type: ECommandType.SLASH,
+    dependencies: ['utils'],
     syntax: '{prefix}{name} <movie name>',
     options: [
         {
             name: "movie",
             description: "The movie to search for",
-            type: 3,
+            type: ECommandOptionType.STRING,
             required: true
         }
     ],
@@ -30,12 +35,12 @@ module.exports = {
         const searchTerm = ctx.type == EUmekoCommandContextType.SLASH_COMMAND ? (ctx.command as CommandInteraction).options.getString('movie') : (ctx.command as IParsedMessage).pureContent;
 
         const params = new URLSearchParams();
-        params.append("query", searchTerm);
+        params.append("query", searchTerm!);
 
-        let response = undefined;
+        let response: any = undefined;
 
         const Embed = new MessageEmbed();
-        Embed.setColor(ctx.command.member ? guildSettings.get((ctx.command.member as GuildMember).guild.id).color : defaultPrimaryColor);
+        Embed.setColor((bus.guildSettings.get(ctx.command.guild?.id || '')?.color || defaultPrimaryColor) as ColorResolvable);
 
         try {
 
@@ -50,7 +55,7 @@ module.exports = {
 
             const movieData = response.results[0];
 
-            Embed.setURL(process.env.WEBSITE);
+            Embed.setURL(process.env.WEBSITE!);
 
             Embed.setTitle(movieData.title);
 
@@ -74,3 +79,5 @@ module.exports = {
 
     }
 }
+
+export default command;

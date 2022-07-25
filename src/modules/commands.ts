@@ -6,7 +6,13 @@ import {
 } from "discord.js";
 import fs from "fs";
 import path from "path";
-import { ECommandType, EUmekoCommandContextType, IParsedMessage, IUmekoCommandContext, IUmekoSlashCommand } from "../types";
+import {
+  ECommandType,
+  EUmekoCommandContextType,
+  IParsedMessage,
+  IUmekoCommandContext,
+  IUmekoSlashCommand,
+} from "../types";
 
 const utils = bus.sync.require(
   `${process.cwd()}/utils`
@@ -21,7 +27,11 @@ const { defaultPrefix } = bus.sync.require(
  * @param {Message}message The message to parse
  * @returns {Command} A command or undefined if the message could not be parsed
  */
-export async function parseMessage(message: Message): Promise<{ command: IUmekoSlashCommand; ctx: IUmekoCommandContext; } | undefined> {
+export async function parseMessage(
+  message: Message
+): Promise<
+  { command: IUmekoSlashCommand; ctx: IUmekoCommandContext } | null
+> {
   const content = message.content;
   const guildData =
     message.member !== null
@@ -33,15 +43,15 @@ export async function parseMessage(message: Message): Promise<{ command: IUmekoS
     defaultPrefix;
 
   if (!content.startsWith(prefix)) {
-    return undefined;
+    return null;
   }
 
   const contentWithoutprefix = content.slice(prefix.length);
   const contentSplit = contentWithoutprefix.split(/\s+/);
   const actualAlias = contentSplit[0].toLowerCase();
 
-  if (bus.slashCommands.get(actualAlias) === undefined) {
-    return undefined;
+  if (!bus.slashCommands.get(actualAlias)) {
+    return null;
   }
 
   const argsNotSplit = content.slice(prefix.length + actualAlias.length);
@@ -52,7 +62,13 @@ export async function parseMessage(message: Message): Promise<{ command: IUmekoS
 
   const parsedMessage = messageWithoutType as IParsedMessage;
 
-  return { command: bus.slashCommands.get(actualAlias) as IUmekoSlashCommand, ctx: { command: parsedMessage, type: EUmekoCommandContextType.CHAT_MESSAGE } };
+  return {
+    command: bus.slashCommands.get(actualAlias) as IUmekoSlashCommand,
+    ctx: {
+      command: parsedMessage,
+      type: EUmekoCommandContextType.CHAT_MESSAGE,
+    },
+  };
 }
 
 /**
@@ -61,12 +77,48 @@ export async function parseMessage(message: Message): Promise<{ command: IUmekoS
  * @returns {Command} A command or undefined if the interaction could not be parsed
  */
 export async function parseInteractionCommand(interaction: Interaction) {
-  if (interaction.isContextMenu()) {
-    return bus.contextMenuCommands.get(interaction.commandName);
-  }
 
   if (interaction.isCommand()) {
-    return bus.slashCommands.get(interaction.commandName);
+    const subCommand = interaction.options.getSubcommand(false);
+    if (subCommand && bus.slashCommands.get(subCommand)) {
+      return {
+        command: bus.slashCommands.get(subCommand) as IUmekoSlashCommand,
+        ctx: {
+          command: interaction as CommandInteraction,
+          type: EUmekoCommandContextType.SLASH_COMMAND,
+        },
+      };
+    } else if (bus.slashCommands.get(interaction.commandName)) {
+      return {
+        command: bus.slashCommands.get(interaction.commandName) as IUmekoSlashCommand,
+        ctx: {
+          command: interaction as CommandInteraction,
+          type: EUmekoCommandContextType.SLASH_COMMAND,
+        },
+      };
+    }
+
+
+  }
+
+  if (interaction.isContextMenu() && bus.contextMenuCommands.get(interaction.commandName)) {
+    return {
+      command: bus.slashCommands.get(interaction.commandName) as IUmekoSlashCommand,
+      ctx: {
+        command: interaction as CommandInteraction,
+        type: EUmekoCommandContextType.MESSAGE_CONTEXT_MENU,
+      },
+    };
+  }
+
+  if (interaction.isUserContextMenu() && bus.userCommands.get(interaction.commandName)) {
+    return {
+      command: bus.slashCommands.get(interaction.commandName) as IUmekoSlashCommand,
+      ctx: {
+        command: interaction as CommandInteraction,
+        type: EUmekoCommandContextType.USER_CONTEXT_MENU,
+      },
+    };
   }
 
   return null;

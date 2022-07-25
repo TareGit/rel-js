@@ -12,7 +12,7 @@
     "rest": "node ./utility/restText.js",
     "build": "npm run clean && npx tsc",
     "pretty": "npx prettier --write .",
-    "clean" : "node ./scripts/clean.js"
+    "clean": "node ./scripts/clean.js"
   },
   "keywords": [],
   "author": "Oyintare",
@@ -38,7 +38,8 @@
     "libsodium-wrappers": "^0.7.9",
     "node-os-utils": "^1.3.5",
     "opusscript": "^0.0.8",
-    "puppeteer": "^13.0.1"
+    "puppeteer": "^13.0.1",
+    "spotify-url-info": "^3.1.2"
   },
   "devDependencies": {
     "@babel/core": "^7.17.12",

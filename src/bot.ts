@@ -4,11 +4,7 @@ import "./bus";
 
 import { data, Client as ClusterClient } from "discord-hybrid-sharding";
 
-import {
-  Client,
-  Intents,
-  PartialTypes,
-} from "discord.js";
+import { Client, Intents, PartialTypes } from "discord.js";
 import path from "path";
 
 const fs = require("fs");
@@ -40,4 +36,4 @@ bus.cluster = new ClusterClient(bus.bot); //Init the Client & So we can also acc
 
 bus.sync.require("./events");
 
-bus.bot.login(process.env.CURRENT_BOT_TOKEN);
+bus.bot.login(process.env.DISCORD_BOT_TOKEN);

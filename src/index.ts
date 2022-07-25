@@ -38,4 +38,4 @@ bus.manager = manager;
 
 const webServer = require("./webServer");
 
-export { };
+export {};
