@@ -13,7 +13,7 @@ import constants from "../constants";
 import { Guild } from "discord.js";
 
 const { dataUpdateInterval } = bus.sync.require(
-    path.join(process.cwd(), "config.json")
+    path.join(process.cwd(), "./config.json")
 ) as typeof import("../config.json");
 
 const utils = bus.sync.require(
@@ -157,36 +157,68 @@ export async function onJoinedNewGuild(guild: Guild) {
         guild.id,
         convertFromDbSetting({ ...dbSettings, id: guild.id })
     );
+
+    axios
+        .post(`${process.env.SERVER_API}/notifications-guild`, {
+            op: "add",
+            data: [guild.id],
+            target: `${process.env.CLUSTER_API}`,
+        })
+        .catch((error) =>
+            utils.log(
+                "Error asking server to track guild updates : ",
+                error.message
+            )
+        );
 }
 
-export async function getUsers(ids: string[], createIfNotExists = true) {
-    const usersToFetch = ids;
+export async function getUsers(ids: string[], createIfNotExists = true): Promise<IUserSettings[]> {
+    try {
+        const usersToFetch = ids;
 
-    const usersFetched: IDatabaseUserSettings[] = (
-        await bus.db.get(`/users?q=${usersToFetch.join(",")}`)
-    ).data;
+        const usersFetched: IDatabaseUserSettings[] = (
+            await bus.db.get(`/users?q=${usersToFetch.join(",")}`)
+        ).data;
 
-    const usersRecieved = usersFetched.map((user) => user.id);
+        const usersRecieved = usersFetched.map((user) => user.id);
 
-    const usersNotRecieved = usersToFetch.filter(
-        (user) => !usersRecieved.includes(user)
-    );
+        const usersNotRecieved = usersToFetch.filter(
+            (user) => !usersRecieved.includes(user)
+        );
 
-    if (createIfNotExists) {
-        const newUsers = usersNotRecieved.map((id) => ({
-            ...constants.DEFAULT_USER_SETTINGS,
-            id: id,
+        if (createIfNotExists) {
+            const newUsers = usersNotRecieved.map((id) => ({
+                ...constants.DEFAULT_USER_SETTINGS,
+                id: id,
+            }));
+
+            await bus.db.put(`/users`, newUsers);
+
+            usersFetched.push.apply(usersFetched, newUsers);
+        }
+
+        axios
+            .post(`${process.env.SERVER_API}/notifications-user`, {
+                op: "add",
+                data: usersFetched.map(user => user.id),
+                target: `${process.env.CLUSTER_API}`,
+            })
+            .catch((error) =>
+                utils.log(
+                    "Error asking server to track guild updates : ",
+                    error.message
+                )
+            );
+
+        return usersFetched.map((user) => ({
+            ...user,
+            options: new URLSearchParams(user.options),
         }));
-
-        await bus.db.put(`/users`, newUsers);
-
-        usersFetched.push.apply(usersFetched, newUsers);
+    } catch (error) {
+        logPossibleAxiosError(error)
+        return [];
     }
 
-    return usersFetched.map((user) => ({
-        ...user,
-        options: new URLSearchParams(user.options),
-    }));
 }
 
 export async function load() {
@@ -268,7 +300,14 @@ export async function load() {
                 await bus.db.get(`/levels?q=${guildsToFetchLevelingFor.join(",")}`)
             ).data;
 
+            const usersToFetch: string[] = [];
+
             levels.forEach((levelData) => {
+
+                if (!usersToFetch.includes(levelData.user)) {
+                    usersToFetch.push(levelData.user);
+                }
+
                 if (!bus.guildLeveling.has(levelData.guild)) {
                     bus.guildLeveling.set(
                         levelData.guild,
@@ -283,6 +322,8 @@ export async function load() {
                     levelData.user
                 );
             });
+
+            await getUsers(usersToFetch);
         }
 
     } catch (error) {

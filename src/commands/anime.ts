@@ -8,7 +8,7 @@ import result from "./actor";
 const axios = require("axios");
 
 const { version, defaultPrimaryColor } = bus.sync.require(
-  path.join(process.cwd(), "config.json")
+  path.join(process.cwd(), "./config.json")
 ) as typeof import("../config.json");
 
 const utils = bus.sync.require(

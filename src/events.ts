@@ -3,7 +3,7 @@ import fs from "fs";
 import { Manager } from "lavacord";
 import { watch } from "chokidar";
 import { IBotEvent } from "./types";
-import { BaseCommandInteraction, ClientEvents, Interaction, Message } from "discord.js";
+import { BaseCommandInteraction, ClientEvents, Interaction, Message, Presence, TextChannel } from "discord.js";
 const utils = bus.sync.require(
   path.join(process.cwd(), "utils")
 ) as typeof import("./utils");
@@ -81,7 +81,9 @@ async function onGuildCreate(guild) {
 }
 
 // presence update for twitch activity
-async function onPresenceUpdate(oldPresence, newPresence) {
+async function onPresenceUpdate(oldPresence: Presence | null, newPresence: Presence) {
+  if (!newPresence.guild || !newPresence.member) return;
+
   const guildSettings = bus.guildSettings;
 
   try {
@@ -132,8 +134,8 @@ async function onPresenceUpdate(oldPresence, newPresence) {
 
       if (options.get("location") === "channel" && options.get("channel")) {
         const channel = await newPresence.guild.channels
-          .fetch(options.get("channel"))
-          .catch(utils.log);
+          .fetch(options.get("channel")!)
+          .catch(utils.log) as TextChannel | null;
 
         if (channel) {
           channel.send(twitchOnlineMsg);
@@ -142,11 +144,11 @@ async function onPresenceUpdate(oldPresence, newPresence) {
 
       if (options.get("give")) {
         const roles = options
-          .get("give")
-          ?.split(",")
+          .get("give")!
+          .split(",")
           .filter(
             (role) =>
-              !Array.from(newPresence.member.roles.cache.keys()).includes(role)
+              !Array.from(newPresence.member!.roles.cache.keys()).includes(role)
           );
 
         const user = newPresence.member;
@@ -158,10 +160,10 @@ async function onPresenceUpdate(oldPresence, newPresence) {
     } else {
       if (options.get("give")) {
         const roles = options
-          .get("give")
-          ?.split(",")
+          .get("give")!
+          .split(",")
           .filter((role) =>
-            Array.from(newPresence.member.roles.cache.keys()).includes(role)
+            Array.from(newPresence.member!.roles.cache.keys()).includes(role)
           );
 
         const user = newPresence.member;

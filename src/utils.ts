@@ -3,10 +3,13 @@ import { Utils } from "discord-api-types";
 import {
   MessagePayload,
   InteractionReplyOptions,
-  CommandInteraction,
+  InteractionCollector as ICollector,
   Message,
   GuildMember,
   BaseCommandInteraction,
+  Interaction,
+  Client,
+  InteractionCollectorOptions,
 } from "discord.js";
 import fs from "fs/promises";
 import path from "path";
@@ -418,6 +421,15 @@ export async function uploadCommands(guild?: string) {
   }
   else {
     await axios.put(`https://discord.com/api/v10/applications/895104527001354313/commands`, payload, config);
+  }
+}
+
+export class InteractionCollector<T extends Interaction, V = any> extends ICollector<T>
+{
+  public data: V;
+  constructor(client: Client, d: V, options?: InteractionCollectorOptions<T>) {
+    super(client, options);
+    this.data = d;
   }
 }
 

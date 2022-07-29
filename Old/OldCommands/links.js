@@ -2,7 +2,7 @@ const { MessageEmbed } = require('discord.js');
 
 const { sync, guildSettings, bot } = require(`${process.cwd()}/dataBus.js`);
 
-const { version, defaultPrimaryColor } = sync.require(path.join(process.cwd(), '../config.json'));
+const { version, defaultPrimaryColor } = sync.require(path.join(process.cwd(), './config.json'));
 
 const utils = sync.require(`${process.cwd()}/utils`);
 

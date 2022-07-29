@@ -5,7 +5,7 @@ import { IUmekoSlashCommand, EUmekoCommandContextType, IParsedMessage, ECommandT
 import axios from "axios";
 
 const { defaultPrimaryColor } = bus.sync.require(
-    path.join(process.cwd(), "config.json")
+    path.join(process.cwd(), "./config.json")
 ) as typeof import("../config.json");
 
 

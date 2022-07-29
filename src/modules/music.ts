@@ -1,8 +1,8 @@
 import path from "path";
-import { BaseCommandInteraction, ButtonInteraction, ColorResolvable, CommandInteraction, ContextMenuInteraction, Guild, GuildMember, InteractionCollector, Message, MessageActionRow, MessageButton, MessageEmbed, TextBasedChannel, VoiceBasedChannel } from "discord.js";
+import { BaseCommandInteraction, ButtonInteraction, ColorResolvable, CommandInteraction, ContextMenuInteraction, Guild, GuildMember, Message, MessageActionRow, MessageButton, MessageEmbed, TextBasedChannel, VoiceBasedChannel } from "discord.js";
 import { Manager, Player } from "lavacord";
 import { ISong, ELoopType, IUmekoCommandContext, ILoadedQueue, IMusicUrlCheck, EMusicCheckType, ISavedSong, ISavedQueue, EUmekoCommandContextType, IParsedMessage, EQueueSource } from "../types";
-import { reloadDependentCommands } from "../utils";
+import { InteractionCollector, reloadDependentCommands } from "../utils";
 const { queueTimeout, queueItemsPerPage, maxQueueFetchTime, maxRawVolume, defaultVolumeMultiplier, leftArrowEmoji, rightArrowEmoji } = bus.sync.require(path.join(process.cwd(), './config.json')) as typeof import('../config.json');
 
 const spotifyExpression = /^(?:spotify:|(?:https?:\/\/(?:open|play)\.spotify\.com\/)(?:embed)?\/?(track|album|playlist)(?::|\/)((?:[0-9a-zA-Z]){22}))/;
@@ -502,36 +502,40 @@ export class Queue extends EventEmitter {
 
 
         if (message) {
-            const nowPlayingColectorData = { ref: this }
-            const nowPlayingCollector = new InteractionCollector<ButtonInteraction>(bus.bot!, { message: message, componentType: 'BUTTON' });
+            const collectorData = { id: this.id, }
+            const nowPlayingCollector = new InteractionCollector<ButtonInteraction, typeof collectorData>(bus.bot!, collectorData, { message: message, componentType: 'BUTTON' });
 
-            (nowPlayingCollector as any).data = nowPlayingColectorData;
             nowPlayingCollector.on('collect', async (button: ButtonInteraction) => {
-                const data = (nowPlayingCollector as any).data as typeof nowPlayingColectorData
+
+                const queueRef = bus.queues.get(nowPlayingCollector.data.id);
+
+                if (!queueRef) return;
+
                 const tempCtx: IUmekoCommandContext = { command: button, type: EUmekoCommandContextType.SLASH_COMMAND }
+
                 await button.deferUpdate();
 
                 button.replied = true;
 
                 switch (button.customId) {
                     case 'pause':
-                        await data.ref.pauseSong(tempCtx);
+                        await queueRef.pauseSong(tempCtx);
                         break;
 
                     case 'resume':
-                        await data.ref.resumeSong(tempCtx);
+                        await queueRef.resumeSong(tempCtx);
                         break;
 
                     case 'queue':
-                        await data.ref.showQueue(tempCtx);
+                        await queueRef.showQueue(tempCtx);
                         break;
 
                     case 'skip':
-                        await data.ref.skipSong(tempCtx);
+                        await queueRef.skipSong(tempCtx);
                         break;
 
                     case 'stop':
-                        await data.ref.stop(tempCtx);
+                        await queueRef.stop(tempCtx);
                         break;
                 }
 
@@ -546,8 +550,8 @@ export class Queue extends EventEmitter {
                             .setLabel('Skip')
                             .setStyle('PRIMARY'),
                         new MessageButton()
-                            .setCustomId(data.ref.isPaused() ? 'resume' : 'pause')
-                            .setLabel(data.ref.isPaused() ? 'Resume' : 'Pause')
+                            .setCustomId(queueRef.isPaused() ? 'resume' : 'pause')
+                            .setLabel(queueRef.isPaused() ? 'Resume' : 'Pause')
                             .setStyle(`SUCCESS`),
                         new MessageButton()
                             .setCustomId('stop')
@@ -563,7 +567,7 @@ export class Queue extends EventEmitter {
             });
 
             nowPlayingCollector.on('end', (collected, reason) => {
-
+                const queueRef = bus.queues.get(nowPlayingCollector.data.id);
                 const editedNowButtons = new MessageActionRow()
                     .addComponents(
                         new MessageButton()
@@ -572,8 +576,8 @@ export class Queue extends EventEmitter {
                             .setStyle('PRIMARY')
                             .setDisabled(true),
                         new MessageButton()
-                            .setCustomId(this.isPaused() ? 'resume' : 'pause')
-                            .setLabel(this.isPaused() ? 'Resume' : 'Pause')
+                            .setCustomId(queueRef?.isPaused() ? 'resume' : 'pause')
+                            .setLabel(queueRef?.isPaused() ? 'Resume' : 'Pause')
                             .setStyle(`SUCCESS`)
                             .setDisabled(true),
                         new MessageButton()
@@ -590,7 +594,7 @@ export class Queue extends EventEmitter {
 
                 (nowPlayingCollector.options.message as Message).fetch().then((message) => {
                     if (message) message.edit({ embeds: [message.embeds[0]], components: [editedNowButtons] });
-                }).catch(utils.log);;
+                }).catch(utils.log);
             });
 
             this.nowPlayingMessage = nowPlayingCollector;
@@ -607,7 +611,7 @@ export class Queue extends EventEmitter {
      * @param {Number} page The page to generate the embed for.
      * @return [The Embed Created, The total number of pages]
      */
-    generateQueueEmbed(page): [MessageEmbed, number] {
+    generateQueueEmbed(page: number): [MessageEmbed, number] {
 
         const currentQueueLenth = this.songs.length;
         const itemsPerPage = queueItemsPerPage;
@@ -662,7 +666,6 @@ export class Queue extends EventEmitter {
      */
 
     onSongEnd(data) {
-        utils.log(data);
         if (data.reason === "REPLACED") return; // Ignore REPLACED reason to prevent skip loops
 
         this.emit('state', 'Finished');
@@ -804,10 +807,10 @@ export class Queue extends EventEmitter {
 
                     const albumFetchers: Promise<void>[] = [];
 
-                    (await Queue.fetchSpotifyAlbumTracks(check)).forEach((function (data, index) {
+                    (await Queue.fetchSpotifyAlbumTracks(check)).forEach(function (data, index) {
                         data.priority = index;
                         albumFetchers.push(Queue.convertSpotifyToSong(ctx, data, newSongs));
-                    }).bind(this));
+                    });
 
                     await Promise.all(albumFetchers);
 
@@ -815,10 +818,10 @@ export class Queue extends EventEmitter {
                 case EMusicCheckType.SPOTIFY_PLAYLIST:
                     const playlistFetchers: Promise<void>[] = [];
 
-                    (await Queue.fetchSpotifyPlaylistTracks(check)).forEach((function (data, index) {
+                    (await Queue.fetchSpotifyPlaylistTracks(check)).forEach(function (data, index) {
                         data.track.priority = index;
                         playlistFetchers.push(Queue.convertSpotifyToSong(ctx, data.track, newSongs));
-                    }).bind(this));
+                    });
 
                     await Promise.all(playlistFetchers);
 
@@ -1027,18 +1030,18 @@ export class Queue extends EventEmitter {
                 );
             const message = await utils.reply(ctx, { embeds: [this.generateQueueEmbed(1)[0]], components: [showQueueButtons], fetchReply: true });
             if (message) {
-                const queueCollectorData = { currentPage: 0, ref: this, owner: ctx.command.member?.user.id };
+                const collectorData = { currentPage: 0, id: this.id, owner: ctx.command.member?.user.id };
 
-                const queueCollector = new InteractionCollector<ButtonInteraction>(bus.bot!, { message: message, componentType: 'BUTTON', idle: 7000 });
+                const queueCollector = new InteractionCollector<ButtonInteraction, typeof collectorData>(bus.bot!, collectorData, { message: message, componentType: 'BUTTON', idle: 7000 });
                 queueCollector.resetTimer({ time: 7000 });
 
-                (queueCollector as any).data = queueCollectorData;
 
                 queueCollector.on('collect', async (button: ButtonInteraction) => {
-                    const data = (queueCollector as any).data as typeof queueCollectorData;
+                    const queue = bus.queues.get(queueCollector.data.id);
 
-                    if (button.user.id !== data.owner) {
-                        utils.log(data.owner)
+                    if (!queue) return;
+
+                    if (button.user.id !== queueCollector.data.owner) {
                         await utils.reply({ command: button, type: EUmekoCommandContextType.SLASH_COMMAND }, { content: "why must thou choose violence ?", ephemeral: true });
                         return;
                     }
@@ -1059,19 +1062,19 @@ export class Queue extends EventEmitter {
 
 
                     if (button.customId == 'previous') {
-                        data.currentPage--;
+                        queueCollector.data.currentPage--;
                     }
 
                     if (button.customId == 'next') {
-                        data.currentPage++;
+                        queueCollector.data.currentPage++;
                     }
 
-                    const generatedData = data.ref.generateQueueEmbed(data.currentPage);
+                    const generatedData = queue.generateQueueEmbed(queueCollector.data.currentPage);
 
                     const newEmbed = generatedData[0];
 
-                    if (data.currentPage == 1) newButtons.components[0].setDisabled(true);
-                    if (data.currentPage == generatedData[1]) newButtons.components[1].setDisabled(true);
+                    if (queueCollector.data.currentPage == 1) newButtons.components[0].setDisabled(true);
+                    if (queueCollector.data.currentPage == generatedData[1]) newButtons.components[1].setDisabled(true);
 
                     queueCollector.resetTimer({ time: 7000 });
 
@@ -1275,13 +1278,11 @@ export class Queue extends EventEmitter {
     }
 }
 
-/*
+
 if (bus.bot && bus.lavacordManager && bus.queues.size) {
     Array.from(bus.queues.entries()).forEach(([guildId, queue]) => {
 
         const oldQueue = queue;
-
-        oldQueue.
 
         const newQueue = new Queue(oldQueue, EQueueSource.QUEUE);
 
@@ -1289,21 +1290,20 @@ if (bus.bot && bus.lavacordManager && bus.queues.size) {
             if (boundEvent.owner && boundEvent.function) {
                 boundEvent.owner.off(boundEvent.event, boundEvent.function);
             }
-        })
+        });
 
         if (oldQueue.timeout != undefined) {
             clearTimeout(oldQueue.timeout);
             oldQueue.timeout = undefined;
         }
 
-        oldQueue.player == undefined;
+        oldQueue.player = null;
 
         bus.queues.set(guildId, newQueue);
-        console.log(oldQueue.id)
         newQueue.createNowPlayingMessage(undefined);
         utils.log('Replaced Queue for guild', guildId);
     })
-}*/
+}
 
 if (!bus.loadedSyncFiles.includes('music')) {
     bus.loadedSyncFiles.push('music');

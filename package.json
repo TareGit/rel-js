@@ -2,7 +2,7 @@
   "name": "rel-js",
   "version": "1.5.0",
   "description": "A Discord Bot",
-  "main": "./src/index.js",
+  "main": "./dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node --trace-warnings --es-module-specifier-resolution=node ./dist/index.js",

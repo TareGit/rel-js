@@ -12,7 +12,7 @@ const {
 	defaultLanguage,
 	defaultNickname,
 } = bus.sync.require(
-	path.join(__dirname, "config.json")
+	path.join(__dirname, "./config.json")
 ) as typeof import("./config.json");
 
 export default class constants {

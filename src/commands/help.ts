@@ -1,15 +1,17 @@
-import { MessageEmbed, MessageSelectMenu, MessageSelectOptionData, MessageActionRow, InteractionCollector, GuildMember, CommandInteraction, ColorResolvable, SelectMenuInteraction, Message } from 'discord.js';
+import { MessageEmbed, MessageSelectMenu, MessageActionRow, CommandInteraction, ColorResolvable, SelectMenuInteraction, Message } from 'discord.js';
 import path from 'path';
 import { IUmekoSlashCommand, ECommandType, EUmekoCommandContextType, IParsedMessage, ECommandOptionType } from '../types';
+import { InteractionCollector } from '../utils';
 
 const { defaultPrimaryColor, defaultPrefix } = bus.sync.require(
-    path.join(process.cwd(), "config.json")
+    path.join(process.cwd(), "./config.json")
 ) as typeof import("../config.json");
 
 const utils = bus.sync.require(
     path.join(process.cwd(), "utils")
 ) as typeof import("../utils");
 
+const HELP_SECTIONS = ['General', 'Music', 'Fun'];
 const command: IUmekoSlashCommand = {
     name: 'help',
     category: 'General',
@@ -80,9 +82,9 @@ const command: IUmekoSlashCommand = {
             return helpEmbed;
         }
 
-        const sections = ['General', 'Moderation', 'Music', 'Fun'];
 
-        const options = sections.map(function (value, index) {
+
+        const options = HELP_SECTIONS.map(function (value, index) {
 
             return {
                 label: value,
@@ -102,28 +104,23 @@ const command: IUmekoSlashCommand = {
 
 
 
-        const message = await utils.reply(ctx, { embeds: [buildHelpEmbed(sections[0])], components: [MenuRow], fetchReply: true });
+        const message = await utils.reply(ctx, { embeds: [buildHelpEmbed(HELP_SECTIONS[0])], components: [MenuRow], fetchReply: true });
 
         if (message) {
 
             const helpCollectorData = { owner: (ctx.command as any).user?.id || (ctx.command as any).author.id, generateEmbed: buildHelpEmbed }
-            const helpCollector = new InteractionCollector<SelectMenuInteraction>(bus.bot!, { message: message, componentType: 'SELECT_MENU', idle: 15000 });
+            const helpCollector = new InteractionCollector<SelectMenuInteraction, typeof helpCollectorData>(bus.bot!, helpCollectorData, { message: message, componentType: 'SELECT_MENU', idle: 15000 });
             helpCollector.resetTimer({ time: 15000 });
 
 
-            helpCollector.on('collect', (async (selector) => {
-                const data = this as any as typeof helpCollectorData
+            helpCollector.on('collect', (async (selector: SelectMenuInteraction) => {
                 try {
-                    if (selector.user.id !== data.owner) {
+                    if (selector.user.id !== helpCollector.data.owner) {
                         utils.reply(ctx, { ephemeral: true, content: "why must thou choose violence ?" });
                         return;
                     }
 
-                    const sections = ['General', 'Moderation', 'Music', 'Fun'];
-
-                    const options = sections.map(function (value) {
-
-                        console.log(selector);
+                    const options = HELP_SECTIONS.map(function (value) {
 
                         return {
                             label: value,
@@ -141,7 +138,7 @@ const command: IUmekoSlashCommand = {
                     const MenuRow = new MessageActionRow();
                     MenuRow.addComponents(Menu);
 
-                    await selector.update({ embeds: [data.generateEmbed(selector.values[0])], components: [MenuRow] });
+                    await selector.update({ embeds: [helpCollector.data.generateEmbed(selector.values[0])], components: [MenuRow] });
                 } catch (error) {
                     utils.log(`Error In Help Message Collector\x1b[0m\n`, error);
                 }

@@ -7,7 +7,7 @@ import { MessageEmbed } from 'discord.js';
 import axios from "axios";
 
 const { version, defaultPrimaryColor } = bus.sync.require(
-    path.join(process.cwd(), "config.json")
+    path.join(process.cwd(), "./config.json")
 ) as typeof import("../config.json");
 
 const utils = bus.sync.require(

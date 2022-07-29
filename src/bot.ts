@@ -10,7 +10,7 @@ import path from "path";
 const fs = require("fs");
 
 const { defaultPrefix, defaultPrimaryColor } = bus.sync.require(
-  path.join(process.cwd(), "config.json")
+  path.join(process.cwd(), "./config.json")
 ) as typeof import("./config.json");
 
 // bot Intents
