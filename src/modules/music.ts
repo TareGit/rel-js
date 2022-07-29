@@ -2,12 +2,11 @@ import path from "path";
 import { BaseCommandInteraction, ButtonInteraction, ColorResolvable, CommandInteraction, ContextMenuInteraction, Guild, GuildMember, Message, MessageActionRow, MessageButton, MessageEmbed, TextBasedChannel, VoiceBasedChannel } from "discord.js";
 import { Manager, Player } from "lavacord";
 import { ISong, ELoopType, IUmekoCommandContext, ILoadedQueue, IMusicUrlCheck, EMusicCheckType, ISavedSong, ISavedQueue, EUmekoCommandContextType, IParsedMessage, EQueueSource } from "../types";
-import { InteractionCollector, reloadDependentCommands } from "../utils";
 const { queueTimeout, queueItemsPerPage, maxQueueFetchTime, maxRawVolume, defaultVolumeMultiplier, leftArrowEmoji, rightArrowEmoji } = bus.sync.require(path.join(process.cwd(), './config.json')) as typeof import('../config.json');
 
 const spotifyExpression = /^(?:spotify:|(?:https?:\/\/(?:open|play)\.spotify\.com\/)(?:embed)?\/?(track|album|playlist)(?::|\/)((?:[0-9a-zA-Z]){22}))/;
 const youtubePlaylistExpression = /[&?]list=([^&]+)/i;
-const queuesPath = `${process.cwd().slice(0, -4)}/queues`;
+const queuesPath = path.join(process.cwd(), '../queues')
 
 const utils = bus.sync.require(
     path.join(process.cwd(), "utils")
@@ -17,7 +16,7 @@ const EventEmitter = require("events");
 
 const axios = require('axios');
 
-const fs = require('fs/promises');
+import fs from 'fs/promises';
 
 /**
  * Creates a new queue.
@@ -49,47 +48,41 @@ async function loadSavedSong(guild: Guild, song: ISavedSong, priority: number): 
 }
 
 async function loadQueueFromFile(filename: string) {
-
     const fullPath = path.join(queuesPath, filename);
-
-    const file = await fs.readFile(fullPath, 'utf-8').catch((error) => { utils.log(error) });
-
-    let QueueDataAsJson: ISavedQueue | undefined;
-
     try {
-        QueueDataAsJson = JSON.parse(file);
-    } catch (error) {
-        utils.log("Error parsing saved queue into json", error);
-        await fs.unlink(fullPath);
-        return;
-    }
-
-    if (!QueueDataAsJson) {
-        utils.log("Error parsing saved queue into json");
-        await fs.unlink(fullPath);
-        return;
-    }
 
 
-    if (!QueueDataAsJson.id || !QueueDataAsJson.voice || !QueueDataAsJson.channel || !QueueDataAsJson.songs || !QueueDataAsJson.songs.length) {
-        utils.log('Deleting invalid saved queue', filename);
-        await fs.unlink(fullPath);
-        return;
-    }
+        const file = await fs.readFile(fullPath, 'utf-8').catch((error) => { utils.log(error) }) as string;
 
-    const Id = QueueDataAsJson.id;
+        const QueueDataAsJson: ISavedQueue = JSON.parse(file);
 
-    if (!await bus.bot!.guilds.fetch(Id)) {
-        await fs.unlink(fullPath);
-        return;
-    };
+        if (!QueueDataAsJson) {
+            utils.log("Error parsing saved queue into json");
+            await fs.unlink(fullPath);
+            return;
+        }
 
-    try {
+
+        if (!QueueDataAsJson.id || !QueueDataAsJson.voice || !QueueDataAsJson.channel || !QueueDataAsJson.songs || !QueueDataAsJson.songs.length) {
+            utils.log('Deleting invalid saved queue', filename);
+            await fs.unlink(fullPath);
+            return;
+        }
+
+        const Id = QueueDataAsJson.id;
+
+        if (!await bus.bot!.guilds.fetch(Id)) {
+            await fs.unlink(fullPath);
+            return;
+        };
+
+
         const guild = await bus.bot!.guilds.fetch(Id);
 
         const voice = await guild.channels.fetch(QueueDataAsJson.voice) as VoiceBasedChannel | null;
 
-        if (!voice || voice.members.size) {
+        if (!voice || !voice.members.size) {
+            utils.log('failed to fetch voice channel for queue', filename, QueueDataAsJson.channel, voice)
             await fs.unlink(fullPath);
             return;
         }
@@ -97,6 +90,7 @@ async function loadQueueFromFile(filename: string) {
         const channel = await guild.channels.fetch(QueueDataAsJson.channel) as TextBasedChannel | null;
 
         if (!channel) {
+            utils.log('failed to fetch text channel for queue', filename, QueueDataAsJson.channel, channel)
             await fs.unlink(fullPath);
             return;
         }
@@ -133,7 +127,7 @@ async function loadQueueFromFile(filename: string) {
         });
 
         queue.player = player;
-        const playerEndBind = queue.onSongEnd;
+        const playerEndBind = queue.onSongEnd.bind(queue);
         queue.player.on('end', playerEndBind);
         queue.boundEvents.push({ owner: queue.player, event: 'end', function: playerEndBind })
 
@@ -141,13 +135,15 @@ async function loadQueueFromFile(filename: string) {
         await fs.unlink(fullPath);
 
         queue.playNextSong();
-
     } catch (error) {
         utils.log(`Error loading queue ${filename} :: `, error);
-        await fs.unlink(fullPath);
+        try {
+            await fs.unlink(fullPath);
+        } catch (error) {
+
+        }
     }
 }
-
 
 const propertiesToNotCopy = ['_events', '_eventsCount', '_maxListeners', 'timeout', 'boundEvents', 'timeout']
 /**
@@ -301,7 +297,6 @@ export class Queue extends EventEmitter {
     async deleteSavedQueueFile() {
         try {
             await fs.access(path.join(queuesPath, `${this.id}.json`))
-
             await fs.unlink(path.join(queuesPath, `${this.id}.json`));
         } catch (error) {
 
@@ -503,7 +498,7 @@ export class Queue extends EventEmitter {
 
         if (message) {
             const collectorData = { id: this.id, }
-            const nowPlayingCollector = new InteractionCollector<ButtonInteraction, typeof collectorData>(bus.bot!, collectorData, { message: message, componentType: 'BUTTON' });
+            const nowPlayingCollector = new utils.InteractionCollector<ButtonInteraction, typeof collectorData>(bus.bot!, collectorData, { message: message, componentType: 'BUTTON' });
 
             nowPlayingCollector.on('collect', async (button: ButtonInteraction) => {
 
@@ -1032,7 +1027,7 @@ export class Queue extends EventEmitter {
             if (message) {
                 const collectorData = { currentPage: 0, id: this.id, owner: ctx.command.member?.user.id };
 
-                const queueCollector = new InteractionCollector<ButtonInteraction, typeof collectorData>(bus.bot!, collectorData, { message: message, componentType: 'BUTTON', idle: 7000 });
+                const queueCollector = new utils.InteractionCollector<ButtonInteraction, typeof collectorData>(bus.bot!, collectorData, { message: message, componentType: 'BUTTON', idle: 7000 });
                 queueCollector.resetTimer({ time: 7000 });
 
 
@@ -1255,7 +1250,7 @@ export class Queue extends EventEmitter {
             this.timeout = undefined;
         }
 
-        if (this.songs.length) {
+        if (this.songs.length || this.currentSong) {
             await this.deleteSavedQueueFile();
         }
 
@@ -1274,7 +1269,6 @@ export class Queue extends EventEmitter {
         await bus.lavacordManager!.leave(this.id);
 
         bus.queues.delete(this.id);
-        utils.log('queue destroyed');
     }
 }
 
@@ -1307,6 +1301,10 @@ if (bus.bot && bus.lavacordManager && bus.queues.size) {
 
 if (!bus.loadedSyncFiles.includes('music')) {
     bus.loadedSyncFiles.push('music');
+    fs.readdir(queuesPath).then((result) => {
+        result.forEach(savedQueue => loadQueueFromFile(savedQueue).catch(utils.log))
+    }).catch(utils.log)
 } else {
-    reloadDependentCommands('music');
+    utils.reloadDependentCommands('music');
+
 }

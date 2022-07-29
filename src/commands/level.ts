@@ -1,8 +1,9 @@
-import { GuildMember } from "discord.js";
+import { CommandInteraction, GuildMember } from "discord.js";
 import path from "path";
 import {
   ECommandOptionType,
   ECommandType,
+  EUmekoCommandContextType,
   IGuildSettings,
   IUmekoSlashCommand,
   IUserLevelData,
@@ -40,6 +41,10 @@ const command: IUmekoSlashCommand = {
       if (!member) {
         await utils.reply(ctx, `You need to be in a server to use this command!`);
         return;
+      }
+
+      if (ctx.type === EUmekoCommandContextType.SLASH_COMMAND) {
+        await (ctx.command as CommandInteraction).deferReply();
       }
 
       const options = (bus.guildSettings.get(member.guild.id) as IGuildSettings).leveling_options;

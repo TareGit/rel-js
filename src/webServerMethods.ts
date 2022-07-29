@@ -35,7 +35,7 @@ export async function updateUser(request, response) {
   const userId = request.body.id;
 
   bus.manager?.broadcastEval(`
-        if(bus.perUserData.get('${userId}') && !bus.usersPendingUpdate.includes('${userId}'))
+        if(bus.userSettings.get('${userId}') && !bus.usersPendingUpdate.includes('${userId}'))
         {
             bus.usersPendingUpdate.push('${userId}');
         }
