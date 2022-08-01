@@ -12,9 +12,10 @@
 - [Custom server for dashboard integration and session handeling](https://github.com/TareHimself/umeko-js-server)
 
 ### API's Used So Far
-- [OSU! API](https://osu.ppy.sh/home) (For osu! user lookup)
-- [My Anime List API](https://myanimelist.net/) (For anime lookup)
-- [TMDB API](https://www.themoviedb.org/) (For movie lookup)
-- [Spotify API](https://www.spotify.com/) (For converting spotify links to playable tracks)
-- [Wallpaperz API](https://github.com/TareHimself/wallpaper-app) (For the wallpaper command 'wp')
+- [OSU! API](https://osu.ppy.sh/home) (Osu! user lookup)
+- [My Anime List API](https://myanimelist.net/) (anime lookup)
+- [TMDB API](https://www.themoviedb.org/) (movie lookup)
+- [Spotify API](https://www.spotify.com/) (converting spotify links to playable tracks)
+- [Wallpaperz API](https://github.com/TareHimself/wallpaper-app) (wallpaper command 'wp')
+- [CatGirlsAreSexy](https://catgirlsare.sexy/) (rank card image hosting)
 - [Discord API](https://discord.com/) (It's a discord bot ¯\\\_(ツ)\_/¯ )
