@@ -1,17 +1,15 @@
 import path from "path";
 import { existsSync } from "fs";
 import * as fs from "fs/promises";
-import "./bus";
 import { Manager } from "discord-hybrid-sharding";
-const utils = require("./utils");
-
+import { log } from '@core/utils'
 try {
   process.env = require("../secretes.json");
 } catch (error) {
   throw new Error("Missing Secretes.json");
 }
 
-if (process.argv.includes("debug")) {
+if (process.argv.includes("--debug")) {
   process.env.DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN_ALPHA;
   process.env.DB_API = process.env.DB_API_DEBUG;
   process.env.SERVER_API = process.env.SERVER_API_DEBUG;
@@ -21,7 +19,7 @@ if (process.argv.includes("debug")) {
 if (!existsSync(path.join(process.cwd(), "puppeter")))
   fs.mkdir(path.join(process.cwd(), "puppeter"));
 
-const manager = new Manager(path.join(__dirname, "bot.js"), {
+const manager = new Manager(path.join(__dirname, 'core', 'bot.js'), {
   totalShards: 2,
   shardsPerClusters: 3,
   mode: "process",
@@ -29,13 +27,13 @@ const manager = new Manager(path.join(__dirname, "bot.js"), {
 });
 
 manager.on("clusterCreate", (cluster) =>
-  utils.log(`Launched Cluster ${cluster.id}`)
+  log(`Launched Cluster ${cluster.id}`)
 );
 
 manager.spawn({ timeout: -1 });
 
-bus.manager = manager;
+global.ClientManager = manager
 
-const webServer = require("./webServer");
+const webServer = require("./core/server");
 
-export {};
+export { };

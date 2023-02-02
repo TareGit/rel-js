@@ -1,5 +1,14 @@
 {
   "compilerOptions": {
+    "baseUrl": "src", // This must be specified if "paths" is.
+    "paths": {
+      "@modules/*": [
+        "core/modules/*"
+      ],
+      "@core/*": [
+        "core/*"
+      ]
+    },
     "allowSyntheticDefaultImports": true,
     "allowJs": true,
     "checkJs": true,
@@ -36,6 +45,8 @@
     "./src/**/*"
   ],
   "exclude": [
-    "config.json"
-  ]
+    "config.json",
+    "./src/plugins/*",
+    "./src/old/*"
+  ],
 }
