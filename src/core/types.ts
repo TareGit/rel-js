@@ -1,10 +1,6 @@
 import { Manager } from "discord-hybrid-sharding";
 import {
-  ButtonInteraction,
-  ClientEvents,
-  CommandInteraction,
   GuildMember,
-  Message,
   TextBasedChannel,
   VoiceBasedChannel,
 } from "discord.js";
@@ -51,14 +47,6 @@ export const enum EMusicCheckType {
   SPOTIFY_PLAYLIST = 3,
 }
 
-export type IDatabaseResponse<T = any> = {
-  data: T;
-  error: false;
-} | {
-  data: string;
-  error: true;
-}
-
 export interface IMusicUrlCheck {
   type: EMusicCheckType;
   id?: string;
@@ -70,97 +58,6 @@ export interface ICommandOption {
   type: ECommandOptionType;
   required: boolean;
   choices?: { name: string, value: string }[];
-}
-
-export interface IParsedMessage extends Message {
-  pureContent: string;
-  args: string[];
-  message: Message;
-}
-
-export interface IUmekoCommandContext {
-  command: IParsedMessage | CommandInteraction | ButtonInteraction;
-  type: EUmekoCommandContextType;
-}
-
-export interface IUmekoCommandOld {
-  name: string;
-  type: ECommandType;
-  description: string;
-  dependencies: string[];
-  execute: (ctx: IUmekoCommandContext, ...args: any[]) => Promise<any>;
-}
-
-export interface IUmekoSlashCommandOld extends IUmekoCommandOld {
-  category: string;
-  group?: string;
-  syntax: string;
-  options: ICommandOption[];
-}
-
-export interface IUmekoUserCommandOld extends IUmekoCommandOld {
-  options: ICommandOption[];
-}
-
-export interface IUmekoContextMenuCommand extends IUmekoCommandOld {
-  category: string;
-  syntax: string;
-}
-
-export interface IUmekoMessageChat extends IUmekoCommandOld {
-  category: string;
-  syntax: string;
-}
-
-export interface IUserLevelData {
-  user: string;
-  guild: string;
-  level: number;
-  xp: number;
-}
-
-export interface IGuildLevelingData {
-  data: { [userId: string]: IUserLevelData };
-  rank: string[];
-}
-
-export interface IBotEvent {
-  event: keyof ClientEvents;
-  funct: (...args: any[]) => void;
-}
-
-export interface IGuildSettings {
-  id: string;
-  bot_opts: URLSearchParams;
-  join_opts: URLSearchParams;
-  leave_opts: URLSearchParams;
-  twitch_opts: URLSearchParams;
-  level_opts: URLSearchParams;
-  opts: URLSearchParams;
-}
-
-export interface IDatabaseGuildSettings {
-  id: string;
-  bot_opts: string;
-  join_opts: string;
-  leave_opts: string;
-  twitch_opts: string;
-  level_opts: string;
-  opts: string;
-}
-
-export interface IUserSettings {
-  id: string;
-  card: URLSearchParams;
-  opts: URLSearchParams;
-  flags: number;
-}
-
-export interface IDatabaseUserSettings {
-  id: string;
-  card: string;
-  opts: string;
-  flags: number;
 }
 
 export interface ISong {
@@ -245,3 +142,5 @@ export interface IDiscordApiCommand {
 declare global {
   var ClientManager: Manager;
 }
+
+

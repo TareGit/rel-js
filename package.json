@@ -1,5 +1,5 @@
 {
-  "name": "rel-js",
+  "name": "umeko-js",
   "version": "1.5.0",
   "description": "A Discord Bot",
   "main": "./dist/index.js",
@@ -7,9 +7,12 @@
     "start": "node --es-module-specifier-resolution=node ./dist/index.js",
     "debug": "node --es-module-specifier-resolution=node ./dist/index.js --no-cache --no-cluster --debug",
     "build": "npm run clean && npx tsc && npx tsc-alias",
-    "watch": "npm run clean && npx conc \"npx tsc -w\" \"npx tsc-alias -w\"",
+    "watch": "npm run build && tsc-watch --onSuccess \"npm run on-recompile\"",
+    "plugin": "node ./scripts/create-plugin.js",
     "pretty": "npx prettier --write .",
-    "clean": "node ./scripts/clean.js"
+    "clean": "node ./scripts/clean.js",
+    "on-recompile": "npm run copy-plugin-assets && npx tsc-alias",
+    "copy-plugin-assets": "node ./scripts/copy-plugin-assets.js"
   },
   "keywords": [],
   "author": "Oyintare",
@@ -34,6 +37,7 @@
     "libsodium-wrappers": "^0.7.9",
     "node-os-utils": "^1.3.5",
     "opusscript": "^0.0.8",
+    "puppeteer": "^19.6.3",
     "puppeteer-extra": "^3.3.4",
     "puppeteer-extra-plugin-adblocker": "^2.13.5",
     "puppeteer-extra-plugin-stealth": "^2.11.1",
@@ -56,6 +60,7 @@
     "eslint-plugin-promise": "^6.0.0",
     "prettier": "2.7.1",
     "tsc-alias": "^1.8.2",
+    "tsc-watch": "^6.0.0",
     "typescript": "^4.7.4"
   }
 }

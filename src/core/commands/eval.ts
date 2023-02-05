@@ -1,15 +1,6 @@
-import { CommandInteraction } from "discord.js";
-import path from "path";
 import { ECommandOptionType } from "../types";
 import axios from 'axios';
-
-const utils = bus.sync.require(
-    path.join(process.cwd(), "utils")
-) as typeof import("../utils");
-
-
-import constants from '@core/constants';
-import { log } from '@core/utils';
+import * as utils from '@core/utils';
 import { SlashCommand, CommandContext } from '@modules/commands';
 
 export default class EvalCommand extends SlashCommand {

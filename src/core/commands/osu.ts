@@ -8,7 +8,7 @@ import {
     ECommandOptionType,
 } from "../types";
 import { SlashCommand, CommandContext } from "@modules/commands";
-import constants from "@core/constants";
+import { FrameworkConstants } from "@core/framework";
 import { log } from "../utils";
 
 export default class WallpaperzBrowseCommand extends SlashCommand {
@@ -16,7 +16,7 @@ export default class WallpaperzBrowseCommand extends SlashCommand {
         super(
             'osu',
             'Gets basic information about an osu player',
-            constants.COMMAND_GROUPS.FUN,
+            FrameworkConstants.COMMAND_GROUPS.FUN,
             [
                 {
                     name: "player",

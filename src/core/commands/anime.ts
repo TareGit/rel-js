@@ -1,7 +1,7 @@
 import { ColorResolvable, CommandInteraction, GuildMember } from "discord.js";
 import { MessageEmbed } from 'discord.js';
 import axios from "axios";
-import constants from '@core/constants';
+import { FrameworkConstants } from "@core/framework";
 import { log } from '@core/utils';
 import { SlashCommand, CommandContext } from '@modules/commands';
 
@@ -10,7 +10,7 @@ export default class AnimeCommand extends SlashCommand {
     super(
       'anime',
       'Gets basic information about an anime',
-      constants.COMMAND_GROUPS.FUN,
+      FrameworkConstants.COMMAND_GROUPS.FUN,
       [
         {
           name: "anime",

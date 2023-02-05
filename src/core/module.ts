@@ -1,16 +1,16 @@
 import { Client } from "discord.js";
 
-export abstract class BotModule {
-    bot: Client;
-    private moduleReady: boolean;
-    private readyCallbacks: (() => void)[]
-    constructor(bot: Client) {
-        this.bot = bot;
-        this.readyCallbacks = []
+
+export abstract class WaitForReady {
+
+    private _ready: boolean;
+    private readyCallbacks: (() => void)[] = []
+    constructor() {
+
     }
 
     set isReady(inNewReady: boolean) {
-        this.moduleReady = inNewReady
+        this._ready = inNewReady
         if (inNewReady) {
             for (let i = 0; i < this.readyCallbacks.length; i++) {
                 this.readyCallbacks[i]()
@@ -20,22 +20,31 @@ export abstract class BotModule {
     }
 
     get isReady() {
-        return this.moduleReady;
+        return this._ready;
     }
 
     async ensureReady() {
         if (!this.isReady) await new Promise<void>((res) => this.readyCallbacks.push(res));
+    }
+}
+export abstract class BotModule extends WaitForReady {
+    bot: Client;
+
+
+    constructor(bot: Client) {
+        super();
+        this.bot = bot;
     }
 
     async finishLoad() {
         this.isReady = true;
     }
 
-    async beginLoad() {
+    async onBeginLoad() {
 
     }
 
-    async onDestroyed() {
+    async onBeginDestroy() {
 
     }
 }

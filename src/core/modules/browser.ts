@@ -2,7 +2,9 @@ import { Browser, Page, executablePath } from 'puppeteer';
 import puppeteer from 'puppeteer-extra'
 import StealthPlugin from "puppeteer-extra-plugin-stealth"
 import AdblockerPlugin from "puppeteer-extra-plugin-adblocker"
-
+import { BotModule } from '@core/module';
+import { Client } from 'discord.js';
+import { log } from '@core/utils';
 
 // Add stealth plugin and use defaults (all tricks to hide puppeteer usage)
 puppeteer.use(StealthPlugin());
@@ -33,8 +35,11 @@ export function getBrowserId(b: Browser) {
 }
 
 export function getDomainFromURL(url: string) {
-    if (url.length === 0) return NO_NAVIGATION_PAGE;
-    return url.match(DOMAIN_NAME_REGEX)![1]
+    const match = url.match(DOMAIN_NAME_REGEX)
+    if (!match || !match[1]) {
+        return NO_NAVIGATION_PAGE
+    }
+    return match[1]
 }
 
 export interface PendingPageRequest {
@@ -42,47 +47,31 @@ export interface PendingPageRequest {
     callback: (page: Page) => void;
 }
 
-export class PageHandler {
-    numBrowsers: number;
-    debug: boolean;
-    availablePages: Page[];
-    pages: { [key: number]: Page[] };
-    pagesCount: { [key: number]: number };
-    openDomains: { [key: number]: DomainInfo };
-    browsers: { [key: number]: Browser };
-    maxPagesPerBrowser: number;
-    headless: boolean;
-    pendingPageRequests: PendingPageRequest[];
-    initialized: boolean;
-    initializedCallbacks: (() => void)[];
+export class BrowserModule extends BotModule {
+    numBrowsers: number = 1;
+    maxPagesPerBrowser: number = 6;
+    pages: { [key: number]: Page[] } = {};
+    pagesCount: { [key: number]: number } = {};
+    openDomains: { [key: number]: DomainInfo } = {};
+    browsers: { [key: number]: Browser } = {};
+    debug: boolean = process.argv.includes('--debug');
+    headless: boolean = true//process.argv.includes('--debug')!;
+    pendingPageRequests: PendingPageRequest[] = [];
+    availablePages: Page[] = [];
 
-    constructor(browserCount = 1, maxPagesPerBrowser = 6, debug = false, headless = true) {
-        this.maxPagesPerBrowser = maxPagesPerBrowser
-        this.numBrowsers = browserCount;
-        this.debug = debug
-        this.openDomains = {}
-        this.browsers = {}
-        this.pages = {}
-        this.pagesCount = {}
-        this.headless = headless
-        this.pendingPageRequests = []
-        this.initialized = false
-        this.initializedCallbacks = []
-        this.start()
+
+    constructor(bot: Client) {
+        super(bot);
+
     }
 
-    getMaxPagesForDomain(domanName: string) {
-        if (domanName === NO_NAVIGATION_PAGE) return this.maxPagesPerBrowser
-        return MAX_PER_DOMAIN
-    }
-
-    async start() {
+    async onBeginLoad(): Promise<void> {
+        log("Preparing Browser")
         if (this.numBrowsers > 7) {
             process.setMaxListeners(0);
         }
 
         for (let i = 0; i < this.numBrowsers; i++) {
-            console.log(this.headless)
             const newBrowser = await puppeteer.launch({
                 headless: this.headless,
                 args: browserArgs,
@@ -95,15 +84,14 @@ export class PageHandler {
             this.pages[browserId] = []
         }
 
-        this.initialized = true
-        this.initializedCallbacks.forEach(c => c())
+        log("Browser Ready");
 
+        await this.finishLoad()
     }
 
-    waitForInitialize() {
-        return new Promise<void>((resolve) => {
-            this.initializedCallbacks.push(resolve)
-        })
+    getMaxPagesForDomain(domanName: string) {
+        if (domanName === NO_NAVIGATION_PAGE) return this.maxPagesPerBrowser
+        return MAX_PER_DOMAIN
     }
 
     ensureDomainCount(domain: string, browserId: string) {
@@ -133,7 +121,7 @@ export class PageHandler {
         return newPage;
     }
 
-    waitForAvailablePage(domainName) {
+    waitForAvailablePage(domainName: string) {
         const prom = new Promise<Page>((resolve) => {
             this.pendingPageRequests.push({
                 domainName: domainName,
@@ -231,7 +219,7 @@ export class PageHandler {
 
 
     async getPage(url: string = NO_NAVIGATION_PAGE, waitForSelector: string = ""): Promise<Page> {
-        if (!this.initialized) await this.waitForInitialize()
+        await this.ensureReady()
         return await this.getOrCreatePage(url, waitForSelector);
     }
 
@@ -259,23 +247,9 @@ export class PageHandler {
         this.openDomains[domainName][browserId] -= 1;
     }
 
+    async onBeginDestroy(): Promise<void> {
 
-}
-
-function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForPageNaviagation(page, url, selector) {
-    try {
-        //await sleep(10000);
-        if (selector && selector.trim) {
-            page.goto(url, PAGE_LOAD_OPTIONS);
-            await page.waitForSelector(selector);
-        } else {
-            await page.goto(url, PAGE_LOAD_OPTIONS);
-        }
-    } catch (error) {
-        console.log("error navigating to", url, error);
     }
+
+
 }

@@ -1,9 +1,9 @@
 import { ColorResolvable, CommandInteraction, GuildMember } from "discord.js";
 import path from "path";
-import { EUmekoCommandContextType, IParsedMessage, ECommandType, ECommandOptionType } from "../types";
+import { ECommandOptionType } from "../types";
 import { MessageEmbed } from 'discord.js';
 import axios from "axios";
-import constants from "@core/constants";
+import { FrameworkConstants } from "@core/framework";
 import { SlashCommand, CommandContext } from "@modules/commands";
 import { log } from "@core/utils";
 
@@ -12,7 +12,7 @@ export default class MoviesCommand extends SlashCommand {
         super(
             'movie',
             'Gets basic information about a movie',
-            constants.COMMAND_GROUPS.FUN,
+            FrameworkConstants.COMMAND_GROUPS.FUN,
             [
                 {
                     name: "movie",

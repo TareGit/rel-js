@@ -1,11 +1,11 @@
 import { ColorResolvable, CommandInteraction, GuildMember, MessageEmbed } from 'discord.js';
 import path from 'path';
-import { EUmekoCommandContextType, IParsedMessage, ECommandType, ECommandOptionType } from '../types';
+import { ECommandOptionType } from '../types';
 
 import axios from "axios";
 import { log } from '@core/utils';
 import { SlashCommand, CommandContext } from '@modules/commands';
-import constants from '@core/constants';
+import { FrameworkConstants } from "@core/framework";
 
 
 
@@ -14,7 +14,7 @@ export default class SeriesCommand extends SlashCommand {
         super(
             'series',
             'Gets basic information about a tv series',
-            constants.COMMAND_GROUPS.FUN,
+            FrameworkConstants.COMMAND_GROUPS.FUN,
             [
                 {
                     name: "series",

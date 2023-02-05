@@ -41,16 +41,14 @@ export async function updateServerLeveling(message: Message) {
       await bus.db.put('/levels', [levelingData.data[userId]]);
     }
 
-    levelingData.data[userId].progress += utils.randomIntegerInRange(5, 10) * 100;
+    levelingData.data[userId].progress += ;
 
     if (!bus.levelingDataPendingUpload.get(guildId)) bus.levelingDataPendingUpload.set(guildId, []);
 
     if (!bus.levelingDataPendingUpload.get(guildId)!.includes(userId)) bus.levelingDataPendingUpload.get(guildId)!.push(userId);
 
 
-    const nextLevelXp = utils.getXpForNextLevel(
-      levelingData.data[userId].level
-    );
+
 
     if (levelingData.data[userId].progress >= nextLevelXp) {
       levelingData.data[userId].level += 1;
@@ -58,15 +56,7 @@ export async function updateServerLeveling(message: Message) {
         levelingData.data[userId].progress - nextLevelXp;
 
       if (levelingData.rank) {
-        levelingData.rank.sort(function (userA, userB) {
-          const aData = levelingData.data[userA];
-          const bData = levelingData.data[userB];
 
-          if (aData.level === bData.level)
-            return aData.progress - bData.progress;
-
-          return aData.level - bData.level;
-        });
 
         levelingData.rank.reverse();
       }

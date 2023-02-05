@@ -1,6 +1,6 @@
 import path from 'path';
 import { ECommandOptionType } from '../types';
-import constants from '@core/constants';
+import { FrameworkConstants } from "@core/framework";
 import { log } from '@core/utils';
 import { SlashCommand, CommandContext } from '@modules/commands';
 
@@ -9,7 +9,7 @@ export default class HelpCommand extends SlashCommand {
         super(
             'help',
             'Display help',
-            constants.COMMAND_GROUPS.GENERAL,
+            FrameworkConstants.COMMAND_GROUPS.GENERAL,
             [
                 {
                     name: 'command',

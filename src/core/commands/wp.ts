@@ -1,10 +1,10 @@
 import { CommandInteraction, MessageEmbed } from "discord.js";
 import path from "path";
-import { ECommandType, EUmekoCommandContextType, IParsedMessage, ECommandOptionType, IWallpaperzWallpaper } from "../types";
+import { ECommandOptionType, IWallpaperzWallpaper } from "@core/types";
 import axios from 'axios';
 import { CommandContext, SlashCommand } from '@modules/commands'
 import { log } from "@core/utils";
-import constants from "@core/constants";
+import { FrameworkConstants } from "@core/framework";
 
 
 export default class WallpaperzBrowseCommand extends SlashCommand {
@@ -12,7 +12,7 @@ export default class WallpaperzBrowseCommand extends SlashCommand {
         super(
             'wp',
             'Search for a wallpaper form the app wallpaperz',
-            constants.COMMAND_GROUPS.FUN,
+            FrameworkConstants.COMMAND_GROUPS.FUN,
             [
                 {
                     name: 'search',

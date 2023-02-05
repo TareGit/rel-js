@@ -1,102 +1,105 @@
-import { CommandInteraction, GuildMember } from "discord.js";
+import { GuildMember } from "discord.js";
 import path from "path";
 import {
-  ECommandOptionType,
-  ECommandType,
-  EUmekoCommandContextType,
-  IGuildSettings,
-  IUmekoSlashCommand,
-  IUserLevelData,
-} from "../../../core/types";
-import { getPage, closePage } from "../../../core/modules/browser";
-import constants from "../../../core/constants";
-import { generateCardHtml } from "../../../core/utils";
-import { getUsers } from "../../../core/modules/database";
-import puppeteer from "puppeteer";
+    ECommandOptionType,
+} from "@core/types";
+import { Page } from "puppeteer";
+import { SlashCommand, CommandContext } from "@modules/commands";
+import * as fs from 'fs'
+import LevelingPlugin, { getXpForNextLevel } from "@plugins/levels/index";
+import { log } from "@core/utils";
+import { EOptsKeyLocation, FrameworkConstants } from "@core/framework";
 
-const utils = bus.sync.require(
-  path.join(process.cwd(), "utils")
-) as typeof import("../../../core/utils");
 
-const command: IUmekoSlashCommand = {
-  name: "level",
-  category: "Fun",
-  description: "Displays your level",
-  type: ECommandType.SLASH,
-  dependencies: ['utils'],
-  syntax: "{prefix}{name} <specific user mention>",
-  options: [
-    {
-      name: "user",
-      description: "The user to check the level of",
-      type: ECommandOptionType.USER,
-      required: false,
-    },
-  ],
-  async execute(ctx) {
-    let page: puppeteer.Page | null = null;
-    try {
-      const member = ctx.command.member as (GuildMember | null);
-
-      if (!member) {
-        await utils.reply(ctx, `You need to be in a server to use this command!`);
-        return;
-      }
-
-      if (ctx.type === EUmekoCommandContextType.SLASH_COMMAND) {
-        await (ctx.command as CommandInteraction).deferReply();
-      }
-
-      const options = (bus.guildSettings.get(member.guild.id) as IGuildSettings).leveling_options;
-
-      if (!options.get("location") || options.get("location") === "disabled") {
-        utils.reply(ctx, 'Leveling is disabled in this server!')
-        return;
-      }
-
-      if (!bus.guildLeveling.get(member.guild.id)) {
-        bus.guildLeveling.set(member.guild.id, constants.DEFAULT_GUILD_LEVEL_DATA);
-      }
-
-      if (!bus.userSettings.get(member.id)) {
-        bus.userSettings.set(member.id, (await getUsers([member.id]))[0])
-      }
-
-      if (!bus.guildLeveling.get(member.guild.id)!.data[member.id]) {
-        const newLevelingData: IUserLevelData = {
-          user: member.id,
-          guild: member.guild.id,
-          level: 0,
-          progress: 0
-        };
-
-        bus.guildLeveling.get(member.guild.id)!.data[member.id] = newLevelingData;
-
-        await bus.db.post('/levels', [newLevelingData]);
-      }
-
-      const card = await generateCardHtml(member);
-
-      page = await getPage();
-      await page.setViewport({ width: 1200, height: 400 });
-      await page.setContent(card, { waitUntil: 'load' });
-      const content = await page.$("body");
-      if (content) {
-
-        const imageBuffer = await content.screenshot({ omitBackground: true });
-        utils.reply(ctx, { files: [{ attachment: imageBuffer }] });
-      }
-
-      closePage(page);
-      page = null;
-    } catch (error) {
-      if (page) {
-        closePage(page);
-        page = null;
-      }
+export default class LevelCommand extends SlashCommand<LevelingPlugin> {
+    levelCard: string | null
+    constructor() {
+        super(
+            "level",
+            "Displays your level",
+            FrameworkConstants.COMMAND_GROUPS.FUN,
+            [
+                {
+                    name: "user",
+                    description: "The user to check the level of",
+                    type: ECommandOptionType.USER,
+                    required: false,
+                },
+            ]
+        )
     }
 
-  },
-};
+    async onInitalized(): Promise<void> {
+        this.levelCard = await fs.promises.readFile(path.join(this.plugin!.assetsPath, 'card.html'), { encoding: 'utf-8' });
+    }
 
-export default command;
+    async buildCard(member: GuildMember) {
+        const guildId = member.guild.id;
+        const settings = (await bus.database.getUser(member.id, true));
+
+        const levelingData = await this.plugin!.getLevelData(guildId, settings.id);
+
+        const progress = levelingData.xp || 0.001;
+        const required = getXpForNextLevel(levelingData.level);
+        const rank = await this.plugin!.getRank(guildId, settings.id);
+
+        log("User Rank gotten")
+        const customizedCard = this.levelCard!
+            .replaceAll("{opacity}", settings.cardOpacity)
+            .replaceAll("{color}", settings.cardColor)
+            .replaceAll("{percent}", `${Math.min((progress / required), 1) * 100}`)
+            .replaceAll("{bg}", settings.cardBg)
+            .replaceAll("{avatar}", member.displayAvatarURL())
+            .replaceAll("{username}", member.displayName)
+            .replaceAll("{rank}", `${rank + 1}`)
+            .replaceAll("{level}", `${levelingData.level}`)
+            .replaceAll("{progress}", `${(progress / 1000).toFixed(2)}`)
+            .replaceAll("{required}", `${(required / 1000).toFixed(2)}`);
+
+        log("Card built")
+
+        return customizedCard;
+    }
+
+
+    async execute(ctx: CommandContext, ...args: any[]): Promise<void> {
+        await ctx.deferReply()
+        const member = ((ctx.asSlashContext.options.getMember(this.options[0].name, this.options[0].required) || ctx.asSlashContext.member) as GuildMember);
+        let page: Page | null = null;
+        try {
+
+            const levelingOptions = (await bus.database.getGuild(ctx.asSlashContext.guildId)).raw.level_opts;
+
+            if (!levelingOptions.get("location") || levelingOptions.get("location") === EOptsKeyLocation.NONE) {
+                await ctx.editReply('Leveling is disabled in this server!');
+                return;
+            }
+
+            log(" Fetched option")
+            const card = await this.buildCard(member);
+
+            log("Card Data Generated")
+            page = await bus.browser.getPage();
+            log("Page Gotten")
+            await page.setViewport({ width: 1200, height: 400 });
+            await page.setContent(card, { waitUntil: 'load' });
+            const content = await page.$("body");
+            if (content) {
+                const imageBuffer = await content.screenshot({ omitBackground: true });
+                log("CardGenerated")
+                await ctx.editReply({ files: [{ attachment: imageBuffer }] });
+                log("Card Sent")
+            }
+
+            bus.browser.closePage(page);
+            page = null;
+        } catch (error) {
+            if (page) {
+                bus.browser.closePage(page);
+                page = null;
+            }
+            log(error)
+        }
+
+    }
+}

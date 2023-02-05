@@ -1,9 +1,7 @@
 import { ColorResolvable, CommandInteraction, GuildMember } from "discord.js";
-import path from "path";
-import { ECommandType, EUmekoCommandContextType, IParsedMessage } from "../types";
 import { MessageEmbed } from 'discord.js';
 import axios from "axios";
-import constants from "@core/constants";
+import { FrameworkConstants } from "@core/framework";
 import { SlashCommand, CommandContext } from "@modules/commands";
 import { log } from "../utils";
 
@@ -12,7 +10,7 @@ export default class ActorCommand extends SlashCommand {
         super(
             'actor',
             'Gets basic information about an actor',
-            constants.COMMAND_GROUPS.FUN,
+            FrameworkConstants.COMMAND_GROUPS.FUN,
             [
                 {
                     name: "actor",

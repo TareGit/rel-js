@@ -1,9 +1,9 @@
 import { ColorResolvable, GuildMember, MessageEmbed } from 'discord.js';
 import path from 'path';
-import { ECommandOptionType, ECommandType, IWallpaperzWallpaper } from '../types';
+import { ECommandOptionType, ECommandType, IWallpaperzWallpaper } from '@core/types';
 import osu from 'node-os-utils';
 import { SlashCommand, CommandContext } from '@modules/commands';
-import constants from '@core/constants';
+import { FrameworkConstants } from "@core/framework";
 import { log } from '@core/utils';
 
 export default class StatusCommand extends SlashCommand {
@@ -11,7 +11,7 @@ export default class StatusCommand extends SlashCommand {
         super(
             'status',
             'Get The Bot Status',
-            constants.COMMAND_GROUPS.GENERAL,
+            FrameworkConstants.COMMAND_GROUPS.GENERAL,
         )
     }
     async execute(ctx: CommandContext, ...args: any[]): Promise<void> {

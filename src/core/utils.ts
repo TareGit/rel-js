@@ -1,26 +1,11 @@
 import axios from "axios";
 import { Utils } from "discord-api-types";
 import {
-  MessagePayload,
-  InteractionReplyOptions,
   InteractionCollector as ICollector,
-  Message,
-  GuildMember,
-  BaseCommandInteraction,
   Interaction,
   Client,
   InteractionCollectorOptions,
 } from "discord.js";
-import fs from "fs/promises";
-import path from "path";
-import constants from "./constants";
-import {
-  EUmekoCommandContextType,
-  IGuildLevelingData,
-  IParsedMessage,
-  IUmekoCommandContext,
-  IUserSettings,
-} from "./types";
 
 /**
  * Generates a random float (inclusive)
@@ -44,23 +29,7 @@ export function randomIntegerInRange(min, max) {
   return Math.floor(Math.random() * (max - min + 1) + min); //The maximum is inclusive and the minimum is inclusive
 }
 
-/**
- * Calculates the xp required to get to the next level
- * @param {Number}level The current level
- * @returns {Number}The xp required
- */
-export function getXpForNextLevel(level: number) {
-  return level ** 2 * 3 + 100;
-}
 
-/**
- * Calculates the total xp at a specific level
- * @param {Number}level The level to get the xp for
- * @returns {Number}The total xp
- */
-export function getTotalXp(level: number) {
-  return 0.5 * (level + 1) * (level ** 2 * 2 + level + 200);
-}
 
 export function time(sep = "") {
   const currentDate = new Date();
@@ -97,7 +66,6 @@ export function log(...args) {
   const file =
     simplifiedStack[Math.max(simplifiedStack.length - 1, 0)].split(")")[0];
 
-
   argumentValues.unshift(`${file.padEnd(25)}::`);
 
   if (global.bus && bus.bot && bus.cluster) {
@@ -110,55 +78,6 @@ export function log(...args) {
   argumentValues.unshift(`${new Date().toLocaleString().padEnd(25)}::`);
 
   console.log.apply(null, argumentValues);
-}
-
-/**
- * Replies a message/command
- * @param ctx The message/command
- * @param payload The content to send
- * @returns {Message} The reply
- */
-export async function reply(
-  ctx: IUmekoCommandContext,
-  payload: string | MessagePayload | InteractionReplyOptions,
-  forceChannelReply = false
-) {
-  try {
-    if (ctx.type === EUmekoCommandContextType.CHAT_MESSAGE) {
-      return await (ctx.command as IParsedMessage)
-        .reply(payload)
-        .catch((error) => log("Error sending message", error));
-    } else if (
-      ctx.type === EUmekoCommandContextType.MESSAGE_CONTEXT_MENU ||
-      ctx.type === EUmekoCommandContextType.SLASH_COMMAND
-    ) {
-      const cmdAsInt = ctx.command as BaseCommandInteraction;
-      if (cmdAsInt.deferred) {
-        if (cmdAsInt.replied) {
-          return await cmdAsInt.channel
-            ?.send(payload)
-            .catch((error) => log("Error sending message", error));
-        }
-
-        return await cmdAsInt
-          .editReply(payload)
-          .catch((error) => log("Error sending message", error));
-      } else {
-        if (cmdAsInt.replied) {
-          return await cmdAsInt.channel
-            ?.send(payload)
-            .catch((error) => log("Error sending message", error));
-        }
-
-        return await cmdAsInt
-          .reply(payload)
-          .catch((error) => log("Error sending message", error));
-      }
-    } else if (ctx.type === EUmekoCommandContextType.USER_CONTEXT_MENU) {
-    }
-  } catch (error) {
-    log(`Error sending message\x1b[0m\n`, error);
-  }
 }
 
 export async function handleCommandDirectoryChanges(event, path: string) {
