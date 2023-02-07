@@ -92,6 +92,7 @@ export type TypedValuePair<T extends string> = { [key in T]: string; }
 
 export class OptsParser<T extends string = string> {
     opts: TypedValuePair<T>;
+    toString: undefined;
     constructor(a: TypedValuePair<T> | string) {
         if (typeof a === 'string') {
             this.opts = OptsParser.decode<T>(a);

@@ -112,12 +112,12 @@ export class DatabaseModule extends BotModule {
     static guildToDatabase(setting: IGuildSettings): IDatabaseGuildSettings {
         return {
             ...setting,
-            bot_opts: setting.bot_opts.toString(),
-            join_opts: setting.join_opts.toString(),
-            leave_opts: setting.leave_opts.toString(),
-            twitch_opts: setting.twitch_opts.toString(),
-            level_opts: setting.level_opts.toString(),
-            opts: setting.opts.toString()
+            bot_opts: setting.bot_opts.encode(),
+            join_opts: setting.join_opts.encode(),
+            leave_opts: setting.leave_opts.encode(),
+            twitch_opts: setting.twitch_opts.encode(),
+            level_opts: setting.level_opts.encode(),
+            opts: setting.opts.encode()
         };
     }
 
@@ -132,8 +132,8 @@ export class DatabaseModule extends BotModule {
     static userToDatabase(setting: IUserSettings): IDatabaseUserSettings {
         return {
             ...setting,
-            card: setting.card.toString(),
-            opts: setting.opts.toString(),
+            card: setting.card.encode(),
+            opts: setting.opts.encode(),
         };
     }
 
