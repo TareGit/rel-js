@@ -3,6 +3,7 @@ import { BotPlugin } from "@modules/exports";
 import { DatabaseApi } from '@core/api'
 import { log, randomIntegerInRange } from "@core/utils";
 import { IUserLevelData, IUmekoApiResponse, FrameworkConstants, EOptsKeyLocation } from "@core/framework";
+import { ELoadableState } from "@core/base";
 
 // Calculates the xp required to get to the next level
 export function getXpForNextLevel(level: number) {
@@ -45,7 +46,7 @@ class GuildLevelingData {
 
         const nextLevelXp = getXpForNextLevel(this.cache[userId].level);
 
-        if (this.cache[userId].xp >= nextLevelXp) {
+        if (this.cache[userId].xp > nextLevelXp) {
             this.cache[userId].level += 1;
             this.cache[userId].xp = nextLevelXp - this.cache[userId].xp;
             return true
@@ -61,7 +62,9 @@ class GuildLevelingData {
     }
 
     async getUser(userId: string) {
+
         if (!this.cache[userId]) {
+
             await this.uploadNewUser(userId);
         }
         return this.cache[userId];
@@ -84,7 +87,7 @@ export default class LevelingPlugin extends BotPlugin {
 
     }
 
-    async onRegistered() {
+    override async onLoad() {
         const guilds = Array.from(this.bot.guilds.cache.keys());
         const response = (await DatabaseApi.get<IUmekoApiResponse<IUserLevelData[]>>(`/levels?ids=${guilds.join(',')}`)).data
         if (response.error) {
@@ -104,8 +107,7 @@ export default class LevelingPlugin extends BotPlugin {
         })
 
         this.bot.on('messageCreate', this.onMessageCreateCallback);
-
-        this.isReady = true;
+        this.addBoundEvent(this.bot, 'messageCreate', this.onMessageCreateCallback)
     }
 
     ensureGuild(guildId: string) {
@@ -115,7 +117,7 @@ export default class LevelingPlugin extends BotPlugin {
     }
 
     async addXp(guildId: string, userId: string, xp: number) {
-        await this.ensureReady()
+        await this.waitForState(ELoadableState.ACTIVE);
 
         this.ensureGuild(guildId);
 
@@ -123,7 +125,8 @@ export default class LevelingPlugin extends BotPlugin {
     }
 
     async getLevelData(guildId: string, userId: string) {
-        await this.ensureReady()
+
+        await this.waitForState(ELoadableState.ACTIVE);
 
         this.ensureGuild(guildId);
         return await this.cache.get(guildId)!.getUser(userId);
@@ -131,7 +134,7 @@ export default class LevelingPlugin extends BotPlugin {
 
 
     async getRank(guildId: string, userId: string) {
-        await this.ensureReady()
+        await this.waitForState(ELoadableState.ACTIVE);
 
         this.ensureGuild(guildId);
 
@@ -165,11 +168,11 @@ export default class LevelingPlugin extends BotPlugin {
             }
 
         } catch (error) {
-            log(error);
+            log(error)
         }
     }
 
-    async onDeregistered() {
+    override async onDestroy() {
         this.bot.off('messageCreate', this.onMessageCreateCallback);
     }
 }

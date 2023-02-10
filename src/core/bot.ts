@@ -46,12 +46,12 @@ bot.on('ready', async (client) => {
   log("Bus initialized")
   log("loading modules")
 
-  await bus.database.onBeginLoad();
-  await bus.commands.onBeginLoad();
-  await bus.browser.onBeginLoad();
-  await bus.plugins.onBeginLoad();
+  await bus.database.load();
+  await bus.commands.load();
+  await bus.browser.load();
+  await bus.plugins.load();
 
-  await bus.commands.uploadCommands("669640893745201168")
+  if (process.env.DEBUG_GUILD) await bus.commands.uploadCommands(process.env.DEBUG_GUILD) // upload to support server
 
   bus.sync.events.on("error", console.log);
 })

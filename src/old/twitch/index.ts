@@ -10,13 +10,13 @@ export default class TwitchPlugin extends BotPlugin {
         this.callback = this.onPresenceUpdate.bind(this)
     }
 
-    async onRegistered() {
+    async onLoad() {
         this.bot.on('presenceUpdate', this.callback)
     }
 
-    
 
-    async onDeregistered() {
+
+    async onDestroyed() {
         this.bot.off('presenceUpdate', this.callback);
     }
 }

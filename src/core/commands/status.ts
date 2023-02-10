@@ -22,6 +22,8 @@ export default class StatusCommand extends SlashCommand {
         Embed.setTitle('Status');
         Embed.setURL(process.env.WEBSITE!);
 
+        Embed.setFooter({ text: "Sample runtime command change 2" })
+
         let cpu = await osu.cpu.usage();
 
         function pad(s) {

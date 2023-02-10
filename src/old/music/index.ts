@@ -6,11 +6,11 @@ export default class MusicPlugin extends BotPlugin {
         super(bot)
     }
 
-    async onRegistered() {
+    async onLoad() {
 
     }
 
-    async onDeregistered() {
+    async onDestroyed() {
 
     }
 }

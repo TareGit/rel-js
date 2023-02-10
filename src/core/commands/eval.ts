@@ -26,7 +26,6 @@ export default class EvalCommand extends SlashCommand {
         if (userId !== process.env.CREATOR_ID) return ctx.reply({ content: this.description, ephemeral: true });
 
         await ctx.deferReply()
-
         const expression = ctx.asSlashContext.options.getString(this.options[0].name);
 
         try {

@@ -21,6 +21,7 @@ export default class AnimeCommand extends SlashCommand {
       ]
     )
   }
+
   async execute(ctx: CommandContext, targetCommand = ""): Promise<void> {
     await ctx.deferReply();
 

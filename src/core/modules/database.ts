@@ -1,7 +1,7 @@
 import path from "path";
 import { DatabaseApi } from '@core/api';
 import { Client } from "discord.js";
-import { BotModule } from "@core/module";
+import { BotModule, ELoadableState } from "@core/base";
 import { log } from "@core/utils";
 import { IGuildSettings, IDatabaseGuildSettings, IUserSettings, IDatabaseUserSettings, IUmekoApiResponse, FrameworkConstants, OptsParser } from "@core/framework";
 
@@ -141,7 +141,7 @@ export class DatabaseModule extends BotModule {
         super(bot);
     }
 
-    async onBeginLoad(): Promise<void> {
+    async onLoad(): Promise<void> {
         log("Preparing Database")
         try {
             if (this.bot.guilds) {
@@ -154,32 +154,31 @@ export class DatabaseModule extends BotModule {
             log(error)
         }
 
-        await this.finishLoad();
         log("Database Ready")
     }
 
     async updatePendingGuilds() {
-        await this.ensureReady();
+        await this.waitForState(ELoadableState.ACTIVE);
 
     }
 
     async updatePendingUsers() {
-        await this.ensureReady();
+        await this.waitForState(ELoadableState.ACTIVE);
 
     }
 
     async onGuildJoined() {
-        await this.ensureReady();
+        await this.waitForState(ELoadableState.ACTIVE);
 
     }
 
     async addUserSettings(settings: UserSettings) {
-        await this.ensureReady();
+        await this.waitForState(ELoadableState.ACTIVE);
         this.users.set(settings.id, settings);
     }
 
     async addGuildSettings(settings: GuildSettings) {
-        await this.ensureReady();
+        await this.waitForState(ELoadableState.ACTIVE);
         this.guilds.set(settings.id, settings);
     }
 

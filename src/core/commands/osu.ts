@@ -12,6 +12,8 @@ import { FrameworkConstants } from "@core/framework";
 import { log } from "../utils";
 
 export default class WallpaperzBrowseCommand extends SlashCommand {
+    currentToken: string = ""
+    tokenRefreshTimeout: ReturnType<typeof setTimeout>
     constructor() {
         super(
             'osu',
@@ -27,11 +29,38 @@ export default class WallpaperzBrowseCommand extends SlashCommand {
             ]
         )
     }
+
+    override async onLoad(): Promise<void> {
+        await this.fetchApiToken()
+    }
+
+    override async onDestroy(): Promise<void> {
+        if (this.tokenRefreshTimeout) {
+            clearTimeout(this.tokenRefreshTimeout)
+        }
+    }
+
+    async fetchApiToken() {
+        const request = {
+            client_id: process.env.OSU_CLIENT_ID,
+            client_secret: process.env.OSU_CLIENT_SECRETE,
+            grant_type: "client_credentials",
+            scope: "public",
+        };
+
+        const response = (await axios.post<{ access_token: string, expires_in: number }>(`${process.env.OSU_API_AUTH}`, request))
+            .data;
+
+        this.currentToken = response.access_token
+
+        this.tokenRefreshTimeout = setTimeout(this.fetchApiToken.bind(this), (response.expires_in * 1000) - 100)
+    }
+
     async execute(ctx: CommandContext, ...args: any[]): Promise<void> {
         await ctx.deferReply()
         const searchTerm = ctx.asSlashContext.options.getString(this.options[0].name) as string;
 
-        let response = undefined;
+        let response: IOsuApiUser | null = null;
 
         const Embed = new MessageEmbed();
 
@@ -40,11 +69,11 @@ export default class WallpaperzBrowseCommand extends SlashCommand {
         try {
             const request = {
                 headers: {
-                    Authorization: `Bearer ${process.env.OSU_API_TOKEN}`,
+                    Authorization: `Bearer ${this.currentToken}`,
                 },
             };
             response = (
-                await axios.get(
+                await axios.get<IOsuApiUser>(
                     `${process.env.OSU_API}/users/${encodeURIComponent(
                         searchTerm.replace(/\s+/g, "")
                     )}`,
@@ -52,9 +81,9 @@ export default class WallpaperzBrowseCommand extends SlashCommand {
                 )
             ).data;
 
-            const user = response as any as IOsuApiUser;
+            const user = response;
 
-            if (user === undefined) {
+            if (user === null) {
                 Embed.setFooter({ text: "User Not Found" });
                 ctx.editReply({ embeds: [Embed] });
 

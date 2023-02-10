@@ -1,5 +1,5 @@
 import { Client } from "discord.js";
-import { BotModule, WaitForReady } from "@core/module";
+import { BotModule, Loadable } from "@core/base";
 import { log } from "@core/utils";
 import fs, { OpenMode } from 'fs';
 import path from 'path';
@@ -7,7 +7,7 @@ import path from 'path';
 const PLUGINS_PATH = path.join(process.cwd(), '../plugins')
 
 
-export abstract class BotPlugin extends WaitForReady {
+export abstract class BotPlugin extends Loadable {
     assetsPath: string;
     commandsPath: string;
     bot: Client;
@@ -20,12 +20,8 @@ export abstract class BotPlugin extends WaitForReady {
         this.id = "";
     }
 
-    async onRegistered() {
-
-    }
-
-    async onDeregistered() {
-
+    async onLoadError(error: Error): Promise<void> {
+        log("Error loading plugin", this.constructor.name, "\n", error)
     }
 }
 
@@ -36,7 +32,7 @@ export class PluginsModule extends BotModule {
         super(bot);
     }
 
-    async onBeginLoad(): Promise<void> {
+    async onLoad(): Promise<void> {
         log("Preparing Plugins")
         const pluginPaths = await fs.promises.readdir(PLUGINS_PATH)
         for (let i = 0; i < pluginPaths.length; i++) {
@@ -55,7 +51,6 @@ export class PluginsModule extends BotModule {
 
         }
 
-        await this.finishLoad()
         log("Plugins Ready")
     }
 
@@ -65,7 +60,7 @@ export class PluginsModule extends BotModule {
 
     async deregister(id: string) {
         if (this.plugins.has(id)) {
-            await this.plugins.get(id)?.onDeregistered();
+            await this.plugins.get(id)?.destroy();
             this.plugins.delete(id);
         }
     }
@@ -75,7 +70,7 @@ export class PluginsModule extends BotModule {
 
         this.plugins.set(id, plugin);
         log("Registering Plugin", plugin.id)
-        await plugin.onRegistered();
+        await plugin.load();
         log("Registered Plugin", plugin.id)
         return plugin;
     }

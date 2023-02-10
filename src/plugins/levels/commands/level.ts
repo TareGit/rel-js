@@ -29,18 +29,23 @@ export default class LevelCommand extends SlashCommand<LevelingPlugin> {
         )
     }
 
-    async onInitalized(): Promise<void> {
+    override async onLoad(): Promise<void> {
         this.levelCard = await fs.promises.readFile(path.join(this.plugin!.assetsPath, 'card.html'), { encoding: 'utf-8' });
     }
 
+
     async buildCard(member: GuildMember) {
         const guildId = member.guild.id;
+        log("Fetching user")
         const settings = (await bus.database.getUser(member.id, true));
 
+        log("Fetching level data")
         const levelingData = await this.plugin!.getLevelData(guildId, settings.id);
 
         const progress = levelingData.xp || 0.001;
         const required = getXpForNextLevel(levelingData.level);
+
+        log("Fetching rank")
         const rank = await this.plugin!.getRank(guildId, settings.id);
 
         log("User Rank gotten")
@@ -49,7 +54,9 @@ export default class LevelCommand extends SlashCommand<LevelingPlugin> {
             .replaceAll("{color}", settings.cardColor)
             .replaceAll("{percent}", `${Math.min((progress / required), 1) * 100}`)
             .replaceAll("{bg}", settings.cardBg)
-            .replaceAll("{avatar}", member.displayAvatarURL())
+            .replaceAll("{avatar}", member.displayAvatarURL({
+                size: 512
+            }))
             .replaceAll("{username}", member.displayName)
             .replaceAll("{rank}", `${rank + 1}`)
             .replaceAll("{level}", `${levelingData.level}`)
@@ -85,7 +92,7 @@ export default class LevelCommand extends SlashCommand<LevelingPlugin> {
             await page.setContent(card, { waitUntil: 'load' });
             const content = await page.$("body");
             if (content) {
-                const imageBuffer = await content.screenshot({ omitBackground: true });
+                const imageBuffer = await content.screenshot({ omitBackground: true, type: 'png' });
                 log("CardGenerated")
                 await ctx.editReply({ files: [{ attachment: imageBuffer }] });
                 log("Card Sent")

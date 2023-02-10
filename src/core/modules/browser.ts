@@ -2,7 +2,7 @@ import { Browser, Page, executablePath } from 'puppeteer';
 import puppeteer from 'puppeteer-extra'
 import StealthPlugin from "puppeteer-extra-plugin-stealth"
 import AdblockerPlugin from "puppeteer-extra-plugin-adblocker"
-import { BotModule } from '@core/module';
+import { BotModule, ELoadableState } from '@core/base';
 import { Client } from 'discord.js';
 import { log } from '@core/utils';
 
@@ -65,7 +65,7 @@ export class BrowserModule extends BotModule {
 
     }
 
-    async onBeginLoad(): Promise<void> {
+    async onLoad(): Promise<void> {
         log("Preparing Browser")
         if (this.numBrowsers > 7) {
             process.setMaxListeners(0);
@@ -73,10 +73,10 @@ export class BrowserModule extends BotModule {
 
         for (let i = 0; i < this.numBrowsers; i++) {
             const newBrowser = await puppeteer.launch({
-                headless: this.headless,
+                headless: false,//this.headless,
                 args: browserArgs,
-                userDataDir: "../cachedData",
-                executablePath: executablePath(),
+                //userDataDir: "/Users/tare/Github/umeko-js/puppeter",
+                executablePath: "/opt/homebrew/bin/chromium",
             });
             const browserId = getBrowserId(newBrowser)
             this.pagesCount[browserId] = 0
@@ -85,8 +85,6 @@ export class BrowserModule extends BotModule {
         }
 
         log("Browser Ready");
-
-        await this.finishLoad()
     }
 
     getMaxPagesForDomain(domanName: string) {
@@ -219,7 +217,11 @@ export class BrowserModule extends BotModule {
 
 
     async getPage(url: string = NO_NAVIGATION_PAGE, waitForSelector: string = ""): Promise<Page> {
-        await this.ensureReady()
+        log("Getting page")
+        log("Waiting for state")
+        await this.waitForState(ELoadableState.ACTIVE);
+        log("State recieved")
+        log("Moving to fetch page")
         return await this.getOrCreatePage(url, waitForSelector);
     }
 
@@ -247,9 +249,7 @@ export class BrowserModule extends BotModule {
         this.openDomains[domainName][browserId] -= 1;
     }
 
-    async onBeginDestroy(): Promise<void> {
+    async onDestroy(): Promise<void> {
 
     }
-
-
 }

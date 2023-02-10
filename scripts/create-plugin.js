@@ -6,6 +6,7 @@ const pluginPath = path.join(__dirname, "../src/plugins");
 if (!process.argv[2]) {
     console.log("The name of the plugin to create was not given")
 }
+
 else {
     const pluginName = process.argv[2].toLowerCase()
     const newPluginPath = path.join(pluginPath, pluginName)
@@ -28,13 +29,11 @@ export default class ${pluginNameWithCaps}Plugin extends BotPlugin {
         this.id = '${pluginName}'
     }
 
-    async onRegistered(): Promise<void> {
-
-
-        this.isReady = true;
+    async onLoad(): Promise<void> {
+        
     }
 
-    async onDeregistered(): Promise<void> {
+    async onDestroyed(): Promise<void> {
 
     }
 }

@@ -13,9 +13,9 @@ export default class TwitchPlugin extends BotPlugin {
         this.id = 'twitch'
     }
 
-    async onRegistered(): Promise<void> {
+    override async onLoad(): Promise<void> {
         this.bot.on('presenceUpdate', this.onPresenceUpdateCallback);
-        this.isReady = true;
+        this.addBoundEvent(this.bot, 'presenceUpdate', this.onPresenceUpdate)
     }
 
     async onPresenceUpdate(oldPresence: Presence | null, newPresence: Presence) {
@@ -112,7 +112,7 @@ export default class TwitchPlugin extends BotPlugin {
         }
     }
 
-    async onDeregistered(): Promise<void> {
+    override async onDestroy(): Promise<void> {
         this.bot.off('presenceUpdate', this.onPresenceUpdateCallback)
     }
 }

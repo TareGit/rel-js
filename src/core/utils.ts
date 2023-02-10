@@ -66,7 +66,7 @@ export function log(...args) {
   const file =
     simplifiedStack[Math.max(simplifiedStack.length - 1, 0)].split(")")[0];
 
-  argumentValues.unshift(`${file.padEnd(25)}::`);
+  argumentValues.unshift(`${file.padEnd(20)}::`);
 
   if (global.bus && bus.bot && bus.cluster) {
     const clusterText = `Cluster ${bus.cluster.id}`.padEnd(13);
@@ -75,7 +75,7 @@ export function log(...args) {
     argumentValues.unshift(`${'Manager'.padEnd(13)}::`);
   }
 
-  argumentValues.unshift(`${new Date().toLocaleString().padEnd(25)}::`);
+  argumentValues.unshift(`${new Date().toLocaleString().padEnd(22)}::`);
 
   console.log.apply(null, argumentValues);
 }
@@ -97,24 +97,6 @@ export async function handleCommandDirectoryChanges(event, path: string) {
 
       break;
   }
-}
-
-export async function getOsuApiToken() {
-  const request = {
-    client_id: process.env.OSU_CLIENT_ID,
-    client_secret: process.env.OSU_CLIENT_SECRETE,
-    grant_type: "client_credentials",
-    scope: "public",
-  };
-
-  const response = (await axios.post(`${process.env.OSU_API_AUTH}`, request))
-    .data;
-
-  process.env.OSU_API_TOKEN = response.access_token;
-
-  setTimeout(getOsuApiToken, response.expires_in * 1000 - 200);
-
-  log("Done fetching Osu Api Token");
 }
 
 export async function getSpotifyApiToken() {
