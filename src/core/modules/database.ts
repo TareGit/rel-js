@@ -1,5 +1,5 @@
 import path from "path";
-import { DatabaseApi } from '@core/api';
+import { DatabaseApi, ServerApi } from '@core/api';
 import { Client } from "discord.js";
 import { BotModule, ELoadableState } from "@core/base";
 import { log } from "@core/utils";
@@ -162,8 +162,16 @@ export class DatabaseModule extends BotModule {
 
     }
 
+    addPendingGuilds(ids: string[]) {
+
+    }
+
     async updatePendingUsers() {
         await this.waitForState(ELoadableState.ACTIVE);
+
+    }
+
+    addPendingUsers(ids: string[]) {
 
     }
 
@@ -207,6 +215,11 @@ export class DatabaseModule extends BotModule {
 
         }
 
+        ServerApi.post('/n/users', {
+            url: `${process.env.CLUSTER_API}/u/users`,
+            ids: data.map(a => a.id)
+        }).catch(() => log("Error requesting user notifications"))
+
         return data;
     }
 
@@ -232,6 +245,11 @@ export class DatabaseModule extends BotModule {
                 data.push.apply(data, toDatabase);
             }
         }
+
+        ServerApi.post('/n/guilds', {
+            url: `${process.env.CLUSTER_API}/u/guilds`,
+            ids: data.map(a => a.id)
+        }).catch(() => log("Error requesting guilds notifications"))
 
         return data;
     }

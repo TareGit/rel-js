@@ -5,7 +5,7 @@ import { log } from '@core/utils';
 
 const app = express();
 
-const port = process.argv.includes("debug") ? 3001 : 80;
+const port = process.argv.includes("--debug") ? 9003 : 80;
 
 app.use(compression());
 app.use(express.json({ limit: "50mb" }));
@@ -28,31 +28,31 @@ app.get("/ping", async (req, res) => {
   res.send({ id: "umeko", guilds: guildsCount });
 });
 
-app.post("/guild-update", (req, res) => {
-  const guildId = req.body.id;
-  ClientManager?.broadcastEval(`
-    if(bus.guildSettings.get('${guildId}') && !bus.guildsPendingUpdate.includes('${guildId}'))
-    {
-        bus.guildsPendingUpdate.push('${guildId}');
-    }
+app.post("/u/guilds", (req, res) => {
+  const guildId = req.body.data;
+  console.log("UPDATE RECIEVED", req.body)
+  if (guildId) {
+    ClientManager?.broadcastEval(`
+    bus?.database.addPendingGuilds(['${guildId}'])
     `);
 
-  log(`Queued Update For Guild ${guildId}`);
+    log(`Queued Update For Guild ${guildId}`);
+
+  }
 
   res.send({ result: "recieved" });
 });
 
-app.post("/user-update", (req, res) => {
-  const userId = req.body.id;
-
-  ClientManager?.broadcastEval(`
-        if(bus.userSettings.get('${userId}') && !bus.usersPendingUpdate.includes('${userId}'))
-        {
-            bus.usersPendingUpdate.push('${userId}');
-        }
+app.post("/u/users", (req, res) => {
+  const userId = req.body.data;
+  if (userId) {
+    ClientManager?.broadcastEval(`
+        bus?.database.addPendingUsers(['${userId}'])
         `);
 
-  log(`Queued Update For User ${userId}`);
+    log(`Queued Update For User ${userId}`);
+  }
+
 
   res.send({ result: "recieved" });
 });

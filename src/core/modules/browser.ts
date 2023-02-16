@@ -73,10 +73,9 @@ export class BrowserModule extends BotModule {
 
         for (let i = 0; i < this.numBrowsers; i++) {
             const newBrowser = await puppeteer.launch({
-                headless: false,//this.headless,
+                headless: this.headless,
                 args: browserArgs,
-                //userDataDir: "/Users/tare/Github/umeko-js/puppeter",
-                executablePath: "/opt/homebrew/bin/chromium",
+                executablePath: executablePath(),
             });
             const browserId = getBrowserId(newBrowser)
             this.pagesCount[browserId] = 0
