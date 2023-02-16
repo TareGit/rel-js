@@ -5,6 +5,7 @@ import { BotModule, ELoadableState } from "@core/base";
 import { log } from "@core/utils";
 import { IGuildSettings, IDatabaseGuildSettings, IUserSettings, IDatabaseUserSettings, IUmekoApiResponse, FrameworkConstants, OptsParser } from "@core/framework";
 
+const MAX_DATABASE_QUERY = 50
 export class GuildSettings {
     raw: IGuildSettings
     constructor(settings: IDatabaseGuildSettings | IGuildSettings) {
@@ -192,6 +193,26 @@ export class DatabaseModule extends BotModule {
 
     async fetchUsers(ids: string[], uploadMissing: boolean = false): Promise<IDatabaseUserSettings[]> {
 
+        if (ids.length > MAX_DATABASE_QUERY) {
+            const tasks: ReturnType<typeof this.fetchUsers>[] = []
+            const totalTasks = Math.ceil(ids.length / MAX_DATABASE_QUERY)
+            for (let i = 0; i < totalTasks; i++) {
+                const isEnd = i === totalTasks - 1;
+                const sliceStart = i * MAX_DATABASE_QUERY
+                const batch = ids.slice(sliceStart, isEnd ? undefined : (sliceStart + MAX_DATABASE_QUERY))
+                tasks.push(this.fetchUsers(batch, uploadMissing))
+            }
+
+            const results = await Promise.allSettled(tasks)
+
+            return results.reduce((total, result) => {
+                if (result.status === 'fulfilled') {
+                    total.push.apply(total, result.value)
+                }
+                return total
+            }, [] as IDatabaseUserSettings[])
+        }
+
         const DatabaseResponse = (await DatabaseApi.get<IUmekoApiResponse<IDatabaseUserSettings[]>>(`/users?ids=${ids.join(',')}`)).data
 
         if (DatabaseResponse.error) {
@@ -224,6 +245,26 @@ export class DatabaseModule extends BotModule {
     }
 
     async fetchGuilds(ids: string[], uploadMissing: boolean = false): Promise<IDatabaseGuildSettings[]> {
+
+        if (ids.length > MAX_DATABASE_QUERY) {
+            const tasks: ReturnType<typeof this.fetchGuilds>[] = []
+            const totalTasks = Math.ceil(ids.length / MAX_DATABASE_QUERY)
+            for (let i = 0; i < totalTasks; i++) {
+                const isEnd = i === totalTasks - 1;
+                const sliceStart = i * MAX_DATABASE_QUERY
+                const batch = ids.slice(sliceStart, isEnd ? undefined : (sliceStart + MAX_DATABASE_QUERY))
+                tasks.push(this.fetchGuilds(batch, uploadMissing))
+            }
+
+            const results = await Promise.allSettled(tasks)
+
+            return results.reduce((total, result) => {
+                if (result.status === 'fulfilled') {
+                    total.push.apply(total, result.value)
+                }
+                return total
+            }, [] as IDatabaseGuildSettings[])
+        }
 
         const DatabaseResponse = (await DatabaseApi.get<IUmekoApiResponse<IDatabaseGuildSettings[]>>(`/guilds?ids=${ids.join(',')}`)).data
 
