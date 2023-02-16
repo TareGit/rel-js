@@ -1,4 +1,4 @@
-import { Manager } from "discord-hybrid-sharding";
+import { ClusterManager } from "discord-hybrid-sharding";
 import {
   GuildMember,
   TextBasedChannel,
@@ -153,7 +153,7 @@ export type BoundEvent<T extends BoundEventTarget = any> = {
 }
 
 declare global {
-  var ClientManager: Manager;
+  var ClusterManager: ClusterManager;
 }
 
 

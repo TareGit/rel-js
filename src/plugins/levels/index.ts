@@ -1,9 +1,10 @@
 import { Client, Message, User } from "discord.js";
 import { BotPlugin } from "@modules/exports";
 import { DatabaseApi } from '@core/api'
-import { log, randomIntegerInRange } from "@core/utils";
+import { log, randInt } from "@core/utils";
 import { IUserLevelData, IUmekoApiResponse, FrameworkConstants, EOptsKeyLocation } from "@core/framework";
 import { ELoadableState } from "@core/base";
+import { AxiosResponse } from "axios";
 
 // Calculates the xp required to get to the next level
 export function getXpForNextLevel(level: number) {
@@ -14,13 +15,40 @@ export function getXpForNextLevel(level: number) {
 export function getTotalXp(level: number) {
     return 0.5 * (level + 1) * (level ** 2 * 2 + level + 200);
 }
+const LEVELS_UPDATE_FREQUENCY = 1000 * 60 * 5;
 
 class GuildLevelingData {
     cache: { [userId: string]: IUserLevelData } = {}
     ranking: string[] = []
     guild: string;
+    pendingLevelingUpdates: Set<string> = new Set();
+    updateTimeout: ReturnType<typeof setTimeout> | null = null;
     constructor(guildId: string) {
         this.guild = guildId;
+        this.updatePendingLevels()
+    }
+
+    async updatePendingLevels() {
+
+        this.updateTimeout = null;
+
+        if (this.pendingLevelingUpdates.size) {
+            try {
+                const updates = Array.from(this.pendingLevelingUpdates).map((a) => this.cache[a]).filter(a => a !== undefined && a !== null)
+
+                const response = await DatabaseApi.put<IUmekoApiResponse<string>>('/levels', updates);
+                if (response.data.error) {
+                    throw new Error(response.data.data)
+                }
+
+                this.pendingLevelingUpdates.clear()
+            } catch (error) {
+                log(error)
+            }
+
+        }
+
+        this.updateTimeout = setTimeout(this.updatePendingLevels.bind(this), LEVELS_UPDATE_FREQUENCY)
     }
 
     addUser(user: IUserLevelData) {
@@ -46,14 +74,16 @@ class GuildLevelingData {
 
         const nextLevelXp = getXpForNextLevel(this.cache[userId].level);
 
-        if (this.cache[userId].xp > nextLevelXp) {
+        const leveledUp = this.cache[userId].xp > nextLevelXp;
+
+        if (leveledUp) {
             this.cache[userId].level += 1;
-            this.cache[userId].xp = nextLevelXp - this.cache[userId].xp;
-            return true
+            this.cache[userId].xp = this.cache[userId].xp - nextLevelXp;
         }
-        else {
-            return false;
-        }
+
+
+        this.pendingLevelingUpdates.add(userId)
+        return leveledUp
     }
 
     async uploadNewUser(userId: string) {
@@ -73,6 +103,12 @@ class GuildLevelingData {
     async getUserRank(userId: string) {
         return this.ranking.indexOf(userId);
     }
+
+    onDestroy() {
+        if (this.updateTimeout) {
+            clearTimeout(this.updateTimeout)
+        }
+    }
 }
 
 export default class LevelingPlugin extends BotPlugin {
@@ -81,10 +117,6 @@ export default class LevelingPlugin extends BotPlugin {
     constructor(bot: Client, dir: string) {
         super(bot, dir)
         this.id = 'levels'
-    }
-
-    async getUserLevel(guild: string, user: User) {
-
     }
 
     override async onLoad() {
@@ -151,7 +183,7 @@ export default class LevelingPlugin extends BotPlugin {
                 return;
             }
 
-            if (await this.addXp(message.member.guild.id, message.author.id, randomIntegerInRange(5, 10) * 100)) {
+            if (await this.addXp(message.member.guild.id, message.author.id, randInt(5, 10))) {
                 const userData = await this.getLevelData(message.member.guild.id, message.author.id)
                 const levelUpMsg = "{username} Just leveled up".replace(/{user}/gi, `<@${message.author.id}>`)
                     .replace(/{username}/gi, `${message.member?.displayName}`)
@@ -173,6 +205,6 @@ export default class LevelingPlugin extends BotPlugin {
     }
 
     override async onDestroy() {
-        this.bot.off('messageCreate', this.onMessageCreateCallback);
+        Array.from(this.cache.values()).forEach(c => c.onDestroy())
     }
 }

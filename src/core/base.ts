@@ -16,10 +16,27 @@ export {
     ELoadableState
 }
 
+
+/**
+ * Base class for all Classes that will need a load => destroy lifecycle.
+ */
 export abstract class Loadable {
+
+    /**
+     * Events that will be unbound when {@link this | this} class will be {@link destroy | destroyed}
+     */
     events: BoundEvent[] = []
+
+    /**
+     * The internal state of this {@link Loadable| Loadable}
+     */
     private _state: ELoadableState = ELoadableState.INACTIVE
+
+    /**
+     * All callbacks relating to state changes
+     */
     _stateCallbacks: Map<ELoadableState, NoParamCallback[]> = new Map()
+
     constructor() {
     }
 
@@ -45,7 +62,10 @@ export abstract class Loadable {
         return this._state
     }
 
-    // Events added will be automatically unbound once this class is destroyed
+    /**
+     * All events added will be automatically unbounded when {@link destroy | destroy} is called
+     * @param events 
+     */
     addBoundEvent(target: BoundEventTarget, event: string, callback: BoundEventCallback) {
         this.events.push({
             target,
@@ -54,11 +74,22 @@ export abstract class Loadable {
         })
     }
 
+    /**
+     * All events added will be automatically unbounded when {@link destroy | destroy} is called
+     * @param events 
+     */
     addBoundEvents(events: BoundEvent[]) {
         this.events.push.apply(this.events, events)
     }
 
-    async waitAndSetState(newState: ELoadableState, waitForState: ELoadableState) {
+    /**
+     * Sets the state to newState if its not already 'newState'. if the state
+     * is already 'newState' it just waits for 'waitForState'
+     * @param newState 
+     * @param waitForState 
+     * @returns true if we set the state, false if we waited for the state to change
+     */
+    async setAndWaitForState(newState: ELoadableState, waitForState: ELoadableState) {
         if (this.state === newState) {
             await this.waitForState(waitForState)
             return false
@@ -67,22 +98,37 @@ export abstract class Loadable {
         return true
     }
 
-    // child classes must set "isReady" to true at the end of this function and must call "onLoad"
+    /**
+     * load this {@link Loadable | Loadable}
+     * @returns 
+     */
     async load() {
-        if (!(await this.waitAndSetState(ELoadableState.LOADING, ELoadableState.ACTIVE))) return
+        if (!(await this.setAndWaitForState(ELoadableState.LOADING, ELoadableState.ACTIVE))) return
 
         await this.onLoad().catch(this.onLoadError.bind(this))
         this.state = ELoadableState.ACTIVE
     }
 
+    /**
+     * Can be used to handle {@link load| load} errors
+     * @param error 
+     */
     async onLoadError(error: Error) {
 
     }
 
+    /**
+     * Called during {@link load | load},Child classes can override this for initialization
+     */
     async onLoad() {
 
     }
 
+    /**
+     * Waits for the state to change to 'state'
+     * @param state 
+     * @returns 
+     */
     async waitForState(state: ELoadableState) {
         if (this.state === state) return
         return new Promise<void>(((resolve) => {
@@ -95,10 +141,13 @@ export abstract class Loadable {
         }))
     }
 
-    // child classes must call "onDestroy" and must unbind all events
+    /**
+     * destroy this {@link Loadable | Loadable}
+     * @returns 
+     */
     async destroy() {
 
-        if (!(await this.waitAndSetState(ELoadableState.DESTROYING, ELoadableState.INACTIVE))) return
+        if (!(await this.setAndWaitForState(ELoadableState.DESTROYING, ELoadableState.INACTIVE))) return
 
         await this.onDestroy()
 
@@ -107,15 +156,24 @@ export abstract class Loadable {
         log("Resolved callbacks")
     }
 
+    /**
+     * Called during {@link destroy | destroy}, Child classess can override this for cleanup
+     */
     async onDestroy() {
 
     }
 
 }
 
-export abstract class BotModule extends Loadable {
-    bot: Client;
 
+/**
+ * Base class for all Modules the bot has
+ */
+export abstract class BotModule extends Loadable {
+    /**
+     * A reference to the actual bot
+     */
+    bot: Client;
 
     constructor(bot: Client) {
         super();

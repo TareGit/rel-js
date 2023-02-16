@@ -424,14 +424,17 @@ export class CommandsModule extends BotModule {
         }
         try {
             if (guild) {
-                await axios.put(`https://discord.com/api/v10/applications/895104527001354313/guilds/${guild}/commands`, payload, config);
+                return (await axios.put(`https://discord.com/api/v10/applications/${this.bot.user?.id}/guilds/${guild}/commands`, payload, config)).data;
             }
             else {
-                await axios.put(`https://discord.com/api/v10/applications/895104527001354313/commands`, payload, config);
+                return (await axios.put(`https://discord.com/api/v10/applications/${this.bot.user?.id}/commands`, payload, config)).data;
             }
         } catch (error) {
             if (error.isAxiosError) {
                 log("error uploading", util.inspect(error.response.data.errors, true, 1000))
+            }
+            else {
+                log("Error uploading Slash Commands", error)
             }
         }
 

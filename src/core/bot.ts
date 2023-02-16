@@ -1,7 +1,7 @@
 process.chdir(__dirname);
 
 import "@core/bus";
-import { data, Client as ClusterClient } from "discord-hybrid-sharding";
+import { getInfo, ClusterClient } from "discord-hybrid-sharding";
 import { Client, Intents, PartialTypes } from "discord.js";
 import { PluginsModule, CommandsModule, DatabaseModule, BrowserModule } from "@modules/exports";
 import Sync from "heatsync";
@@ -17,8 +17,8 @@ const clientOptions = {
     Intents.FLAGS.DIRECT_MESSAGES,
     Intents.FLAGS.GUILD_VOICE_STATES,
   ],
-  shards: data.SHARD_LIST,
-  shardCount: data.TOTAL_SHARDS,
+  shards: getInfo().SHARD_LIST,
+  shardCount: getInfo().TOTAL_SHARDS,
 
   partials: ["MESSAGE", "CHANNEL"] as PartialTypes[],
 };
@@ -51,12 +51,12 @@ bot.on('ready', async (client) => {
   await bus.browser.load();
   await bus.plugins.load();
 
-  if (process.env.DEBUG_GUILD) await bus.commands.uploadCommands(process.env.DEBUG_GUILD) // upload to support server
+  await bus.commands.uploadCommands(process.env.DEBUG_GUILD) // Upload comands
 
-  bus.sync.events.on("error", console.log);
+  bus.sync.events.on("error", (err) => log("Sync Error", err));
 })
 
 bot.on('error', (err) => log("Bot Error", err))
 
 bot.login(process.env.DISCORD_BOT_TOKEN);
-log("Starting Login")
+log("Logging In")

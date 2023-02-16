@@ -1,11 +1,12 @@
 import path from "path";
 import { DatabaseApi, ServerApi } from '@core/api';
-import { Client } from "discord.js";
+import { Client, User } from "discord.js";
 import { BotModule, ELoadableState } from "@core/base";
 import { log } from "@core/utils";
 import { IGuildSettings, IDatabaseGuildSettings, IUserSettings, IDatabaseUserSettings, IUmekoApiResponse, FrameworkConstants, OptsParser } from "@core/framework";
 
 const MAX_DATABASE_QUERY = 50
+const PENDING_DATA_UPDATE_FREQUENCY = 1000 * 60 * 5
 export class GuildSettings {
     raw: IGuildSettings
     constructor(settings: IDatabaseGuildSettings | IGuildSettings) {
@@ -89,8 +90,8 @@ export class UserSettings {
 }
 
 export class DatabaseModule extends BotModule {
-    pendingGuilds: string[] = [];
-    pendingUsers: string[] = [];
+    pendingGuilds: Set<string> = new Set();
+    pendingUsers: Set<string> = new Set();
     guilds: Map<string, GuildSettings> = new Map();
     users: Map<string, UserSettings> = new Map();
 
@@ -151,6 +152,8 @@ export class DatabaseModule extends BotModule {
                 await this.getGuilds(guilds, true);
             }
 
+            this.updatePendingGuilds()
+            this.updatePendingUsers()
         } catch (error) {
             log(error)
         }
@@ -161,19 +164,39 @@ export class DatabaseModule extends BotModule {
     async updatePendingGuilds() {
         await this.waitForState(ELoadableState.ACTIVE);
 
+        if (this.pendingGuilds.size > 0) {
+            log(`Updating ${this.pendingGuilds.size} Pending Guilds`);
+            (await this.fetchGuilds(Array.from(this.pendingGuilds), true)).forEach(d => this.addGuildSettings(new GuildSettings(d)))
+            this.pendingGuilds.clear()
+        }
+
+        setTimeout(this.updatePendingGuilds.bind(this), PENDING_DATA_UPDATE_FREQUENCY)
     }
 
     addPendingGuilds(ids: string[]) {
-
+        for (let i = 0; i < ids.length; i++) {
+            this.pendingGuilds.add(ids[i])
+        }
     }
 
     async updatePendingUsers() {
         await this.waitForState(ELoadableState.ACTIVE);
 
+        if (this.pendingUsers.size > 0) {
+
+            log(`Updating ${this.pendingUsers.size} Pending Users`);
+
+            (await this.fetchUsers(Array.from(this.pendingUsers), true)).forEach(d => this.addUserSettings(new UserSettings(d)))
+            this.pendingUsers.clear()
+        }
+
+        setTimeout(this.updatePendingUsers.bind(this), PENDING_DATA_UPDATE_FREQUENCY)
     }
 
     addPendingUsers(ids: string[]) {
-
+        for (let i = 0; i < ids.length; i++) {
+            this.pendingUsers.add(ids[i])
+        }
     }
 
     async onGuildJoined() {
@@ -183,11 +206,21 @@ export class DatabaseModule extends BotModule {
 
     async addUserSettings(settings: UserSettings) {
         await this.waitForState(ELoadableState.ACTIVE);
+
+        if (this.users.has(settings.id)) {
+            this.users.delete(settings.id)
+        }
+
         this.users.set(settings.id, settings);
     }
 
     async addGuildSettings(settings: GuildSettings) {
         await this.waitForState(ELoadableState.ACTIVE);
+
+        if (this.guilds.has(settings.id)) {
+            this.guilds.delete(settings.id)
+        }
+
         this.guilds.set(settings.id, settings);
     }
 

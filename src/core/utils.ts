@@ -9,21 +9,21 @@ import {
 
 /**
  * Generates a random float (inclusive)
- * @param {Number}min
- * @param {Number}max
- * @returns {Number} The random float
+ * @param min
+ * @param max
+ * @returns The random float
  */
-export function randomFloatInRange(min, max) {
+export function randFloat(min: number = 0, max: number = 1) {
   return Math.random() * (max - min) + min;
 }
 
 /**
  * Generates a random integer (inclusive)
- * @param {Number}min
- * @param {Number}max
- * @returns {Number} The random integer
+ * @param min
+ * @param max
+ * @returns The random integer
  */
-export function randomIntegerInRange(min, max) {
+export function randInt(min: number = 0, max: number = 1): number {
   min = Math.ceil(min);
   max = Math.floor(max);
   return Math.floor(Math.random() * (max - min + 1) + min); //The maximum is inclusive and the minimum is inclusive
@@ -57,8 +57,8 @@ export function time(sep = "") {
  * Logs stuff
  * @param args What to log
  */
-export function log(...args) {
-  const argumentValues = Object.values(arguments);
+export function log(...args: any[]) {
+  const argumentValues = Object.values(args);
 
   const stack = new Error().stack;
   const pathDelimiter = process.platform !== "win32" ? "/" : "\\";
@@ -78,25 +78,6 @@ export function log(...args) {
   argumentValues.unshift(`${new Date().toLocaleString().padEnd(22)}::`);
 
   console.log.apply(null, argumentValues);
-}
-
-export async function handleCommandDirectoryChanges(event, path: string) {
-  const pathAsArray =
-    process.platform !== "win32" ? path.split("/") : path.split("\\");
-
-  switch (event) {
-    case "add":
-
-      break;
-
-    case "change":
-
-      break;
-
-    case "unlink":
-
-      break;
-  }
 }
 
 export async function getSpotifyApiToken() {
@@ -127,41 +108,6 @@ export async function getSpotifyApiToken() {
     log(`Error Fetching Spotify Token\n`, error);
   }
 }
-/*
-let loadedCard: string | null = null;
-loadedCard = null;
-export async function generateCardHtml(user: GuildMember) {
-  if (!loadedCard) {
-    loadedCard = await fs.readFile(
-      path.join(__dirname, "../rank-card.html"),
-      "utf8"
-    );
-  }
-
-  const levelingData = bus.guildLeveling.get(user.guild.id) as IGuildLevelingData;
-
-  if (!levelingData.data[user.id]) levelingData.data[user.id] = { ...constants.DEFAULT_USER_LEVEL_DATA, guild: user.guild.id, user: user.id }
-
-  const userLevelingData = levelingData.data[user.id];
-  const userSettings = bus.userSettings.get(user.id) as IUserSettings;
-
-  const progress = userLevelingData.xp || 0.001;
-  const required = getXpForNextLevel(userLevelingData.level);
-
-  const customizedCard = loadedCard
-    .replaceAll("{opacity}", userSettings.card.get('opacity') || `${constants.DEFAULT_USER_CARD_OPACITY}`)
-    .replaceAll("{color}", userSettings.card.get('color') || constants.DEFAULT_USER_CARD_COLOR)
-    .replaceAll("{percent}", `${Math.min((progress / required), 1) * 100}`)
-    .replaceAll("{bg}", userSettings.card.get('bg') || constants.DEFAULT_USER_CARD_BG)
-    .replaceAll("{avatar}", user.displayAvatarURL())
-    .replaceAll("{username}", user.displayName)
-    .replaceAll("{rank}", `${levelingData.rank.indexOf(user.id) + 1}`)
-    .replaceAll("{level}", `${userLevelingData.level}`)
-    .replaceAll("{progress}", `${progress / 1000}`)
-    .replaceAll("{required}", `${required / 1000}`);
-
-  return customizedCard;
-}*/
 
 export class InteractionCollector<T extends Interaction, V = any> extends ICollector<T>
 {
@@ -170,8 +116,4 @@ export class InteractionCollector<T extends Interaction, V = any> extends IColle
     super(client, options);
     this.data = d;
   }
-}
-
-export function encodeOptions(data: Record<string, any>) {
-  return new URLSearchParams(data).toString()
 }

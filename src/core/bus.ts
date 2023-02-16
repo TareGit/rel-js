@@ -1,6 +1,6 @@
 import Sync from "heatsync";
 import {
-  Client as ClusterClient,
+  ClusterClient, DjsDiscordClient,
 } from "discord-hybrid-sharding";
 import { Client } from "discord.js";
 import { PluginsModule, CommandsModule, DatabaseModule, BrowserModule } from "@modules/exports";
@@ -14,7 +14,7 @@ export interface bus {
   commands: CommandsModule;
   browser: BrowserModule;
   bot: Client;
-  cluster: ClusterClient;
+  cluster: ClusterClient<DjsDiscordClient>;
   loadedSyncFiles: string[];
   dependencies: Map<string, string[]>
 }

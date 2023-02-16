@@ -5,7 +5,7 @@ import { log } from '@core/utils';
 
 const app = express();
 
-const port = process.argv.includes("--debug") ? 9003 : 80;
+const port = process.argv.includes("--debug") ? 9003 : 8088;
 
 app.use(compression());
 app.use(express.json({ limit: "50mb" }));
@@ -18,7 +18,7 @@ app.get("/", (req, res) => {
 
 app.get("/ping", async (req, res) => {
   const data = await bus.cluster?.broadcastEval(function (cluster) {
-    return cluster.client.guilds.cache.size;
+    return cluster.guilds.cache.size;
   });
 
   const guildsCount = data?.reduce(function (previous, current) {
@@ -32,7 +32,7 @@ app.post("/u/guilds", (req, res) => {
   const guildId = req.body.data;
   console.log("UPDATE RECIEVED", req.body)
   if (guildId) {
-    ClientManager?.broadcastEval(`
+    ClusterManager?.broadcastEval(`
     bus?.database.addPendingGuilds(['${guildId}'])
     `);
 
@@ -46,7 +46,7 @@ app.post("/u/guilds", (req, res) => {
 app.post("/u/users", (req, res) => {
   const userId = req.body.data;
   if (userId) {
-    ClientManager?.broadcastEval(`
+    ClusterManager?.broadcastEval(`
         bus?.database.addPendingUsers(['${userId}'])
         `);
 

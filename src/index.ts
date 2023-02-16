@@ -1,7 +1,7 @@
 import path from "path";
 import { existsSync } from "fs";
 import * as fs from "fs/promises";
-import { Manager } from "discord-hybrid-sharding";
+import { ClusterManager } from "discord-hybrid-sharding";
 import { log } from '@core/utils'
 try {
   process.env = require("../secretes.json");
@@ -20,7 +20,7 @@ if (process.argv.includes("--debug")) {
 if (!existsSync(path.join(process.cwd(), "puppeter")))
   fs.mkdir(path.join(process.cwd(), "puppeter"));
 
-const manager = new Manager(path.join(__dirname, 'core', 'bot.js'), {
+const manager = new ClusterManager(path.join(__dirname, 'core', 'bot.js'), {
   totalShards: 2,
   shardsPerClusters: 3,
   mode: "process",
@@ -33,7 +33,7 @@ manager.on("clusterCreate", (cluster) =>
 
 manager.spawn({ timeout: -1 });
 
-global.ClientManager = manager
+global.ClusterManager = manager
 
 const webServer = require("./core/server");
 
