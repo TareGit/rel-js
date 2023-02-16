@@ -15,7 +15,6 @@
 - [OSU! API](https://osu.ppy.sh/home) (Osu! user lookup)
 - [My Anime List API](https://myanimelist.net/) (anime lookup)
 - [TMDB API](https://www.themoviedb.org/) (movie lookup)
-- [Spotify API](https://www.spotify.com/) (converting spotify links to playable tracks)
 - [Wallpaperz API](https://github.com/TareHimself/wallpaper-app) (wallpaper command 'wp')
 - [CatGirlsAreSexy](https://catgirlsare.sexy/) (rank card image hosting)
 - [Discord API](https://discord.com/) (It's a discord bot ¯\\\_(ツ)\_/¯ )
