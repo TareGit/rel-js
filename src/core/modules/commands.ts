@@ -97,10 +97,8 @@ abstract class CommandBase<P extends BotPlugin = BotPlugin> extends Loadable {
         throw new Error("Execute not implemented")
     };
 
-    override async load() {
-        log("Loading Command", this.name)
-        await super.load();
-        log("Loaded Command", this.name)
+    override async load(old: this | null) {
+        await super.load(old);
     };
 
     toJson() {
@@ -232,7 +230,7 @@ export class CommandsModule extends BotModule {
 
     }
 
-    async onLoad(): Promise<void> {
+    async onLoad(old: this | null): Promise<void> {
         log("Preparing Commands")
         this.bot.on('interactionCreate', this.interactionCreateCallback);
         const commandsToImport = await fs.promises.readdir(this.coreCommandsPath)
@@ -296,7 +294,10 @@ export class CommandsModule extends BotModule {
         }
     }
 
+
     async addCommand(command: CommandBase) {
+
+        const existingCommand = this.commands.get(command.uniqueId);
 
         this.commands.set(command.uniqueId, command);
 
@@ -314,7 +315,12 @@ export class CommandsModule extends BotModule {
                 break;
         }
 
-        await command.load()
+        if (existingCommand) {
+            await command.load(existingCommand)
+        }
+        else {
+            await command.load(null)
+        }
     }
 
     private async addChatContextMenuCommand(command: ChatContextMenuCommand) {

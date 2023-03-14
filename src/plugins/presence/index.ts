@@ -11,7 +11,7 @@ export default class PresencePlugin extends BotPlugin {
         this.id = 'presence'
     }
 
-    async onLoad(): Promise<void> {
+    async onLoad(old?: this): Promise<void> {
         this.bot.user?.setActivity('WATCH MY STREAM PLS', {
             url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
             type: ActivityTypes.STREAMING,

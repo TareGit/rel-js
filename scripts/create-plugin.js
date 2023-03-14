@@ -29,7 +29,7 @@ export default class ${pluginNameWithCaps}Plugin extends BotPlugin {
         this.id = '${pluginName}'
     }
 
-    async onLoad(): Promise<void> {
+    async onLoad(old?: this): Promise<void> {
         
     }
 

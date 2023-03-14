@@ -13,7 +13,7 @@ export default class TwitchPlugin extends BotPlugin {
         this.id = 'twitch'
     }
 
-    override async onLoad(): Promise<void> {
+    override async onLoad(old?: this): Promise<void> {
         this.bot.on('presenceUpdate', this.onPresenceUpdateCallback);
         this.addBoundEvent(this.bot, 'presenceUpdate', this.onPresenceUpdate)
     }

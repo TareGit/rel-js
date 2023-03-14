@@ -102,10 +102,10 @@ export abstract class Loadable {
      * load this {@link Loadable | Loadable}
      * @returns 
      */
-    async load() {
+    async load(old: this | null) {
         if (!(await this.setAndWaitForState(ELoadableState.LOADING, ELoadableState.ACTIVE))) return
 
-        await this.onLoad().catch(this.onLoadError.bind(this))
+        await this.onLoad(old).catch(this.onLoadError.bind(this))
         this.state = ELoadableState.ACTIVE
     }
 
@@ -119,8 +119,9 @@ export abstract class Loadable {
 
     /**
      * Called during {@link load | load},Child classes can override this for initialization
+     * @param old The old instance just before it is discarded (if one exists)
      */
-    async onLoad() {
+    async onLoad(old: this | null) {
 
     }
 

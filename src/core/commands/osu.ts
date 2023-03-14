@@ -30,7 +30,12 @@ export default class WallpaperzBrowseCommand extends SlashCommand {
         )
     }
 
-    override async onLoad(): Promise<void> {
+    override async onLoad(old: this | null): Promise<void> {
+        if(old)
+        {
+            this.currentToken = old.currentToken
+            this.tokenRefreshTimeout
+        }
         await this.fetchApiToken()
     }
 

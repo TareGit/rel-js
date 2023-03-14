@@ -29,7 +29,7 @@ export default class LevelCommand extends SlashCommand<LevelingPlugin> {
         )
     }
 
-    override async onLoad(): Promise<void> {
+    override async onLoad(old?: this): Promise<void> {
         this.levelCard = await fs.promises.readFile(path.join(this.plugin!.assetsPath, 'card.html'), { encoding: 'utf-8' });
     }
 

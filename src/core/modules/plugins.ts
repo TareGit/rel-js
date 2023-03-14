@@ -32,7 +32,7 @@ export class PluginsModule extends BotModule {
         super(bot);
     }
 
-    async onLoad(): Promise<void> {
+    async onLoad(old?: this): Promise<void> {
         log("Preparing Plugins")
         const pluginPaths = await fs.promises.readdir(PLUGINS_PATH)
         for (let i = 0; i < pluginPaths.length; i++) {

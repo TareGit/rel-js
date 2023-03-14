@@ -31,8 +31,8 @@ export default class EvalCommand extends SlashCommand {
         try {
             const AsyncFunction = Object.getPrototypeOf(async function () { }).constructor;
 
-            const evalFunction = new AsyncFunction('ctx', 'bus', 'utils', 'axios', 'require', expression);
-            const result = await evalFunction(ctx, bus, utils, axios, require);
+            const evalFunction = new AsyncFunction('ctx', 'bus', 'utils', 'axios', 'require', 'ref', expression);
+            const result = await evalFunction(ctx, bus, utils, axios, require, this);
             const response = '```' + JSON.stringify(result) + '```';
             if (!response || !response.length) {
                 await ctx.editReply({ content: '\`\`\` Evaluated Successfuly \`\`\`' })

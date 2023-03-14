@@ -143,7 +143,7 @@ export class DatabaseModule extends BotModule {
         super(bot);
     }
 
-    async onLoad(): Promise<void> {
+    async onLoad(old?: this): Promise<void> {
         log("Preparing Database")
         try {
             if (this.bot.guilds) {

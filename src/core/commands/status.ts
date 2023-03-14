@@ -6,6 +6,10 @@ import { SlashCommand, CommandContext } from '@modules/commands';
 import { FrameworkConstants } from "@core/framework";
 import { log } from '@core/utils';
 
+function pad(s: number) {
+    return (s < 10 ? '0' : '') + s;
+}
+
 export default class StatusCommand extends SlashCommand {
     constructor() {
         super(
@@ -22,15 +26,9 @@ export default class StatusCommand extends SlashCommand {
         Embed.setTitle('Status');
         Embed.setURL(process.env.WEBSITE!);
 
-        Embed.setFooter({ text: "Sample runtime command change 2" })
-
         let cpu = await osu.cpu.usage();
 
-        function pad(s) {
-            return (s < 10 ? '0' : '') + s;
-        }
-
-        const seconds = bus.bot!.uptime || 1000 / 1000;
+        const seconds = (bus.bot!.uptime || 1000) / 1000;
         const secondsUp = Math.round(Math.floor(seconds % 60));
 
         const minutsUp = Math.round(Math.floor((seconds / 60) % 60));
@@ -39,13 +37,31 @@ export default class StatusCommand extends SlashCommand {
 
         const daysUp = Math.round(Math.floor(seconds / 86400));
 
-        Embed.addField(`Uptime`, ` ${daysUp} Day${daysUp === 1 ? "" : "s"} ${pad(hoursUp)} Hr${hoursUp === 1 ? "" : "s"} ${pad(minutsUp)} Min ${pad(secondsUp)}Secs`, false);
-        Embed.addField(`Cluster`, `${bus.cluster!.id}`, true);
-        Embed.addField(`Shard`, `${ctx.asSlashContext.guild?.shardId}`, true);
-        Embed.addField(`Servers`, ` ${bus.bot!.guilds.cache.size}`, true);
-        //Embed.addField(`Players`, `${queues.size}`, true);
-        Embed.addField(`CPU`, `${parseInt(cpu)}%`, true);
-        Embed.addField(`RAM`, `${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB`, true);
+        Embed.addFields([{ name: `Uptime`, value: ` ${daysUp} Day${daysUp === 1 ? "" : "s"} ${pad(hoursUp)} Hr${hoursUp === 1 ? "" : "s"} ${pad(minutsUp)} Min ${pad(secondsUp)}Secs` },
+        {
+            name: 'Cluster',
+            value: `${bus.cluster!.id}`,
+            inline: true,
+        },
+        {
+            name: 'Shard',
+            value: `${ctx.asSlashContext.guild?.shardId}`,
+            inline: true,
+        }, {
+            name: 'Servers',
+            value: `${bus.bot!.guilds.cache.size}`,
+            inline: true,
+        },
+        {
+            name: 'CPU Load',
+            value: `${parseInt(cpu)}%`,
+            inline: true,
+        },
+        {
+            name: 'RAM Usage',
+            value: `${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB`,
+            inline: true,
+        }]);
 
         ctx.editReply({ embeds: [Embed] });
     }

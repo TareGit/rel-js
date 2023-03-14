@@ -65,7 +65,7 @@ export class BrowserModule extends BotModule {
 
     }
 
-    async onLoad(): Promise<void> {
+    async onLoad(old?: this): Promise<void> {
         log("Preparing Browser")
         if (this.numBrowsers > 7) {
             process.setMaxListeners(0);
