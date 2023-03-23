@@ -16,5 +16,5 @@
 - [My Anime List API](https://myanimelist.net/) (anime lookup)
 - [TMDB API](https://www.themoviedb.org/) (movie lookup)
 - [Wallpaperz API](https://github.com/TareHimself/wallpaper-app) (wallpaper command 'wp')
-- [CatGirlsAreSexy](https://catgirlsare.sexy/) (rank card image hosting)
+- [CatGirlsAreSexy](https://cgas.io/) (rank card image hosting)
 - [Discord API](https://discord.com/) (It's a discord bot ¯\\\_(ツ)\_/¯ )
