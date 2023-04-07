@@ -1,4 +1,4 @@
-import { Client, Message, User } from 'discord.js';
+import { Client, ClientEvents, Message, User } from 'discord.js';
 import { BotPlugin } from '@modules/exports';
 import { DatabaseApi } from '@core/api';
 import { log, randInt } from '@core/utils';
@@ -10,6 +10,7 @@ import {
 } from '@core/framework';
 import { ELoadableState } from '@core/base';
 import { AxiosResponse } from 'axios';
+import { BoundEventCallback } from '@core/types';
 
 // Calculates the xp required to get to the next level
 export function getXpForNextLevel(level: number) {
@@ -154,7 +155,12 @@ export default class LevelingPlugin extends BotPlugin {
 		});
 
 		this.bot.on('messageCreate', this.onMessageCreateCallback);
-		this.bindEvent(this.bot, 'messageCreate', this.onMessageCreateCallback);
+
+		this.bindEvent<ClientEvents, 'messageCreate'>(
+			this.bot,
+			'messageCreate',
+			(m) => {}
+		);
 	}
 
 	ensureGuild(guildId: string) {

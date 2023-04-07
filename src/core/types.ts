@@ -133,19 +133,53 @@ export interface IDiscordApiCommand {
 	type?: ECommandType | ECommandOptionType;
 }
 
-export type BoundEventCallback = (...args: any[]) => any | Promise<any>;
+export type Awaitable<T> = T | Promise<T>;
 
-export interface BoundEventTarget {
-	on: (event: string, callback: BoundEventCallback) => any | Promise<any>;
-	off: (event: string, callback: BoundEventCallback) => any | Promise<any>;
+export type BoundEventCallback<
+	T extends ((...args: any[]) => Awaitable<void>) | any[]
+> = T extends any[] ? (...args: T) => Awaitable<void> : T;
+
+export type TargetEvents = {
+	[key: string | symbol | number]: BoundEventCallback<any>;
+};
+
+export interface BoundEventTarget<E extends TargetEvents> {
+	on: <T extends keyof E>(event: T, callback: BoundEventCallback<E[T]>) => any;
+	off: <T extends keyof E>(event: T, callback: BoundEventCallback<E[T]>) => any;
 }
 
-export type BoundEvent<T extends BoundEventTarget = any> = {
-	target: T;
-	event: string;
-	callback: BoundEventCallback;
+export type BoundEvent<E extends TargetEvents, K extends keyof E = keyof E> = {
+	target: BoundEventTarget<E>;
+	event: K;
+	callback: BoundEventCallback<E[K]>;
 };
 
 declare global {
 	var ClusterManager: ClusterManager;
 }
+
+declare function bindEvent<
+	T extends BoundEventTarget<TargetEvents>,
+  E extends T extends BoundEventTarget<infer E>
+    ? E
+    : never,
+  K extends keyof E
+>(target: T, event: K, callback: BoundEventCallback<E[K]>): void;
+
+declare const bot: BoundEventTarget<ClientEvents>;
+
+type ClientEvents = {
+	messageCreate: BoundEventCallback<string[]>;
+};
+
+bindEvent(bot as BoundEventTarget<ClientEvents>,'messageCreate', (m1, m2) => {});
+
+type IncorrectEvents = {
+	messageCreate: BoundEventCallback<number[]>;
+};
+
+bindEvent(
+	bot,
+	'messageCreate',
+	(m1, m2) => {}
+);

@@ -4,18 +4,17 @@ import { BotPlugin } from '@modules/plugins';
 import { Client, Presence, TextChannel } from 'discord.js';
 
 export default class TwitchPlugin extends BotPlugin {
-	onPresenceUpdateCallback: (
-		oldPresence: Presence | null,
-		newPresence: Presence
-	) => Promise<void> = this.onPresenceUpdate.bind(this);
 	constructor(bot: Client, dir: string) {
 		super(bot, dir);
 		this.id = 'twitch';
 	}
 
 	override async onLoad(old?: this): Promise<void> {
-		this.bot.on('presenceUpdate', this.onPresenceUpdateCallback);
-		this.bindEvent(this.bot, 'presenceUpdate', this.onPresenceUpdate);
+		this.bindEvent(
+			this.bot,
+			'presenceUpdate',
+			this.onPresenceUpdate.bind(this)
+		);
 	}
 
 	async onPresenceUpdate(oldPresence: Presence | null, newPresence: Presence) {
@@ -116,9 +115,5 @@ export default class TwitchPlugin extends BotPlugin {
 		} catch (error) {
 			log(error);
 		}
-	}
-
-	override async onDestroy(): Promise<void> {
-		this.bot.off('presenceUpdate', this.onPresenceUpdateCallback);
 	}
 }

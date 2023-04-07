@@ -1,6 +1,11 @@
 import { Client } from 'discord.js';
 import { log } from '@core/utils';
-import { BoundEvent, BoundEventCallback, BoundEventTarget } from './types';
+import {
+	BoundEvent,
+	BoundEventCallback,
+	BoundEventTarget,
+	TargetEvents,
+} from './types';
 import { NONAME } from 'dns';
 
 export type NoParamCallback = () => void | Promise<void>;
@@ -21,7 +26,7 @@ export abstract class Loadable {
 	/**
 	 * Events that will be unbound when {@link this | this} class will be {@link destroy | destroyed}
 	 */
-	events: BoundEvent[] = [];
+	events: BoundEvent<any>[] = [];
 
 	/**
 	 * The internal state of this {@link Loadable| Loadable}
@@ -63,32 +68,35 @@ export abstract class Loadable {
 	 * All events added will be automatically unbounded when {@link destroy | destroy} is called
 	 * @param events
 	 */
-	bindEvent(
-		target: BoundEventTarget,
-		event: string,
-		callback: BoundEventCallback
+	bindEvent<E extends TargetEvents, K extends keyof E>(
+		target: BoundEvent<E, K>['target'],
+		event: K,
+		callback: BoundEventCallback<E[K]>
 	) {
-		this.bindEvents([
-			{
-				target,
-				event,
-				callback,
-			},
-		]);
+		this.events.push({
+			target,
+			event,
+			callback,
+		});
+
+		target.on(event, callback);
 	}
 
-	/**
-	 * All events added will be automatically unbounded when {@link destroy | destroy} is called
-	 * @param events
-	 */
-	bindEvents(events: BoundEvent[]) {
-		this.events.push(
-			...events.map((e) => {
-				e.target.on(e.event, e.callback);
-				return e;
-			})
-		);
-	}
+	// /**
+	//  * All events added will be automatically unbounded when {@link destroy | destroy} is called
+	//  * @param events
+	//  */
+	// bindEvents<
+	// 	E extends TargetEvents = TargetEvents,
+	// 	T extends BoundEventTarget<E> = BoundEventTarget<E>
+	// >(events: BoundEvent<E, T>[]) {
+	// 	this.events.push(
+	// 		...events.map((e) => {
+	// 			e.target.on(e.event, e.callback);
+	// 			return e;
+	// 		})
+	// 	);
+	// }
 
 	/**
 	 * Sets the state to newState if its not already 'newState'. if the state
