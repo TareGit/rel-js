@@ -12,7 +12,7 @@
 - [Custom server for dashboard integration and session handling](https://github.com/TareHimself/umeko-js-server)
 
 ### API's Used So Far
-- [OSU! API](https://osu.ppy.sh/home) (Osu! user lookup)
+- [Osu! API](https://osu.ppy.sh/home) (Osu! user lookup)
 - [My Anime List API](https://myanimelist.net/) (anime lookup)
 - [TMDB API](https://www.themoviedb.org/) (movie lookup)
 - [Wallpaperz API](https://github.com/TareHimself/wallpaper-app) (wallpaper command 'wp')
