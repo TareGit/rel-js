@@ -1,20 +1,25 @@
 import { locationIsChannel, EOptsKeyLocation } from '@core/framework';
-import { log } from '@core/utils';
 import { BotPlugin } from '@modules/plugins';
 import { Client, Presence, TextChannel } from 'discord.js';
 
 export default class TwitchPlugin extends BotPlugin {
-	constructor(bot: Client, dir: string) {
-		super(bot, dir);
+	onPresenceUpdateCallback!: (
+		oldPresence: Presence | null,
+		newPresence: Presence
+	) => Promise<void>;
+
+	constructor(dir: string) {
+		super(dir);
 		this.id = 'twitch';
 	}
 
 	override async onLoad(old?: this): Promise<void> {
-		this.bindEvent(
-			this.bot,
-			'presenceUpdate',
-			this.onPresenceUpdate.bind(this)
-		);
+		this.onPresenceUpdateCallback = this.onPresenceUpdate.bind(this);
+		this.bot.on('presenceUpdate', this.onPresenceUpdateCallback);
+	}
+
+	override async onDestroy(): Promise<void> {
+		this.bot.off('presenceUpdate', this.onPresenceUpdateCallback);
 	}
 
 	async onPresenceUpdate(oldPresence: Presence | null, newPresence: Presence) {
@@ -72,7 +77,7 @@ export default class TwitchPlugin extends BotPlugin {
 				if (locationIsChannel(twitchOptions.get('location') as any)) {
 					const channel = (await newPresence.guild.channels
 						.fetch(twitchOptions.get('location'))
-						.catch(log)) as TextChannel | null;
+						.catch(console.error)) as TextChannel | null;
 
 					if (channel) {
 						channel.send(twitchOnlineMsg);
@@ -93,7 +98,9 @@ export default class TwitchPlugin extends BotPlugin {
 					const user = newPresence.member;
 
 					if (roles?.length) {
-						await user.roles.add(roles, 'Started Streaming').catch(log);
+						await user.roles
+							.add(roles, 'Started Streaming')
+							.catch(console.error);
 					}
 				}
 			} else {
@@ -108,12 +115,14 @@ export default class TwitchPlugin extends BotPlugin {
 					const user = newPresence.member;
 
 					if (roles?.length) {
-						await user.roles.remove(roles, 'Stopped Streaming').catch(log);
+						await user.roles
+							.remove(roles, 'Stopped Streaming')
+							.catch(console.error);
 					}
 				}
 			}
 		} catch (error) {
-			log(error);
+			console.error(error);
 		}
 	}
 }

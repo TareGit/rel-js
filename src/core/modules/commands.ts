@@ -3,7 +3,6 @@ import {
 	BaseCommandInteraction,
 	Message,
 	CommandInteraction,
-	Client,
 	ContextMenuInteraction,
 	UserContextMenuInteraction,
 	InteractionDeferReplyOptions,
@@ -20,8 +19,7 @@ import {
 	IDiscordApiCommand,
 } from '@core/types';
 import { BotModule, ELoadableState, Loadable } from '@core/base';
-import { log } from '@core/utils';
-import axios, { Axios } from 'axios';
+import axios from 'axios';
 import util from 'util';
 import { BotPlugin } from './plugins';
 import { FrameworkConstants } from '@core/framework';
@@ -77,7 +75,7 @@ export class CommandContext {
 
 abstract class CommandBase<P extends BotPlugin = BotPlugin> extends Loadable {
 	name: string;
-	type: ECommandType;
+	type: ECommandType = ECommandType.CHAT_CONTEXT_MENU;
 	description: string;
 	dependencies: string[];
 	plugin: P | null = null;
@@ -93,11 +91,11 @@ abstract class CommandBase<P extends BotPlugin = BotPlugin> extends Loadable {
 		this.plugin = plugin;
 	}
 
-	async execute(ctx: CommandContext, ...args: any[]) {
+	async execute(ctx: CommandContext, ...args: unknown[]) {
 		throw new Error('Execute not implemented');
 	}
 
-	override async load(old: this | null) {
+	override async load(old?: this) {
 		await super.load(old);
 	}
 
@@ -186,54 +184,41 @@ export class CommandsModule extends BotModule {
 	userContextMenuCommands: Map<string, UserContextMenuCommand> = new Map();
 	chatContextMenuCommands: Map<string, ChatContextMenuCommand> = new Map();
 	watcher: FSWatcher;
+	onCommandFileAddedCallback: (path: string, stats: fs.Stats) => Promise<void>;
+	onCommandFileChangedCallback: (
+		path: string,
+		stats?: fs.Stats | undefined
+	) => Promise<void>;
+	onCommandFileDeletedCallback: (path: string) => Promise<void>;
+
 	interactionCreateCallback: (interaction: Interaction) => Promise<void> =
 		this.onInteractionCreate.bind(this);
 
 	get coreCommandsPath() {
-		return path.join(process.cwd(), 'commands');
+		return path.join(PATH_CORE, 'commands');
 	}
 
-	constructor(bot: Client) {
-		super(bot);
+	constructor() {
+		super();
 		this.watcher = watch([], {});
-		const onCommandFileAddedCallback = this.onCommandFileAdded.bind(this);
-		const onCommandFileChangedCallback = this.onCommandFileChanged.bind(this);
-		const onCommandFileDeletedCallback = this.onCommandFileDeleted.bind(this);
-		this.watcher.on('add', onCommandFileAddedCallback);
-		this.watcher.on('change', onCommandFileChangedCallback);
-		this.watcher.on('unlink', onCommandFileDeletedCallback);
-		this.bindEvents([
-			{
-				target: this.watcher,
-				event: 'add',
-				callback: onCommandFileAddedCallback,
-			},
-			{
-				target: this.watcher,
-				event: 'change',
-				callback: onCommandFileChangedCallback,
-			},
-			{
-				target: this.watcher,
-				event: 'unlink',
-				callback: onCommandFileDeletedCallback,
-			},
-		]);
+		this.onCommandFileAddedCallback = this.onCommandFileAdded.bind(this);
+		this.onCommandFileChangedCallback = this.onCommandFileChanged.bind(this);
+		this.onCommandFileDeletedCallback = this.onCommandFileDeleted.bind(this);
 	}
 
 	async onCommandFileAdded(path: string, stats: fs.Stats) {
 		if (this.pathsToCommands.has(path)) return;
-		log('Command Path Added', path);
+		console.info('Command Path Added', path);
 	}
 
 	async onCommandFileChanged(path: string, stats?: fs.Stats | undefined) {
 		if (this.pendingFileUpdate.has(path)) {
-			log('Refreshing pending File update');
+			console.info('Refreshing pending File update');
 			this.pendingFileUpdate.get(path)!.refresh();
 			return;
 		}
 
-		log('Adding Pending File update');
+		console.info('Adding Pending File update');
 
 		// to account for multiple file updates at the same time so we wait till the latest version
 		await new Promise((r) =>
@@ -257,8 +242,13 @@ export class CommandsModule extends BotModule {
 
 	async onCommandFileDeleted(path: string) {}
 
-	async onLoad(old: this | null): Promise<void> {
-		log('Preparing Commands');
+	async onLoad(old?: this): Promise<void> {
+		console.info('Preparing Commands');
+
+		this.watcher.on('add', this.onCommandFileAddedCallback);
+		this.watcher.on('change', this.onCommandFileChangedCallback);
+		this.watcher.on('unlink', this.onCommandFileDeletedCallback);
+
 		this.bot.on('interactionCreate', this.interactionCreateCallback);
 		const commandsToImport = await fs.promises.readdir(this.coreCommandsPath);
 		for (let i = 0; i < commandsToImport.length; i++) {
@@ -267,7 +257,7 @@ export class CommandsModule extends BotModule {
 			);
 		}
 
-		log('Commands Ready');
+		console.info('Commands Ready');
 	}
 
 	async onMessageCreate(message: Message) {
@@ -283,8 +273,8 @@ export class CommandsModule extends BotModule {
 				if (argument === '' || argument === 'help') {
 				}
 			}
-		} catch (error) {
-			log(error);
+		} catch (error: any) {
+			console.error(error);
 		}
 	}
 
@@ -297,7 +287,7 @@ export class CommandsModule extends BotModule {
 			}
 
 			let command: CommandBase | undefined = undefined;
-			log('New interaction', interaction.commandName);
+			console.info('New interaction', interaction.commandName);
 			if (interaction.isCommand()) {
 				if (interaction.options.getSubcommand(false)) {
 					command = this.slashCommands.get(interaction.options.getSubcommand());
@@ -313,8 +303,8 @@ export class CommandsModule extends BotModule {
 			if (command) {
 				await command.execute(new CommandContext(interaction));
 			}
-		} catch (error) {
-			log(error);
+		} catch (error: any) {
+			console.error(error);
 		}
 	}
 
@@ -340,7 +330,7 @@ export class CommandsModule extends BotModule {
 		if (existingCommand) {
 			await command.load(existingCommand);
 		} else {
-			await command.load(null);
+			await command.load();
 		}
 	}
 
@@ -393,7 +383,7 @@ export class CommandsModule extends BotModule {
 				this.watcher.add(importPath);
 			}
 		} catch (error) {
-			log(`Error loading ${importPath}\x1b[0m\n`, error);
+			console.info(`Error loading ${importPath}\x1b[0m\n`, error);
 		}
 	}
 
@@ -486,15 +476,21 @@ export class CommandsModule extends BotModule {
 					)
 				).data;
 			}
-		} catch (error) {
+		} catch (error: any) {
 			if (error.isAxiosError) {
-				log(
+				console.error(
 					'error uploading',
 					util.inspect(error.response.data.errors, true, 1000)
 				);
 			} else {
-				log('Error uploading Slash Commands', error);
+				console.error('Error uploading Slash Commands', error);
 			}
 		}
+	}
+
+	override async onDestroy(): Promise<void> {
+		this.watcher.off('add', this.onCommandFileAddedCallback);
+		this.watcher.off('change', this.onCommandFileChangedCallback);
+		this.watcher.off('unlink', this.onCommandFileDeletedCallback);
 	}
 }

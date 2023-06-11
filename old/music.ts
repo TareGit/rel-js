@@ -52,7 +52,7 @@ async function loadQueueFromFile(filename: string) {
     try {
 
 
-        const file = await fs.readFile(fullPath, 'utf-8').catch((error) => { utils.log(error) }) as string;
+        const file = await fs.readFile(fullPath, 'utf-8').catch((error: any) => { utils.log(error: any) }) as string;
 
         const QueueDataAsJson: ISavedQueue = JSON.parse(file);
 
@@ -135,11 +135,11 @@ async function loadQueueFromFile(filename: string) {
         await fs.unlink(fullPath);
 
         queue.playNextSong();
-    } catch (error) {
+    } catch (error: any) {
         utils.log(`Error loading queue ${filename} :: `, error);
         try {
             await fs.unlink(fullPath);
-        } catch (error) {
+        } catch (error: any) {
 
         }
     }
@@ -243,7 +243,7 @@ export class Queue extends EventEmitter {
             }
 
             return { type: EMusicCheckType.SEARCH };
-        } catch (error) {
+        } catch (error: any) {
             utils.log(`Error validating play url "${url}"`, error);
             return { type: EMusicCheckType.SEARCH };
         }
@@ -289,8 +289,8 @@ export class Queue extends EventEmitter {
 
         try {
             await fs.writeFile(path.join(queuesPath, `${this.id}.json`), JSON.stringify(payloadToSave, null, 4));
-        } catch (error) {
-            utils.log(error);
+        } catch (error: any) {
+            utils.log(error: any);
         }
     }
 
@@ -298,7 +298,7 @@ export class Queue extends EventEmitter {
         try {
             await fs.access(path.join(queuesPath, `${this.id}.json`))
             await fs.unlink(path.join(queuesPath, `${this.id}.json`));
-        } catch (error) {
+        } catch (error: any) {
 
         }
     }
@@ -387,7 +387,7 @@ export class Queue extends EventEmitter {
                 return [Queue.createSong(TargetTrack, user, TargetTrack.info.uri)];
             }
 
-        } catch (error) {
+        } catch (error: any) {
             utils.log(`Error fetching song for "${search}"\n`, error);
             return [];
         }
@@ -716,7 +716,7 @@ export class Queue extends EventEmitter {
 
             this.emit('state', 'Playing');
 
-        } catch (error) {
+        } catch (error: any) {
 
             utils.log(`Error playing song\n`, error);
 
@@ -823,7 +823,7 @@ export class Queue extends EventEmitter {
                     break;
             }
         }
-        catch (error) {
+        catch (error: any) {
             utils.log(`Error fetching song for url "${url}"\n`, error);
         }
 

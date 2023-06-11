@@ -4,7 +4,7 @@ import { ECommandType, IUmekoSlashCommand } from "../../../core/types";
 
 const utils = bus.sync.require(
     path.join(process.cwd(), "utils")
-) as typeof import("../../../core/utils");
+) as typeof import("@core/");
 
 const command: IUmekoSlashCommand = {
     name: 'volume',

@@ -1,10 +1,10 @@
 import { GuildMember } from "discord.js";
 import path from "path";
-import { ECommandOptionType, ECommandType, ELoopType, IUmekoSlashCommand } from "../types";
+import { ECommandOptionType, ECommandType, ELoopType, IUmekoSlashCommand } from "@core/types";
 
 const utils = bus.sync.require(
-    path.join(process.cwd(), "utils")
-) as typeof import("../utils");
+    "@core/utils"
+) as typeof import("@core/utils");
 
 const command: IUmekoSlashCommand = {
     name: 'loop',

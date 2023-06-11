@@ -1,5 +1,10 @@
 import { ClusterManager } from 'discord-hybrid-sharding';
-import { GuildMember, TextBasedChannel, VoiceBasedChannel } from 'discord.js';
+import {
+	Client,
+	GuildMember,
+	TextBasedChannel,
+	VoiceBasedChannel,
+} from 'discord.js';
 
 export const enum ELoopType {
 	NONE = 'off',
@@ -14,6 +19,7 @@ export const enum EQueueSource {
 }
 
 export const enum ECommandType {
+	UNKNOWN = -1,
 	SLASH = 1,
 	USER_CONTEXT_MENU = 2,
 	CHAT_CONTEXT_MENU = 3,
@@ -135,51 +141,6 @@ export interface IDiscordApiCommand {
 
 export type Awaitable<T> = T | Promise<T>;
 
-export type BoundEventCallback<
-	T extends ((...args: any[]) => Awaitable<void>) | any[]
-> = T extends any[] ? (...args: T) => Awaitable<void> : T;
-
-export type TargetEvents = {
-	[key: string | symbol | number]: BoundEventCallback<any>;
-};
-
-export interface BoundEventTarget<E extends TargetEvents> {
-	on: <T extends keyof E>(event: T, callback: BoundEventCallback<E[T]>) => any;
-	off: <T extends keyof E>(event: T, callback: BoundEventCallback<E[T]>) => any;
-}
-
-export type BoundEvent<E extends TargetEvents, K extends keyof E = keyof E> = {
-	target: BoundEventTarget<E>;
-	event: K;
-	callback: BoundEventCallback<E[K]>;
-};
-
 declare global {
 	var ClusterManager: ClusterManager;
 }
-
-declare function bindEvent<
-	T extends BoundEventTarget<TargetEvents>,
-  E extends T extends BoundEventTarget<infer E>
-    ? E
-    : never,
-  K extends keyof E
->(target: T, event: K, callback: BoundEventCallback<E[K]>): void;
-
-declare const bot: BoundEventTarget<ClientEvents>;
-
-type ClientEvents = {
-	messageCreate: BoundEventCallback<string[]>;
-};
-
-bindEvent(bot as BoundEventTarget<ClientEvents>,'messageCreate', (m1, m2) => {});
-
-type IncorrectEvents = {
-	messageCreate: BoundEventCallback<number[]>;
-};
-
-bindEvent(
-	bot,
-	'messageCreate',
-	(m1, m2) => {}
-);

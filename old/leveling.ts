@@ -82,7 +82,7 @@ export async function updateServerLeveling(message: Message) {
             message.reply(levelUpMsg);
           }
         } else if (options.get("location") === "dm") {
-          message.author.send(levelUpMsg).catch((error) => {
+          message.author.send(levelUpMsg).catch((error: any) => {
             utils.log("Error sending level up message", error);
           });
         } else {
@@ -111,10 +111,10 @@ export async function updateServerLeveling(message: Message) {
  
      db.post(`/tables/guild_leveling_${guildId}/rows`, [postData])
        .then((levelingUpdateResponse) => { })
-       .catch((error) => {
+       .catch((error: any) => {
          utils.log("Error updating back end XP", error.data);
        });*/
-  } catch (error) {
+  } catch (error: any) {
     utils.log("Error handeling leveling", error);
   }
 }
@@ -133,7 +133,7 @@ if (bus.bot !== undefined) {
     previousEvents.forEach(function (levelingEvent, index) {
       try {
         bus.bot.removeListener(levelingEvent.id, levelingEvent.event);
-      } catch (error) {
+      } catch (error: any) {
         utils.log(
           `Error unbinding event ${levelingEvent.id} from bot\x1b[0m\n`,
           error
@@ -145,7 +145,7 @@ if (bus.bot !== undefined) {
   levelingEvents.forEach(function (levelingEvent, index) {
     try {
       bus.bot.on(levelingEvent.id, levelingEvent.event);
-    } catch (error) {
+    } catch (error: any) {
       utils.log(
         `Error binding event ${levelingEvent.id} to bot\x1b[0m\n`,
         error

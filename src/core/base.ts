@@ -1,11 +1,4 @@
-import { Client } from 'discord.js';
-import { log } from '@core/utils';
-import {
-	BoundEvent,
-	BoundEventCallback,
-	BoundEventTarget,
-	TargetEvents,
-} from './types';
+import { Client, ClientEvents } from 'discord.js';
 import { NONAME } from 'dns';
 
 export type NoParamCallback = () => void | Promise<void>;
@@ -24,11 +17,6 @@ export { ELoadableState };
  */
 export abstract class Loadable {
 	/**
-	 * Events that will be unbound when {@link this | this} class will be {@link destroy | destroyed}
-	 */
-	events: BoundEvent<any>[] = [];
-
-	/**
 	 * The internal state of this {@link Loadable| Loadable}
 	 */
 	private _state: ELoadableState = ELoadableState.INACTIVE;
@@ -41,17 +29,6 @@ export abstract class Loadable {
 	constructor() {}
 
 	set state(newState: ELoadableState) {
-		if (newState === ELoadableState.INACTIVE) {
-			for (let i = 0; i < this.events.length; i++) {
-				this.events[i].target.off(
-					this.events[i].event,
-					this.events[i].callback
-				);
-			}
-
-			this.events = [];
-		}
-
 		if (this._stateCallbacks.has(newState)) {
 			this._stateCallbacks.get(newState)!.forEach((c) => c());
 			this._stateCallbacks.delete(newState);
@@ -63,40 +40,6 @@ export abstract class Loadable {
 	get state() {
 		return this._state;
 	}
-
-	/**
-	 * All events added will be automatically unbounded when {@link destroy | destroy} is called
-	 * @param events
-	 */
-	bindEvent<E extends TargetEvents, K extends keyof E>(
-		target: BoundEvent<E, K>['target'],
-		event: K,
-		callback: BoundEventCallback<E[K]>
-	) {
-		this.events.push({
-			target,
-			event,
-			callback,
-		});
-
-		target.on(event, callback);
-	}
-
-	// /**
-	//  * All events added will be automatically unbounded when {@link destroy | destroy} is called
-	//  * @param events
-	//  */
-	// bindEvents<
-	// 	E extends TargetEvents = TargetEvents,
-	// 	T extends BoundEventTarget<E> = BoundEventTarget<E>
-	// >(events: BoundEvent<E, T>[]) {
-	// 	this.events.push(
-	// 		...events.map((e) => {
-	// 			e.target.on(e.event, e.callback);
-	// 			return e;
-	// 		})
-	// 	);
-	// }
 
 	/**
 	 * Sets the state to newState if its not already 'newState'. if the state
@@ -177,9 +120,9 @@ export abstract class Loadable {
 
 		await this.onDestroy();
 
-		log('Finished Destroy');
+		console.info('Finished Destroy');
 		this.state = ELoadableState.INACTIVE;
-		log('Resolved callbacks');
+		console.info('Resolved callbacks');
 	}
 
 	/**
@@ -195,14 +138,15 @@ export abstract class BotModule extends Loadable {
 	/**
 	 * A reference to the actual bot
 	 */
-	bot: Client;
+	get bot() {
+		return bus.bot;
+	}
 
-	constructor(bot: Client) {
+	constructor() {
 		super();
-		this.bot = bot;
 	}
 
 	async onLoadError(error: Error): Promise<void> {
-		log('Error loading module', this.constructor.name, '\n', error);
+		console.error('Error loading module', this.constructor.name, '\n', error);
 	}
 }

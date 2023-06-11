@@ -8,7 +8,13 @@ import {
 	TextBasedChannel,
 	VoiceBasedChannel,
 } from 'discord.js';
-import { LavalinkEvent, Manager, Player } from 'lavacord';
+import {
+	LavalinkEvent,
+	Manager,
+	Player,
+	VoiceServerUpdate,
+	VoiceStateUpdate,
+} from 'lavacord';
 
 export const enum ESourceType {
 	SPOTIFY,
@@ -75,20 +81,22 @@ class Queue extends Loadable {
 	queueTimeout?: NodeJS.Timeout;
 	plugin: MusicPlugin;
 	queue: ITrack[] = [];
+	onPlayerEndCallback!: (data: LavalinkEvent) => void;
 	constructor(plugin: MusicPlugin, player?: Player) {
 		super();
 		this.plugin = plugin;
 		this.player = player;
+		this.id = '';
 	}
-
 	async join(guildId: string, channelId: string) {
-		this.player = await this.plugin.lavacord.join({
+		this.player = await this.plugin.manager.join({
 			guild: guildId, // Guild id
 			channel: channelId, // Channel id
 			node: '1', // lavalink node id, based on array of nodes
 		});
-
-		this.bindEvent(this.player as any, 'end', this.onPlayerEnd.bind(this));
+		this.onPlayerEndCallback = this.onPlayerEnd.bind(this);
+		this.player.on('end', this.onPlayerEndCallback);
+		this.id = guildId;
 		this.load();
 	}
 
@@ -102,11 +110,14 @@ class Queue extends Loadable {
 export default class MusicPlugin extends BotPlugin {
 	static GROUP = 'music';
 	queues: Map<string, Queue> = new Map();
-	lavacord: Manager;
-	constructor(bot: Client, dir: string) {
-		super(bot, dir);
+	manager: Manager;
+	onVoiceServerUpdateCallback!: (data: VoiceServerUpdate) => Promise<boolean>;
+	onVoiceStateUpdateCallback!: (data: VoiceStateUpdate) => Promise<boolean>;
+	onGuildCreateCallback!: (data: unknown) => Promise<void>;
+	constructor(dir: string) {
+		super(dir);
 		this.id = 'music';
-		this.lavacord = new Manager(
+		this.manager = new Manager(
 			[
 				{
 					id: '1',
@@ -116,10 +127,10 @@ export default class MusicPlugin extends BotPlugin {
 				},
 			],
 			{
-				user: bot.user?.id || '',
-				shards: bot.options.shardCount,
+				user: this.bot.user?.id || '',
+				shards: this.bot.options.shardCount,
 				send: (packet) => {
-					const guild = bot.guilds.cache.get(packet.d.guild_id);
+					const guild = this.bot.guilds.cache.get(packet.d.guild_id);
 
 					return guild?.shard.send(packet);
 				},
@@ -128,30 +139,10 @@ export default class MusicPlugin extends BotPlugin {
 	}
 
 	override async onLoad(): Promise<void> {
-		await this.lavacord.connect();
-		this.bindEvents([
-			{
-				target: this.bot,
-				event: 'VOICE_SERVER_UPDATE',
-				callback: this.lavacord.voiceServerUpdate.bind(this.lavacord),
-			},
-			{
-				target: this.bot,
-				event: 'VOICE_STATE_UPDATE',
-				callback: this.lavacord.voiceStateUpdate.bind(this.lavacord),
-			},
-			{
-				target: this.bot,
-				event: 'GUILD_CREATE',
-				callback: async (data) => {
-					for (const state of data.voice_states)
-						await this.lavacord.voiceStateUpdate({
-							...state,
-							guild_id: data.id,
-						});
-				},
-			},
-		]);
+		await this.manager.connect();
+		this.manager.on('error', (error, node) => {
+			console.error('Lavacord Error On Node', node, '\n', error);
+		});
 	}
 
 	getSourceType(source: string): ESourceType {

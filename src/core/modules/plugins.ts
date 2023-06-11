@@ -1,51 +1,45 @@
-import { Client } from 'discord.js';
 import { BotModule, Loadable } from '@core/base';
-import { log } from '@core/utils';
-import fs, { OpenMode } from 'fs';
+import fs from 'fs';
 import path from 'path';
-
-const PLUGINS_PATH = path.join(process.cwd(), '../plugins');
 
 export abstract class BotPlugin extends Loadable {
 	assetsPath: string;
 	commandsPath: string;
-	bot: Client;
 	id: string = '';
-	constructor(bot: Client, dir: string) {
+	get bot() {
+		return bus.bot;
+	}
+	constructor(dir: string) {
 		super();
-		this.bot = bot;
 		this.assetsPath = path.join(dir, 'assets');
 		this.commandsPath = path.join(dir, 'commands');
 		this.id = '';
 	}
 
 	async onLoadError(error: Error): Promise<void> {
-		log('Error loading plugin', this.constructor.name, '\n', error);
+		console.error('Error loading plugin', this.constructor.name, '\n', error);
 	}
 }
 
 export class PluginsModule extends BotModule {
 	plugins: Map<string, BotPlugin> = new Map();
 
-	constructor(bot: Client) {
-		super(bot);
-	}
-
 	override async onLoad(old?: this): Promise<void> {
-		log('Preparing Plugins');
-		const pluginPaths = await fs.promises.readdir(PLUGINS_PATH);
+		console.info('Preparing Plugins');
+		const pluginPaths = await fs.promises.readdir(PATH_PLUGINS);
 		for (let i = 0; i < pluginPaths.length; i++) {
-			const currentPluginPath = path.join(PLUGINS_PATH, pluginPaths[i]);
+			const currentPluginPath = path.join(PATH_PLUGINS, pluginPaths[i]);
 			const entryFile = path.join(currentPluginPath, 'index.js');
 			const loadedPlugin = new (require(entryFile).default)(
-				this.bot,
 				currentPluginPath
 			) as BotPlugin;
 			await this.register(loadedPlugin.id, loadedPlugin);
 
 			const commandFile = await fs.promises
 				.readdir(loadedPlugin.commandsPath)
-				.catch(() => log('No Commands found for plugin:', loadedPlugin.id));
+				.catch(() =>
+					console.info('No Commands found for plugin:', loadedPlugin.id)
+				);
 
 			if (commandFile) {
 				for (let j = 0; j < commandFile.length; j++) {
@@ -57,7 +51,7 @@ export class PluginsModule extends BotModule {
 			}
 		}
 
-		log('Plugins Ready');
+		console.info('Plugins Ready');
 	}
 
 	getPlugin<T extends BotPlugin>(id: string): T | null {
@@ -75,9 +69,8 @@ export class PluginsModule extends BotModule {
 		await this.deregister(id);
 
 		this.plugins.set(id, plugin);
-		log('Registering Plugin', plugin.id);
 		await plugin.load();
-		log('Registered Plugin', plugin.id);
+		console.info('Registered Plugin', plugin.id);
 		return plugin;
 	}
 

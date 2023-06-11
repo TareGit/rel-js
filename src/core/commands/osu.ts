@@ -1,122 +1,123 @@
-import {
-    MessageEmbed,
-    ColorResolvable,
-} from "discord.js";
-import axios from "axios";
-import {
-    IOsuApiUser,
-    ECommandOptionType,
-} from "../types";
-import { SlashCommand, CommandContext } from "@modules/commands";
-import { FrameworkConstants } from "@core/framework";
-import { log } from "../utils";
+import axios from 'axios';
+import { IOsuApiUser, ECommandOptionType } from '@core/types';
+import { SlashCommand, CommandContext } from '@modules/commands';
+import { FrameworkConstants } from '@core/framework';
+import { buildBasicEmbed } from '@core/utils';
 
 export default class WallpaperzBrowseCommand extends SlashCommand {
-    currentToken: string = ""
-    tokenRefreshTimeout: ReturnType<typeof setTimeout>
-    constructor() {
-        super(
-            'osu',
-            'Gets basic information about an osu player',
-            FrameworkConstants.COMMAND_GROUPS.FUN,
-            [
-                {
-                    name: "player",
-                    description: "The username or ID of the player to search for",
-                    type: ECommandOptionType.STRING,
-                    required: true,
-                },
-            ]
-        )
-    }
+	currentToken: string = '';
+	tokenRefreshTimeout?: ReturnType<typeof setTimeout>;
+	constructor() {
+		super(
+			'osu',
+			'Gets basic information about an osu player',
+			FrameworkConstants.COMMAND_GROUPS.FUN,
+			[
+				{
+					name: 'player',
+					description: 'The username or ID of the player to search for',
+					type: ECommandOptionType.STRING,
+					required: true,
+				},
+			]
+		);
+	}
 
-    override async onLoad(old: this | null): Promise<void> {
-        if(old)
-        {
-            this.currentToken = old.currentToken
-            this.tokenRefreshTimeout
-        }
-        await this.fetchApiToken()
-    }
+	override async onLoad(old?: this): Promise<void> {
+		if (old) {
+			this.currentToken = old.currentToken;
+			this.tokenRefreshTimeout = old.tokenRefreshTimeout;
+		}
+		await this.fetchApiToken();
+	}
 
-    override async onDestroy(): Promise<void> {
-        if (this.tokenRefreshTimeout) {
-            clearTimeout(this.tokenRefreshTimeout)
-        }
-    }
+	override async onDestroy(): Promise<void> {
+		if (this.tokenRefreshTimeout) {
+			clearTimeout(this.tokenRefreshTimeout);
+		}
+	}
 
-    async fetchApiToken() {
-        const request = {
-            client_id: process.env.OSU_CLIENT_ID,
-            client_secret: process.env.OSU_CLIENT_SECRETE,
-            grant_type: "client_credentials",
-            scope: "public",
-        };
+	async fetchApiToken() {
+		const request = {
+			client_id: process.env.OSU_CLIENT_ID,
+			client_secret: process.env.OSU_CLIENT_SECRETE,
+			grant_type: 'client_credentials',
+			scope: 'public',
+		};
 
-        const response = (await axios.post<{ access_token: string, expires_in: number }>(`${process.env.OSU_API_AUTH}`, request))
-            .data;
+		const response = (
+			await axios.post<{ access_token: string; expires_in: number }>(
+				`${process.env.OSU_API_AUTH}`,
+				request
+			)
+		).data;
 
-        this.currentToken = response.access_token
+		this.currentToken = response.access_token;
 
-        this.tokenRefreshTimeout = setTimeout(this.fetchApiToken.bind(this), (response.expires_in * 1000) - 100)
-    }
+		this.tokenRefreshTimeout = setTimeout(
+			this.fetchApiToken.bind(this),
+			response.expires_in * 1000 - 100
+		);
+	}
 
-    async execute(ctx: CommandContext, ...args: any[]): Promise<void> {
-        await ctx.deferReply()
-        const searchTerm = ctx.asSlashContext.options.getString(this.options[0].name) as string;
+	async execute(ctx: CommandContext, ...args: unknown[]): Promise<void> {
+		await ctx.deferReply();
+		const searchTerm = ctx.asSlashContext.options.getString(
+			this.options[0].name
+		) as string;
 
-        let response: IOsuApiUser | null = null;
+		let response: IOsuApiUser | null = null;
 
-        const Embed = new MessageEmbed();
+		try {
+			const request = {
+				headers: {
+					Authorization: `Bearer ${this.currentToken}`,
+				},
+			};
+			response = (
+				await axios.get<IOsuApiUser>(
+					`${process.env.OSU_API}/users/${encodeURIComponent(
+						searchTerm.replace(/\s+/g, '')
+					)}`,
+					request
+				)
+			).data;
 
-        Embed.setColor((await bus.database.getGuild(ctx.asSlashContext.guild?.id)).color as ColorResolvable);
+			const user = response;
 
-        try {
-            const request = {
-                headers: {
-                    Authorization: `Bearer ${this.currentToken}`,
-                },
-            };
-            response = (
-                await axios.get<IOsuApiUser>(
-                    `${process.env.OSU_API}/users/${encodeURIComponent(
-                        searchTerm.replace(/\s+/g, "")
-                    )}`,
-                    request
-                )
-            ).data;
+			if (user === null) {
+				ctx.editReply({
+					embeds: [await buildBasicEmbed(ctx, { text: 'User Not Found' })],
+				});
 
-            const user = response;
+				return;
+			}
 
-            if (user === null) {
-                Embed.setFooter({ text: "User Not Found" });
-                ctx.editReply({ embeds: [Embed] });
+			const Embed = await buildBasicEmbed(ctx);
 
-                return;
-            }
+			Embed.setURL(`https://osu.ppy.sh/users/${user.id}`);
 
-            Embed.setURL(`https://osu.ppy.sh/users/${user.id}`);
+			Embed.setTitle(
+				`${user.username} | ${user.is_online ? 'Online' : 'Offline'}`
+			);
 
-            Embed.setTitle(
-                `${user.username} | ${user.is_online ? "Online" : "Offline"}`
-            );
+			Embed.setThumbnail(user.avatar_url);
 
-            Embed.setThumbnail(user.avatar_url);
+			Embed.addFields([
+				{ name: 'Rank', value: `#${user.statistics.global_rank || 'Unknown'}` },
+				{ name: 'Accuracy', value: `${user.statistics.hit_accuracy}%` },
+				{ name: 'Country', value: user.country.name },
+			]);
 
-            Embed.addField("Rank", `#${user.statistics.global_rank || "Unknown"}`);
+			Embed.setFooter({ text: `Mode | ${user.playmode}` });
 
-            Embed.addField("Accuracy", `${user.statistics.hit_accuracy}%`);
+			ctx.editReply({ embeds: [Embed] });
+		} catch (error) {
+			ctx.editReply({
+				embeds: [await buildBasicEmbed(ctx, { text: 'User Not Found' })],
+			});
 
-            Embed.addField("Country", user.country.name);
-
-            Embed.setFooter({ text: `Mode | ${user.playmode}` });
-
-            ctx.editReply({ embeds: [Embed] })
-        } catch (error) {
-            Embed.setFooter({ text: "User Not Found" });
-            ctx.editReply({ embeds: [Embed] });
-
-            log(`Error fetching Osu Data\x1b[0m`, error);
-        }
-    }
+			console.error(`Error fetching Osu Data\x1b[0m`, error);
+		}
+	}
 }

@@ -31,7 +31,7 @@ const result: IUmekoSlashCommand = {
 
         try {
             await ctx.channel.bulkDelete(ammount);
-        } catch (error) {
+        } catch (error: any) {
             utils.log('Error deleting messages', error);
         }
 

@@ -1,7 +1,7 @@
 import { Client, ClientEvents, Message, User } from 'discord.js';
 import { BotPlugin } from '@modules/exports';
 import { DatabaseApi } from '@core/api';
-import { log, randInt } from '@core/utils';
+import { randInt } from '@core/utils';
 import {
 	IUserLevelData,
 	IUmekoApiResponse,
@@ -9,8 +9,6 @@ import {
 	EOptsKeyLocation,
 } from '@core/framework';
 import { ELoadableState } from '@core/base';
-import { AxiosResponse } from 'axios';
-import { BoundEventCallback } from '@core/types';
 
 // Calculates the xp required to get to the next level
 export function getXpForNextLevel(level: number) {
@@ -53,7 +51,7 @@ class GuildLevelingData {
 
 				this.pendingLevelingUpdates.clear();
 			} catch (error) {
-				log(error);
+				console.error(error);
 			}
 		}
 
@@ -126,8 +124,8 @@ export default class LevelingPlugin extends BotPlugin {
 	cache: Map<string, GuildLevelingData> = new Map();
 	onMessageCreateCallback: (message: Message) => Promise<void> =
 		this.onMessageCreate.bind(this);
-	constructor(bot: Client, dir: string) {
-		super(bot, dir);
+	constructor(dir: string) {
+		super(dir);
 		this.id = 'levels';
 	}
 
@@ -155,12 +153,6 @@ export default class LevelingPlugin extends BotPlugin {
 		});
 
 		this.bot.on('messageCreate', this.onMessageCreateCallback);
-
-		this.bindEvent<ClientEvents, 'messageCreate'>(
-			this.bot,
-			'messageCreate',
-			(m) => {}
-		);
 	}
 
 	ensureGuild(guildId: string) {
@@ -240,11 +232,12 @@ export default class LevelingPlugin extends BotPlugin {
 				}
 			}
 		} catch (error) {
-			log(error);
+			console.error(error);
 		}
 	}
 
 	override async onDestroy() {
 		Array.from(this.cache.values()).forEach((c) => c.onDestroy());
+		this.bot.off('messageCreate', this.onMessageCreateCallback);
 	}
 }

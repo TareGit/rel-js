@@ -1,6 +1,4 @@
 import { CommandContext } from '@modules/commands';
-import axios from 'axios';
-import { Utils } from 'discord-api-types';
 import {
 	InteractionCollector as ICollector,
 	Interaction,
@@ -55,65 +53,36 @@ export function time(sep = '') {
 	return `${year}${sep}${month}${sep}${date}${sep}${hours}${sep}${minutes}${sep}${seconds}`;
 }
 
-/**
- * Logs stuff
- * @param args What to log
- */
-export function log(...args: any[]) {
-	const argumentValues = Object.values(args);
+// /**
+//  * Logs stuff
+//  * @param args What to log
+//  */
+// export function log(...args: unknown[]) {
+// 	const argumentValues = Object.values(args);
 
-	const stack = new Error().stack;
-	const pathDelimiter = process.platform !== 'win32' ? '/' : '\\';
-	const simplifiedStack = stack?.split('\n')[2].split(pathDelimiter) || [];
-	const file =
-		simplifiedStack[Math.max(simplifiedStack.length - 1, 0)].split(')')[0];
+// 	const stack = new Error().stack;
+// 	const pathDelimiter = process.platform !== 'win32' ? '/' : '\\';
+// 	const simplifiedStack = stack?.split('\n')[2].split(pathDelimiter) || [];
+// 	const file =
+// 		simplifiedStack[Math.max(simplifiedStack.length - 1, 0)].split(')')[0];
 
-	argumentValues.unshift(`${file.padEnd(20)}::`);
+// 	argumentValues.unshift(`${file.padEnd(20)}::`);
 
-	if (global.bus && bus.bot && bus.cluster) {
-		const clusterText = `Cluster ${bus.cluster.id}`.padEnd(13);
-		argumentValues.unshift(`${clusterText}::`);
-	} else {
-		argumentValues.unshift(`${'Manager'.padEnd(13)}::`);
-	}
+// 	if (global.bus && bus.bot && bus.cluster) {
+// 		const clusterText = `Cluster ${bus.cluster.id}`.padEnd(13);
+// 		argumentValues.unshift(`${clusterText}::`);
+// 	} else {
+// 		argumentValues.unshift(`${'Manager'.padEnd(13)}::`);
+// 	}
 
-	argumentValues.unshift(`${new Date().toLocaleString().padEnd(22)}::`);
+// 	argumentValues.unshift(`${new Date().toLocaleString().padEnd(22)}::`);
 
-	console.log.apply(null, argumentValues);
-}
-
-export async function getSpotifyApiToken() {
-	const params = new URLSearchParams({ grant_type: 'client_credentials' });
-
-	const headers = {
-		Authorization:
-			'Basic ' +
-			Buffer.from(
-				process.env.SPOTIFY_CLIENT_ID + ':' + process.env.SPOTIFY_CLIENT_SECRETE
-			).toString('base64'),
-		'Content-Type': 'application/x-www-form-urlencoded',
-	};
-
-	try {
-		const response = (
-			await axios.post(`${process.env.SPOTIFY_API_AUTH}`, params, {
-				headers: headers,
-			})
-		).data;
-
-		process.env.SPOTIFY_API_TOKEN = response.access_token;
-
-		setTimeout(getSpotifyApiToken, response.expires_in * 1000 - 200);
-
-		log('Done fetching Spotify Api Token');
-	} catch (error) {
-		log(`Error Fetching Spotify Token\n`, error);
-	}
-}
+// 	console.log.apply(null, argumentValues);
+// }
 
 export class InteractionCollector<
 	T extends Interaction,
-	V = any
+	V = unknown
 > extends ICollector<T> {
 	public data: V;
 	constructor(client: Client, d: V, options?: InteractionCollectorOptions<T>) {
@@ -124,10 +93,10 @@ export class InteractionCollector<
 
 export async function buildBasicEmbed(
 	ctx: CommandContext,
-	data: EmbedFooterData
+	footer?: EmbedFooterData
 ) {
 	const embed = new MessageEmbed();
-	embed.setFooter(data);
+	if (footer) embed.setFooter(footer);
 	embed.setColor(
 		(await bus.database.getGuild(ctx.ctx.guildId)).color as ColorResolvable
 	);

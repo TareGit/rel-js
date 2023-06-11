@@ -35,5 +35,5 @@ puppeter/*
 *.DS_Store
 
 queues/*
-
+logs
 dist

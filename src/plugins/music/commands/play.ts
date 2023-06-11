@@ -14,7 +14,10 @@ export default class PlayCommand extends SlashCommand<MusicPlugin> {
 		]);
 	}
 
-	override async execute(ctx: CommandContext, ...args: any[]): Promise<void> {
+	override async execute(
+		ctx: CommandContext,
+		...args: unknown[]
+	): Promise<void> {
 		this.plugin?.playSource(
 			ctx,
 			ctx.asSlashContext.options.getString(this.options[0].name, true)

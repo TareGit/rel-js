@@ -71,7 +71,7 @@ async function onBotReady() {
     await LavaManager.connect();
 
     utils.log("Connected to Music provider\x1b[0m");
-  } catch (error) {
+  } catch (error: any) {
     utils.log("Error connecting to music provider\x1b[0m\n", error);
   }
 
@@ -100,7 +100,7 @@ async function onBotReady() {
 
   try {
     await guildDataModule.load();
-  } catch (error) {
+  } catch (error: any) {
     utils.log("Error loading modules\x1b[0m\n", error);
   }
 
