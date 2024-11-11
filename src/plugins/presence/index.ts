@@ -1,6 +1,6 @@
 import { BotPlugin } from '@modules/plugins';
 import { Client } from 'discord.js';
-import { ActivityTypes } from 'discord.js/typings/enums';
+import { ActivityType } from 'discord.js';
 
 export default class PresencePlugin extends BotPlugin {
 	constructor(dir: string) {
@@ -9,9 +9,9 @@ export default class PresencePlugin extends BotPlugin {
 	}
 
 	async onLoad(old?: this): Promise<void> {
-		this.bot.user?.setActivity('WATCH MY STREAM PLS', {
+		this.bot.user?.setActivity('Onlyfans', {
 			url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-			type: ActivityTypes.STREAMING,
+			type: ActivityType.Streaming,
 		});
 	}
 

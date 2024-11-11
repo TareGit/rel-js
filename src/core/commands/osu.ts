@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { IOsuApiUser, ECommandOptionType } from '@core/types';
 import { SlashCommand, CommandContext } from '@modules/commands';
-import { FrameworkConstants } from '@core/framework';
+import { FrameworkConstants } from '@core/common';
 import { buildBasicEmbed } from '@core/utils';
 
 export default class WallpaperzBrowseCommand extends SlashCommand {
@@ -31,7 +31,7 @@ export default class WallpaperzBrowseCommand extends SlashCommand {
 		await this.fetchApiToken();
 	}
 
-	override async onDestroy(): Promise<void> {
+	override async onDestroy() {
 		if (this.tokenRefreshTimeout) {
 			clearTimeout(this.tokenRefreshTimeout);
 		}
@@ -87,7 +87,7 @@ export default class WallpaperzBrowseCommand extends SlashCommand {
 
 			if (user === null) {
 				ctx.editReply({
-					embeds: [await buildBasicEmbed(ctx, { text: 'User Not Found' })],
+					embeds: [await buildBasicEmbed(ctx, 'User Not Found')],
 				});
 
 				return;
@@ -114,7 +114,7 @@ export default class WallpaperzBrowseCommand extends SlashCommand {
 			ctx.editReply({ embeds: [Embed] });
 		} catch (error) {
 			ctx.editReply({
-				embeds: [await buildBasicEmbed(ctx, { text: 'User Not Found' })],
+				embeds: [await buildBasicEmbed(ctx, 'User Not Found')],
 			});
 
 			console.error(`Error fetching Osu Data\x1b[0m`, error);

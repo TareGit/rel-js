@@ -1,5 +1,5 @@
 import { ECommandOptionType } from '@core/types';
-import { FrameworkConstants } from '@core/framework';
+import { FrameworkConstants } from '@core/common';
 import { SlashCommand, CommandContext } from '@modules/commands';
 
 export default class HelpCommand extends SlashCommand {

@@ -1,13 +1,11 @@
-import { Client, ClientEvents, Message, User } from 'discord.js';
+import { Message } from 'discord.js';
 import { BotPlugin } from '@modules/exports';
-import { DatabaseApi } from '@core/api';
 import { randInt } from '@core/utils';
 import {
 	IUserLevelData,
-	IUmekoApiResponse,
 	FrameworkConstants,
 	EOptsKeyLocation,
-} from '@core/framework';
+} from '@core/common';
 import { ELoadableState } from '@core/base';
 
 // Calculates the xp required to get to the next level
@@ -41,14 +39,16 @@ class GuildLevelingData {
 					.map((a) => this.cache[a])
 					.filter((a) => a !== undefined && a !== null);
 
-				const response = await DatabaseApi.put<IUmekoApiResponse<string>>(
-					'/levels',
-					updates
-				);
-				if (response.data.error) {
-					throw new Error(response.data.data);
-				}
-
+				await bus.database.transaction(async (con) => {
+					await Promise.allSettled([
+						updates.map((a) => {
+							return con.query(
+								'UPDATE levels SET level=$1, xp=$2 WHERE user_id=$3 AND guild_id=$4',
+								[a.level, a.xp, a.user_id, a.guild_id]
+							);
+						}),
+					]);
+				});
 				this.pendingLevelingUpdates.clear();
 			} catch (error) {
 				console.error(error);
@@ -62,8 +62,8 @@ class GuildLevelingData {
 	}
 
 	addUser(user: IUserLevelData) {
-		this.cache[user.user] = user;
-		this.ranking.push(user.user);
+		this.cache[user.user_id] = user;
+		this.ranking.push(user.user_id);
 	}
 
 	sort() {
@@ -96,10 +96,19 @@ class GuildLevelingData {
 	async uploadNewUser(userId: string) {
 		this.addUser({
 			...FrameworkConstants.DEFAULT_USER_LEVEL_DATA,
-			guild: this.guild,
-			user: userId,
+			guild_id: this.guild,
+			user_id: userId,
 		});
-		await DatabaseApi.put('/levels', [this.cache[userId]]);
+
+		await bus.database.transaction(async (con) => {
+			const newItem = this.cache[userId];
+			await con.query('INSERT INTO levels VALUES ($1,$2,$3,$4)', [
+				newItem.user_id,
+				newItem.guild_id,
+				newItem.level,
+				newItem.xp,
+			]);
+		});
 	}
 
 	async getUser(userId: string) {
@@ -131,21 +140,19 @@ export default class LevelingPlugin extends BotPlugin {
 
 	override async onLoad() {
 		const guilds = Array.from(this.bot.guilds.cache.keys());
-		const response = (
-			await DatabaseApi.get<IUmekoApiResponse<IUserLevelData[]>>(
-				`/levels?ids=${guilds.join(',')}`
-			)
-		).data;
-		if (response.error) {
-			throw new Error(response.data);
-		}
+		const levelsDatabaseQuery =
+			await bus.database.connection.query<IUserLevelData>(
+				'SELECT * FROM levels WHERE guild_id = ANY($1)',
+				[guilds]
+			);
 
-		response.data.forEach((d) => {
-			if (!this.cache.has(d.guild)) {
-				this.cache.set(d.guild, new GuildLevelingData(d.guild));
+		const rows = levelsDatabaseQuery.rows;
+		rows.forEach((d) => {
+			if (!this.cache.has(d.guild_id)) {
+				this.cache.set(d.guild_id, new GuildLevelingData(d.guild_id));
 			}
 
-			this.cache.get(d.guild)!.addUser(d);
+			this.cache.get(d.guild_id)!.addUser(d);
 		});
 
 		this.cache.forEach((d) => {
@@ -173,6 +180,7 @@ export default class LevelingPlugin extends BotPlugin {
 		await this.waitForState(ELoadableState.ACTIVE);
 
 		this.ensureGuild(guildId);
+
 		return await this.cache.get(guildId)!.getUser(userId);
 	}
 
@@ -237,7 +245,9 @@ export default class LevelingPlugin extends BotPlugin {
 	}
 
 	override async onDestroy() {
-		Array.from(this.cache.values()).forEach((c) => c.onDestroy());
+		await Promise.allSettled(
+			Array.from(this.cache.values()).map((c) => c.onDestroy())
+		);
 		this.bot.off('messageCreate', this.onMessageCreateCallback);
 	}
 }

@@ -1,14 +1,14 @@
 import {
 	Interaction,
-	BaseCommandInteraction,
 	Message,
 	CommandInteraction,
-	ContextMenuInteraction,
-	UserContextMenuInteraction,
+	ContextMenuCommandInteraction,
+	UserContextMenuCommandInteraction,
 	InteractionDeferReplyOptions,
 	InteractionReplyOptions,
 	MessagePayload,
-	WebhookEditMessageOptions,
+	ChatInputCommandInteraction,
+	MessageCreateOptions,
 } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
@@ -22,18 +22,19 @@ import { BotModule, ELoadableState, Loadable } from '@core/base';
 import axios from 'axios';
 import util from 'util';
 import { BotPlugin } from './plugins';
-import { FrameworkConstants } from '@core/framework';
+import { FrameworkConstants } from '@core/common';
 import { FSWatcher, watch } from 'chokidar';
+import md5 from 'blueimp-md5';
 export class CommandContext {
-	ctx: BaseCommandInteraction;
-	constructor(ctx: BaseCommandInteraction) {
+	ctx: CommandInteraction;
+	constructor(ctx: CommandInteraction) {
 		this.ctx = ctx;
 	}
 
 	get type() {
-		if (this.ctx.isCommand()) {
+		if (this.ctx.isChatInputCommand()) {
 			return ECommandType.SLASH;
-		} else if (this.ctx.isUserContextMenu()) {
+		} else if (this.ctx.isUserContextMenuCommand()) {
 			return ECommandType.USER_CONTEXT_MENU;
 		}
 
@@ -41,15 +42,15 @@ export class CommandContext {
 	}
 
 	get asSlashContext() {
-		return this.ctx as CommandInteraction;
+		return this.ctx as ChatInputCommandInteraction;
 	}
 
 	get asChatContext() {
-		return this.ctx as ContextMenuInteraction;
+		return this.ctx as ContextMenuCommandInteraction;
 	}
 
 	get asUserContext() {
-		return this.ctx as UserContextMenuInteraction;
+		return this.ctx as UserContextMenuCommandInteraction;
 	}
 
 	get deferred() {
@@ -64,7 +65,7 @@ export class CommandContext {
 		return await this.ctx.reply(opts);
 	}
 
-	async editReply(opts: string | MessagePayload | WebhookEditMessageOptions) {
+	async editReply(opts: string | MessagePayload | MessageCreateOptions) {
 		if (!this.ctx.deferred && this.ctx.channel) {
 			return await this.ctx.channel.send(opts);
 		}
@@ -89,6 +90,14 @@ abstract class CommandBase<P extends BotPlugin = BotPlugin> extends Loadable {
 
 	setPlugin(plugin: P) {
 		this.plugin = plugin;
+	}
+
+	async runCommand(ctx: CommandContext, ...args: unknown[]) {
+		try {
+			await this.execute(ctx, ...args);
+		} catch (error) {
+			console.error('Error executing command', this.constructor.name, error);
+		}
 	}
 
 	async execute(ctx: CommandContext, ...args: unknown[]) {
@@ -176,7 +185,8 @@ export abstract class ChatContextMenuCommand<
 }
 
 export class CommandsModule extends BotModule {
-	static FILE_UPDATE_TIMEOUT = 1000 * 10;
+	static FILE_UPDATE_TIMEOUT = 1000 * 4;
+	fileHashes: Map<string, string> = new Map();
 	commands: Map<string, CommandBase> = new Map();
 	pathsToCommands: Map<string, CommandBase> = new Map();
 	slashCommands: Map<string, SlashCommand> = new Map();
@@ -184,12 +194,15 @@ export class CommandsModule extends BotModule {
 	userContextMenuCommands: Map<string, UserContextMenuCommand> = new Map();
 	chatContextMenuCommands: Map<string, ChatContextMenuCommand> = new Map();
 	watcher: FSWatcher;
-	onCommandFileAddedCallback: (path: string, stats: fs.Stats) => Promise<void>;
+	onCommandFileAddedCallback: (
+		filePath: string,
+		stats: fs.Stats
+	) => Promise<void>;
 	onCommandFileChangedCallback: (
-		path: string,
+		filePath: string,
 		stats?: fs.Stats | undefined
 	) => Promise<void>;
-	onCommandFileDeletedCallback: (path: string) => Promise<void>;
+	onCommandFileDeletedCallback: (filePath: string) => Promise<void>;
 
 	interactionCreateCallback: (interaction: Interaction) => Promise<void> =
 		this.onInteractionCreate.bind(this);
@@ -206,41 +219,50 @@ export class CommandsModule extends BotModule {
 		this.onCommandFileDeletedCallback = this.onCommandFileDeleted.bind(this);
 	}
 
-	async onCommandFileAdded(path: string, stats: fs.Stats) {
-		if (this.pathsToCommands.has(path)) return;
-		console.info('Command Path Added', path);
-	}
-
-	async onCommandFileChanged(path: string, stats?: fs.Stats | undefined) {
-		if (this.pendingFileUpdate.has(path)) {
-			console.info('Refreshing pending File update');
-			this.pendingFileUpdate.get(path)!.refresh();
-			return;
-		}
-
-		console.info('Adding Pending File update');
-
-		// to account for multiple file updates at the same time so we wait till the latest version
-		await new Promise((r) =>
-			this.pendingFileUpdate.set(
-				path,
-				setTimeout(r, CommandsModule.FILE_UPDATE_TIMEOUT)
-			)
-		);
-
-		if (this.pathsToCommands.has(path)) {
-			const command = this.pathsToCommands.get(path)!;
-			if (command.state === ELoadableState.DESTROYING) {
+	async tryUpdateFile(filePath: string) {
+		if (await this.analyzeAndHash(filePath)) {
+			if (this.pendingFileUpdate.has(filePath)) {
+				console.info('Refreshing pending File update');
+				this.pendingFileUpdate.get(filePath)!.refresh();
 				return;
 			}
-			await command.destroy();
-			await this.importCommand(path, command.plugin, false);
 
-			this.pendingFileUpdate.delete(path);
+			console.info('Adding Pending File', filePath);
+
+			// to account for multiple file updates at the same time so we wait till the latest version
+			await new Promise((r) =>
+				this.pendingFileUpdate.set(
+					filePath,
+					setTimeout(r, CommandsModule.FILE_UPDATE_TIMEOUT)
+				)
+			);
+
+			console.info('Updating File', filePath);
+
+			if (this.pathsToCommands.has(filePath)) {
+				const command = this.pathsToCommands.get(filePath)!;
+				command.destroy();
+				await this.importCommand(filePath, command.plugin, false);
+
+				this.pendingFileUpdate.delete(filePath);
+			}
+		} else {
+			console.info(
+				'Skipping file',
+				filePath,
+				'as the contents of the file have not changed'
+			);
 		}
 	}
+	async onCommandFileAdded(filePath: string, stats: fs.Stats) {
+		await this.tryUpdateFile(filePath);
+	}
 
-	async onCommandFileDeleted(path: string) {}
+	async onCommandFileChanged(filePath: string, stats?: fs.Stats | undefined) {
+		await this.tryUpdateFile(filePath);
+	}
+
+	async onCommandFileDeleted(filePath: string) {}
 
 	async onLoad(old?: this): Promise<void> {
 		console.info('Preparing Commands');
@@ -282,21 +304,21 @@ export class CommandsModule extends BotModule {
 
 	async onInteractionCreate(interaction: Interaction) {
 		try {
-			if (!interaction.isCommand() && !interaction.isContextMenu()) {
+			if (!interaction.isCommand()) {
 				return;
 			}
 
 			let command: CommandBase | undefined = undefined;
 			console.info('New interaction', interaction.commandName);
-			if (interaction.isCommand()) {
+			if (interaction.isChatInputCommand()) {
 				if (interaction.options.getSubcommand(false)) {
 					command = this.slashCommands.get(interaction.options.getSubcommand());
 				} else {
 					command = this.slashCommands.get(interaction.commandName);
 				}
-			} else if (interaction.isUserContextMenu()) {
+			} else if (interaction.isUserContextMenuCommand()) {
 				command = this.userContextMenuCommands.get(interaction.commandName);
-			} else if (interaction.isContextMenu()) {
+			} else if (interaction.isContextMenuCommand()) {
 				command = this.chatContextMenuCommands.get(interaction.commandName);
 			}
 
@@ -336,7 +358,7 @@ export class CommandsModule extends BotModule {
 
 	private async addChatContextMenuCommand(command: ChatContextMenuCommand) {
 		if (this.chatContextMenuCommands.has(command.name)) {
-			await this.chatContextMenuCommands.get(command.name)!.destroy();
+			this.chatContextMenuCommands.get(command.name)!.destroy();
 		}
 
 		this.chatContextMenuCommands.set(command.name, command);
@@ -356,6 +378,13 @@ export class CommandsModule extends BotModule {
 		}
 
 		this.userContextMenuCommands.set(command.name, command);
+	}
+
+	async analyzeAndHash(filePath: string) {
+		const existingHash = this.fileHashes.get(filePath);
+		const newHash = md5(await fs.promises.readFile(filePath, 'utf-8'));
+		this.fileHashes.set(filePath, newHash);
+		return existingHash !== newHash;
 	}
 
 	async importCommand(
@@ -380,6 +409,7 @@ export class CommandsModule extends BotModule {
 
 			if (bWatch) {
 				this.pathsToCommands.set(importPath, command);
+				await this.analyzeAndHash(importPath);
 				this.watcher.add(importPath);
 			}
 		} catch (error) {
@@ -488,9 +518,12 @@ export class CommandsModule extends BotModule {
 		}
 	}
 
-	override async onDestroy(): Promise<void> {
+	override async onDestroy() {
 		this.watcher.off('add', this.onCommandFileAddedCallback);
 		this.watcher.off('change', this.onCommandFileChangedCallback);
 		this.watcher.off('unlink', this.onCommandFileDeletedCallback);
+		await Promise.allSettled(
+			Array.from(this.commands.values()).map((a) => a.destroy())
+		);
 	}
 }

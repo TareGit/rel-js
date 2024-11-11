@@ -1,0 +1,22 @@
+CREATE TABLE guilds (
+    id text PRIMARY KEY,
+    bot_opts text[],
+    join_opts text[],
+    leave_opts text[],
+    twitch_opts text[],
+    level_opts text[],
+    opts text[]
+);
+
+CREATE TABLE users (
+    id text,
+    card text[],
+    opts text[]
+);
+
+CREATE TABLE IF NOT EXISTS levels(
+    user_id text,
+    guild_id text,
+    level integer,
+    xp integer
+);

@@ -1,7 +1,7 @@
 import osu from 'node-os-utils';
 import { SlashCommand, CommandContext } from '@modules/commands';
-import { FrameworkConstants } from '@core/framework';
-import { buildBasicEmbed } from '@core/utils';
+import { FrameworkConstants } from '@core/common';
+import { buildBasicEmbed, setDescriptionFromRows } from '@core/utils';
 
 function pad(s: number) {
 	return (s < 10 ? '0' : '') + s;
@@ -32,41 +32,17 @@ export default class StatusCommand extends SlashCommand {
 		const hoursUp = Math.round(Math.floor((seconds / 3600) % 24));
 
 		const daysUp = Math.round(Math.floor(seconds / 86400));
-
-		Embed.addFields([
-			{
-				name: `Uptime`,
-				value: ` ${daysUp} Day${daysUp === 1 ? '' : 's'} ${pad(hoursUp)} Hr${
-					hoursUp === 1 ? '' : 's'
-				} ${pad(minutsUp)} Min ${pad(secondsUp)}Secs`,
-			},
-			{
-				name: 'Cluster',
-				value: `${bus.cluster!.id}`,
-				inline: true,
-			},
-			{
-				name: 'Shard',
-				value: `${ctx.asSlashContext.guild?.shardId}`,
-				inline: true,
-			},
-			{
-				name: 'Servers',
-				value: `${bus.bot!.guilds.cache.size}`,
-				inline: true,
-			},
-			{
-				name: 'CPU Load',
-				value: `${cpu}%`,
-				inline: true,
-			},
-			{
-				name: 'RAM Usage',
-				value: `${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(
-					2
-				)} MB`,
-				inline: true,
-			},
+		
+		setDescriptionFromRows(Embed, [
+			`Cluster => ${bus.cluster!.id}`,
+			`Uptime => ${daysUp} Day${daysUp === 1 ? '' : 's'} ${pad(hoursUp)} Hr${
+				hoursUp === 1 ? '' : 's'
+			} ${pad(minutsUp)} Min ${pad(secondsUp)}Secs`,
+			`Shard => ${ctx.asSlashContext.guild?.shardId}`,
+			`CPU Load => ${cpu}%`,
+			`RAM Usage => ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(
+				2
+			)} MB`,
 		]);
 
 		ctx.editReply({ embeds: [Embed] });

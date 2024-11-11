@@ -2,9 +2,9 @@ import { CommandContext, SlashCommand } from '@modules/commands';
 import MusicPlugin from '..';
 import { buildBasicEmbed, getMemeberAvatarUrl } from '@core/utils';
 
-export default class ResumeQueueCommand extends SlashCommand<MusicPlugin> {
+export default class ShuffleQueueCommand extends SlashCommand<MusicPlugin> {
 	constructor() {
-		super('resume', 'Resumes the current song', MusicPlugin.GROUP, []);
+		super('shuffle', 'shuffles the queue', MusicPlugin.GROUP, []);
 	}
 
 	override async execute(
@@ -24,11 +24,15 @@ export default class ResumeQueueCommand extends SlashCommand<MusicPlugin> {
 			return;
 		}
 
-		await queue.player?.resume();
-		await queue.updateEmbed();
+		queue.queue = queue.queue
+			.map((value) => ({ value, sort: Math.random() }))
+			.sort((a, b) => a.sort - b.sort)
+			.map(({ value }) => value);
 
 		await ctx.editReply({
-			embeds: [await buildBasicEmbed(ctx, 'Resumed', getMemeberAvatarUrl(ctx))],
+			embeds: [
+				await buildBasicEmbed(ctx, 'Shuffled', getMemeberAvatarUrl(ctx)),
+			],
 		});
 	}
 }

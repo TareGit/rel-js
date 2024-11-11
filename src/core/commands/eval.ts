@@ -17,8 +17,11 @@ export default class EvalCommand extends SlashCommand {
 	async execute(ctx: CommandContext, targetCommand = ''): Promise<void> {
 		const userId = ctx.asSlashContext.user.id;
 
-		if (userId !== process.env.CREATOR_ID)
-			return ctx.reply({ content: this.description, ephemeral: true });
+		if (userId !== process.env.CREATOR_ID) {
+			ctx.reply({ content: this.description, ephemeral: true });
+
+			return;
+		}
 
 		await ctx.deferReply();
 		const expression = ctx.asSlashContext.options.getString(

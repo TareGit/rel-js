@@ -1,10 +1,7 @@
-import { MessageEmbed } from 'discord.js';
 import { ECommandOptionType, IWallpaperzWallpaper } from '@core/types';
-import axios from 'axios';
 import { CommandContext, SlashCommand } from '@modules/commands';
-import { FrameworkConstants } from '@core/framework';
-import { buildBasicEmbed } from '@core/utils';
-import { MessageAttachment } from 'discord.js';
+import { FrameworkConstants } from '@core/common';
+import { AttachmentBuilder } from 'discord.js';
 
 export default class QRCommand extends SlashCommand {
 	constructor() {
@@ -43,7 +40,9 @@ export default class QRCommand extends SlashCommand {
 			true
 		);
 		try {
-			await ctx.editReply({ content: `https://qr.oyintare.dev/${url}` });
+			await ctx.editReply({
+				files: [new AttachmentBuilder(`https://qr.oyintare.dev/${url}`)],
+			});
 		} catch (error) {
 			console.error(error);
 		}

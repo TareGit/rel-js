@@ -16,7 +16,7 @@ if (process.argv.includes('--debug')) {
 	process.env.DB_API = process.env.DB_API_DEBUG;
 	process.env.SERVER_API = process.env.SERVER_API_DEBUG;
 	process.env.CLUSTER_API = process.env.CLUSTER_API_DEBUG;
-	process.env.DEBUG_GUILD = '919021496914018346';
+	process.env.DEBUG_GUILD = '669640893745201168'; //'451879265487683587'; //'919021496914018346';
 }
 
 if (!existsSync(path.join(process.cwd(), 'puppeter')))

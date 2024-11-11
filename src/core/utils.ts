@@ -5,9 +5,12 @@ import {
 	Client,
 	InteractionCollectorOptions,
 	EmbedFooterData,
-	MessageEmbed,
+	EmbedBuilder,
 	ColorResolvable,
+	GuildMember,
+	ImageURLOptions,
 } from 'discord.js';
+import { Context } from 'vm';
 
 /**
  * Generates a random float (inclusive)
@@ -80,25 +83,50 @@ export function time(sep = '') {
 // 	console.log.apply(null, argumentValues);
 // }
 
-export class InteractionCollector<
-	T extends Interaction,
-	V = unknown
-> extends ICollector<T> {
-	public data: V;
-	constructor(client: Client, d: V, options?: InteractionCollectorOptions<T>) {
-		super(client, options);
-		this.data = d;
-	}
-}
+// export class InteractionCollector<
+// 	T extends Interaction,
+// 	V = unknown
+// > extends ICollector<T = Interaction> {
+// 	public data: V;
+// 	constructor(client: Client, d: V, options?: InteractionCollectorOptions<T>) {
+// 		super(client, options);
+// 		this.data = d;
+// 	}
+// }
 
+export function getMemeberAvatarUrl(
+	ctx: CommandContext,
+	options?: ImageURLOptions
+) {
+	return (
+		(ctx.ctx.member as GuildMember).avatarURL(options) ??
+		ctx.ctx.user.avatarURL(options) ??
+		undefined
+	);
+}
 export async function buildBasicEmbed(
 	ctx: CommandContext,
-	footer?: EmbedFooterData
+	message?: string,
+	authorIcon?: string
 ) {
-	const embed = new MessageEmbed();
-	if (footer) embed.setFooter(footer);
+	const embed = new EmbedBuilder();
+	if (message) {
+		embed.setAuthor({
+			name: message,
+			iconURL: authorIcon ?? ctx.ctx.client.user.avatarURL() ?? undefined,
+		});
+	}
 	embed.setColor(
 		(await bus.database.getGuild(ctx.ctx.guildId)).color as ColorResolvable
 	);
 	return embed;
+}
+
+export async function setDescriptionFromRows(
+	embed: EmbedBuilder,
+	rows: string[],
+	prefix = '```',
+	suffix = '```'
+) {
+	return embed.setDescription(`${prefix}${rows.join('\n')}${suffix}`);
 }

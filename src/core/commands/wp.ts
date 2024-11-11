@@ -1,8 +1,8 @@
-import { MessageEmbed } from 'discord.js';
 import { ECommandOptionType, IWallpaperzWallpaper } from '@core/types';
 import axios from 'axios';
 import { CommandContext, SlashCommand } from '@modules/commands';
-import { FrameworkConstants } from '@core/framework';
+import { FrameworkConstants } from '@core/common';
+import { EmbedBuilder } from 'discord.js';
 
 export default class WallpaperzBrowseCommand extends SlashCommand {
 	constructor() {
@@ -35,7 +35,7 @@ export default class WallpaperzBrowseCommand extends SlashCommand {
 			if (searchResults.length) {
 				await ctx.editReply({
 					embeds: searchResults.map((wp) =>
-						new MessageEmbed()
+						new EmbedBuilder()
 							.setImage(
 								`https://wallpaperz.nyc3.cdn.digitaloceanspaces.com/wallpapers/${wp.id}.png `
 							)

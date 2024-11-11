@@ -27,32 +27,32 @@ app.get('/ping', async (req, res) => {
 	res.send({ id: 'umeko', guilds: guildsCount });
 });
 
-app.post('/u/guilds', (req, res) => {
-	const guildId = req.body.data;
-	console.info('UPDATE RECIEVED', req.body);
-	if (guildId) {
-		ClusterManager?.broadcastEval(`
-    bus?.database.addPendingGuilds(['${guildId}'])
-    `);
+// app.post('/u/guilds', (req, res) => {
+// 	const guildId = req.body.data;
+// 	console.info('UPDATE RECIEVED', req.body);
+// 	if (guildId) {
+// 		ClusterManager?.broadcastEval(`
+//     bus?.database.addPendingGuilds(['${guildId}'])
+//     `);
 
-		console.info(`Queued Update For Guild ${guildId}`);
-	}
+// 		console.info(`Queued Update For Guild ${guildId}`);
+// 	}
 
-	res.send({ result: 'recieved' });
-});
+// 	res.send({ result: 'recieved' });
+// });
 
-app.post('/u/users', (req, res) => {
-	const userId = req.body.data;
-	if (userId) {
-		ClusterManager?.broadcastEval(`
-        bus?.database.addPendingUsers(['${userId}'])
-        `);
+// app.post('/u/users', (req, res) => {
+// 	const userId = req.body.data;
+// 	if (userId) {
+// 		ClusterManager?.broadcastEval(`
+//         bus?.database.addPendingUsers(['${userId}'])
+//         `);
 
-		console.info(`Queued Update For User ${userId}`);
-	}
+// 		console.info(`Queued Update For User ${userId}`);
+// 	}
 
-	res.send({ result: 'recieved' });
-});
+// 	res.send({ result: 'recieved' });
+// });
 
 app.listen(port, () => {
 	console.info(`Umeko HTTP Server listening at ${process.env.CLUSTER_API}/`);

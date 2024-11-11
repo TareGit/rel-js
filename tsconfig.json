@@ -10,6 +10,9 @@
       ],
       "@plugins/*": [
         "plugins/*"
+      ],
+      "@common/*": [
+        "core/common/*"
       ]
     },
     "allowSyntheticDefaultImports": true,

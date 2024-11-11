@@ -1,4 +1,4 @@
-import { locationIsChannel, EOptsKeyLocation } from '@core/framework';
+import { locationIsChannel, EOptsKeyLocation } from '@core/common';
 import { BotPlugin } from '@modules/plugins';
 import { Client, Presence, TextChannel } from 'discord.js';
 
@@ -18,7 +18,7 @@ export default class TwitchPlugin extends BotPlugin {
 		this.bot.on('presenceUpdate', this.onPresenceUpdateCallback);
 	}
 
-	override async onDestroy(): Promise<void> {
+	override async onDestroy() {
 		this.bot.off('presenceUpdate', this.onPresenceUpdateCallback);
 	}
 
@@ -26,7 +26,6 @@ export default class TwitchPlugin extends BotPlugin {
 		if (!newPresence.guild || !newPresence.member) return;
 
 		const guildSettings = await bus.database.getGuild(newPresence.guild.id);
-
 		const twitchOptions = guildSettings.raw.twitch_opts;
 
 		if (

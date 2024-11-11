@@ -144,3 +144,41 @@ export type Awaitable<T> = T | Promise<T>;
 declare global {
 	var ClusterManager: ClusterManager;
 }
+
+declare global {
+	namespace NodeJS {
+		// Alias for compatibility
+		interface ProcessEnv extends Dict<string> {
+			DB_HOST: string;
+			DB_TARGET: string;
+			DB_USER: string;
+			DB_PASS: string;
+			SERVER_API_DEBUG: string;
+			SERVER_API: string;
+			CLUSTER_API_DEBUG: string;
+			CLUSTER_API: string;
+			DISCORD_BOT_ID: string;
+			DISCORD_BOT_TOKEN: string;
+			DISCORD_BOT_ID_ALPHA: string;
+			DISCORD_BOT_TOKEN_ALPHA: string;
+			SPOTIFY_API: string;
+			SPOTIFY_API_AUTH: string;
+			SPOTIFY_CLIENT_ID: string;
+			SPOTIFY_CLIENT_SECRET: string;
+			CREATOR_ID: string;
+			APEX_API_KEY: string;
+			LAVALINK_PASSWORD: string;
+			WEBSITE: string;
+			MAL_API: string;
+			MAL_API_KEY: string;
+			TMDB_API: string;
+			TMDB_API_KEY: string;
+			OSU_CLIENT_ID: string;
+			OSU_CLIENT_SECRET: string;
+			OSU_API_CALLBACK: string;
+			OSU_API: string;
+			OSU_API_AUTH: string;
+			TWITCH_API_CALLBACK: string;
+		}
+	}
+}

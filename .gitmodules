@@ -1,0 +1,3 @@
+[submodule "src/core/common"]
+	path = src/core/common
+	url = https://github.com/TareHimself/umeko-common

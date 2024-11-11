@@ -77,4 +77,10 @@ export class PluginsModule extends BotModule {
 	get size() {
 		return this.plugins.size;
 	}
+
+	override async destroy() {
+		await Promise.allSettled(
+			Array.from(this.plugins.values()).map((a) => a.destroy())
+		);
+	}
 }

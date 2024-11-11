@@ -7,7 +7,6 @@ const enum ELoadableState {
 	INACTIVE = 'Inactive',
 	ACTIVE = 'Active',
 	LOADING = 'Loading',
-	DESTROYING = 'Destroying',
 }
 
 export { ELoadableState };
@@ -16,6 +15,13 @@ export { ELoadableState };
  * Base class for all Classes that will need a load => destroy lifecycle.
  */
 export abstract class Loadable {
+	/**
+	 * A reference to the actual bot
+	 */
+	get bot() {
+		return bus.bot;
+	}
+
 	/**
 	 * The internal state of this {@link Loadable| Loadable}
 	 */
@@ -109,39 +115,22 @@ export abstract class Loadable {
 	 * destroy this {@link Loadable | Loadable}
 	 * @returns
 	 */
-	async destroy() {
-		if (
-			!(await this.setAndWaitForState(
-				ELoadableState.DESTROYING,
-				ELoadableState.INACTIVE
-			))
-		)
-			return;
-
-		await this.onDestroy();
-
-		console.info('Finished Destroy');
+	destroy() {
+		if (ELoadableState.INACTIVE) return;
+		this.onDestroy();
 		this.state = ELoadableState.INACTIVE;
-		console.info('Resolved callbacks');
 	}
 
 	/**
 	 * Called during {@link destroy | destroy}, Child classess can override this for cleanup
 	 */
-	async onDestroy() {}
+	onDestroy() {}
 }
 
 /**
  * Base class for all Modules the bot has
  */
 export abstract class BotModule extends Loadable {
-	/**
-	 * A reference to the actual bot
-	 */
-	get bot() {
-		return bus.bot;
-	}
-
 	constructor() {
 		super();
 	}
@@ -149,4 +138,12 @@ export abstract class BotModule extends Loadable {
 	async onLoadError(error: Error): Promise<void> {
 		console.error('Error loading module', this.constructor.name, '\n', error);
 	}
+
+	override destroy() {
+		console.error('Started shutdown of module', this.constructor.name);
+		super.destroy();
+		console.error('Finished shutdown of module', this.constructor.name);
+	}
 }
+
+export class BotError extends Error {}

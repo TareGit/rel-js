@@ -25,7 +25,7 @@ export function getLogFileName() {
 
 export const LOG_DEFAULTS = {
 	TYPE_LENGTH: 5,
-	FILENAME_LENGTH: 25,
+	FILENAME_LENGTH: 35,
 };
 
 const LOGS_PATH = path.join(process.cwd(), 'logs');

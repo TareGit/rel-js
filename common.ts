@@ -39,8 +39,8 @@ export type IUmekoApiResponse<T = any> =
 	  };
 
 export interface IUserLevelData {
-	user: string;
-	guild: string;
+	user_id: string;
+	guild_id: string;
 	level: number;
 	xp: number;
 }
@@ -57,26 +57,24 @@ export interface IGuildSettings {
 
 export interface IDatabaseGuildSettings {
 	id: string;
-	bot_opts: string;
-	join_opts: string;
-	leave_opts: string;
-	twitch_opts: string;
-	level_opts: string;
-	opts: string;
+	bot_opts: string[];
+	join_opts: string[];
+	leave_opts: string[];
+	twitch_opts: string[];
+	level_opts: string[];
+	opts: string[];
 }
 
 export interface IUserSettings {
 	id: string;
 	card: OptsParser<ObjectValues<typeof ECardOptsKeys>>;
 	opts: OptsParser;
-	flags: number;
 }
 
 export interface IDatabaseUserSettings {
 	id: string;
-	card: string;
-	opts: string;
-	flags: number;
+	card: string[];
+	opts: string[];
 }
 
 export type ObjectKeys<T> = keyof T;
@@ -88,8 +86,8 @@ export type TypedValuePair<T extends string> = { [key in T]: string };
 export class OptsParser<T extends string = string> {
 	opts: TypedValuePair<T>;
 	toString: undefined;
-	constructor(a: TypedValuePair<T> | string) {
-		if (typeof a === 'string') {
+	constructor(a: TypedValuePair<T> | string[]) {
+		if (a instanceof Array) {
 			this.opts = OptsParser.decode<T>(a);
 		} else {
 			this.opts = a;
@@ -97,27 +95,33 @@ export class OptsParser<T extends string = string> {
 	}
 
 	get(optId: T, fallback: string = '') {
-		if (this.opts[optId] === null || this.opts[optId] === undefined) {
-			return fallback;
-		}
-
-		return this.opts[optId];
+		return this.opts[optId] ?? fallback;
 	}
 
 	set(optId: T, data: string) {
 		this.opts[optId] = data;
 	}
 
-	static decode<T extends string>(opts: string): TypedValuePair<T> {
+	static decode<T extends string>(opts: string[]): TypedValuePair<T> {
 		try {
-			return JSON.parse(decodeURI(opts).trim());
-		} catch (error: any) {
+			const newOpts: Record<string, string> = {};
+
+			opts.forEach((a) => {
+				const sepIndex = a.indexOf('|');
+
+				const [opt, value] = [a.slice(0, sepIndex), a.slice(sepIndex + 1)];
+
+				newOpts[opt] = value;
+			});
+
+			return newOpts as TypedValuePair<T>;
+		} catch (error) {
 			return {} as TypedValuePair<T>;
 		}
 	}
 
 	encode() {
-		return encodeURI(JSON.stringify(this.opts)).trim();
+		return Object.entries(this.opts).map((a) => `${a[0]}|${a[1]}`);
 	}
 }
 
@@ -142,11 +146,11 @@ export class FrameworkConstants {
 			nickname: this.DEFAULT_BOT_NAME,
 			locale: this.DEFAULT_BOT_LOCALE,
 		}).encode(),
-		join_opts: '',
-		leave_opts: '',
-		twitch_opts: '',
-		level_opts: '',
-		opts: '',
+		join_opts: [],
+		leave_opts: [],
+		twitch_opts: [],
+		level_opts: [],
+		opts: [],
 	};
 
 	static DEFAULT_USER_SETTINGS: IDatabaseUserSettings = {
@@ -157,13 +161,12 @@ export class FrameworkConstants {
 			bg_url: '',
 			opacity: this.DEFAULT_USER_CARD_OPACITY,
 		}).encode(),
-		opts: '',
-		flags: 0,
+		opts: [],
 	};
 
 	static DEFAULT_USER_LEVEL_DATA: IUserLevelData = {
-		user: '',
-		guild: '',
+		user_id: '',
+		guild_id: '',
 		level: 0,
 		xp: 0,
 	};

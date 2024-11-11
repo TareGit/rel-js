@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { FrameworkConstants } from '@core/framework';
+import { FrameworkConstants } from '@core/common';
 import { SlashCommand, CommandContext } from '@modules/commands';
 import { buildBasicEmbed } from '@core/utils';
 
@@ -64,7 +64,7 @@ export default class ActorCommand extends SlashCommand {
 			ctx.editReply({ embeds: [Embed] });
 		} catch (error) {
 			ctx.editReply({
-				embeds: [await buildBasicEmbed(ctx, { text: 'Actor Not Found' })],
+				embeds: [await buildBasicEmbed(ctx, 'Actor Not Found')],
 			});
 			console.error(`Error Searching for Actors\x1b[0m\n`, error);
 		}

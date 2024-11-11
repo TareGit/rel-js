@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { FrameworkConstants } from '@core/framework';
+import { FrameworkConstants } from '@core/common';
 import { buildBasicEmbed } from '@core/utils';
 import { SlashCommand, CommandContext } from '@modules/commands';
 
@@ -69,7 +69,7 @@ export default class AnimeCommand extends SlashCommand {
 			ctx.editReply({ embeds: [Embed] });
 		} catch (error) {
 			ctx.editReply({
-				embeds: [await buildBasicEmbed(ctx, { text: 'Anime Not Found' })],
+				embeds: [await buildBasicEmbed(ctx, 'Anime Not Found')],
 			});
 			console.error(`Error Fetching Anime Data\x1b[0m`, error);
 		}

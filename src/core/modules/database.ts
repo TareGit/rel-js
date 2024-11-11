@@ -1,15 +1,14 @@
-import { DatabaseApi, ServerApi } from '@core/api';
 import { BotModule, ELoadableState } from '@core/base';
 import {
 	IGuildSettings,
 	IDatabaseGuildSettings,
 	IUserSettings,
 	IDatabaseUserSettings,
-	IUmekoApiResponse,
 	FrameworkConstants,
 	OptsParser,
-} from '@core/framework';
-import { Client } from 'pg';
+} from '@core/common';
+import { Client, ClientConfig } from 'pg';
+import createSubscriber from 'pg-listen';
 
 const MAX_DATABASE_QUERY = 50;
 const PENDING_DATA_UPDATE_FREQUENCY = 1000 * 60 * 5;
@@ -17,7 +16,7 @@ const PENDING_DATA_UPDATE_FREQUENCY = 1000 * 60 * 5;
 export class GuildSettings {
 	raw: IGuildSettings;
 	constructor(settings: IDatabaseGuildSettings | IGuildSettings) {
-		if (typeof settings.opts === 'string') {
+		if (settings.opts instanceof Array) {
 			this.raw = DatabaseModule.guildFromDatabase(
 				settings as IDatabaseGuildSettings
 			);
@@ -32,19 +31,19 @@ export class GuildSettings {
 
 	get color() {
 		return (
-			this.raw.bot_opts.get('color') || FrameworkConstants.DEFAULT_BOT_COLOR
+			this.raw.bot_opts.get('color') ?? FrameworkConstants.DEFAULT_BOT_COLOR
 		);
 	}
 
 	get locale() {
 		return (
-			this.raw.bot_opts.get('locale') || FrameworkConstants.DEFAULT_BOT_LOCALE
+			this.raw.bot_opts.get('locale') ?? FrameworkConstants.DEFAULT_BOT_LOCALE
 		);
 	}
 
 	get nickname() {
 		return (
-			this.raw.bot_opts.get('nickname') || FrameworkConstants.DEFAULT_BOT_NAME
+			this.raw.bot_opts.get('nickname') ?? FrameworkConstants.DEFAULT_BOT_NAME
 		);
 	}
 
@@ -61,7 +60,7 @@ export class UserSettings {
 	raw: IUserSettings;
 
 	constructor(settings: IDatabaseUserSettings | IUserSettings) {
-		if (typeof settings.opts === 'string') {
+		if (settings.opts instanceof Array) {
 			this.raw = DatabaseModule.userFromDatabase(
 				settings as IDatabaseUserSettings
 			);
@@ -93,10 +92,6 @@ export class UserSettings {
 		);
 	}
 
-	get flags() {
-		return this.raw.flags;
-	}
-
 	get options() {
 		return this.raw.opts;
 	}
@@ -115,6 +110,17 @@ export class DatabaseModule extends BotModule {
 	pendingUsers: Set<string> = new Set();
 	guilds: Map<string, GuildSettings> = new Map();
 	users: Map<string, UserSettings> = new Map();
+	dbConnectionInfo: ClientConfig = {
+		host: process.env.DB_HOST,
+		database: process.env.DB_TARGET,
+		port: 5432,
+		user: process.env.DB_USER,
+		password: process.env.DB_PASS,
+	};
+
+	connection = new Client(this.dbConnectionInfo);
+
+	subscriber = createSubscriber(this.dbConnectionInfo);
 
 	static DEFAULT_GUILD_SETTINGS_INSTANCE = new GuildSettings(
 		FrameworkConstants.DEFAULT_GUILD_SETTINGS
@@ -167,6 +173,43 @@ export class DatabaseModule extends BotModule {
 	async onLoad(old?: this): Promise<void> {
 		console.info('Preparing Database');
 		try {
+			await this.connection.connect();
+			await this.subscriber.connect();
+			await this.subscriber.listenTo('update_user');
+			await this.subscriber.listenTo('update_guild');
+			this.subscriber.events.on('error', (e) =>
+				console.error('Error with database listener', e)
+			);
+			this.subscriber.notifications
+				.on(
+					'update_guild',
+					(
+						payload: Omit<
+							IDatabaseGuildSettings,
+							keyof Omit<IDatabaseGuildSettings, 'id'>
+						>
+					) => {
+						if (this.guilds.has(payload.id)) {
+							this.pendingGuilds.add(payload.id);
+							console.info(`Queued Update For Guild ${payload.id}`);
+						}
+					}
+				)
+				.on(
+					'update_user',
+					(
+						payload: Omit<
+							IDatabaseUserSettings,
+							keyof Omit<IDatabaseUserSettings, 'id'>
+						>
+					) => {
+						if (this.users.has(payload.id)) {
+							this.pendingUsers.add(payload.id);
+							console.info(`Queued Update For User ${payload.id}`);
+						}
+					}
+				);
+
 			if (this.bot.guilds) {
 				const guilds = Array.from(this.bot.guilds.cache.keys());
 				console.info(`Fetching ${guilds.length} Guilds`);
@@ -180,6 +223,17 @@ export class DatabaseModule extends BotModule {
 		}
 
 		console.info('Database Ready');
+	}
+
+	async transaction(callback: (connection: Client) => Promise<void>) {
+		try {
+			await this.connection.query('BEGIN');
+			await callback(this.connection);
+			await this.connection.query('COMMIT');
+		} catch (error) {
+			await this.connection.query('ROLLBACK');
+			throw error;
+		}
 	}
 
 	async updatePendingGuilds() {
@@ -257,135 +311,222 @@ export class DatabaseModule extends BotModule {
 		ids: string[],
 		uploadMissing: boolean = false
 	): Promise<IDatabaseUserSettings[]> {
-		if (ids.length > MAX_DATABASE_QUERY) {
-			const tasks: ReturnType<typeof this.fetchUsers>[] = [];
-			const totalTasks = Math.ceil(ids.length / MAX_DATABASE_QUERY);
-			for (let i = 0; i < totalTasks; i++) {
-				const isEnd = i === totalTasks - 1;
-				const sliceStart = i * MAX_DATABASE_QUERY;
-				const batch = ids.slice(
-					sliceStart,
-					isEnd ? undefined : sliceStart + MAX_DATABASE_QUERY
-				);
-				tasks.push(this.fetchUsers(batch, uploadMissing));
-			}
+		const guildsQueryResult =
+			await this.connection.query<IDatabaseUserSettings>(
+				`SELECT * FROM users WHERE id = ANY($1)`,
+				[ids]
+			);
 
-			const results = await Promise.allSettled(tasks);
+		const usersFetched = [...guildsQueryResult.rows];
 
-			return results.reduce((total, result) => {
-				if (result.status === 'fulfilled') {
-					total.push.apply(total, result.value);
-				}
-				return total;
-			}, [] as IDatabaseUserSettings[]);
-		}
-
-		const DatabaseResponse = (
-			await DatabaseApi.get<IUmekoApiResponse<IDatabaseUserSettings[]>>(
-				`/users?ids=${ids.join(',')}`
-			)
-		).data;
-
-		if (DatabaseResponse.error) {
-			throw new Error(DatabaseResponse.data as string);
-		}
-
-		const data = DatabaseResponse.data as IDatabaseUserSettings[];
 		if (uploadMissing) {
-			const idsGotten = data.map((d) => d.id);
-			const notFound = ids.filter((id) => !idsGotten.includes(id));
-			if (notFound.length > 0) {
-				const toDatabase = notFound.map((id) => ({
-					...FrameworkConstants.DEFAULT_USER_SETTINGS,
-					id,
-				}));
-				const uploadResponse = (
-					await DatabaseApi.put<IUmekoApiResponse<IDatabaseUserSettings[]>>(
-						'/users',
-						toDatabase
-					)
-				).data;
+			const idsGotten = usersFetched.map((a) => a.id);
+			const idsNeeded = ids.filter((a) => !idsGotten.includes(a));
 
-				if (uploadResponse.error) {
-					throw new Error(uploadResponse.data);
-				}
+			if (idsNeeded.length > 0) {
+				await this.transaction(async (con) => {
+					await Promise.allSettled([
+						idsNeeded.map((a) => {
+							const newData: IDatabaseUserSettings = {
+								...FrameworkConstants.DEFAULT_USER_SETTINGS,
+								id: a,
+							};
 
-				data.push.apply(data, toDatabase);
+							usersFetched.push(newData);
+
+							return con.query('INSERT INTO users VALUES ($1,$2,$3)', [
+								newData.id,
+								newData.card,
+								newData.opts,
+							]);
+						}),
+					]);
+				});
 			}
 		}
 
-		ServerApi.post('/n/users', {
-			url: `${process.env.CLUSTER_API}/u/users`,
-			ids: data.map((a) => a.id),
-		}).catch(() => console.error('Error requesting user notifications'));
-
-		return data;
+		return usersFetched;
 	}
 
 	async fetchGuilds(
 		ids: string[],
 		uploadMissing: boolean = false
 	): Promise<IDatabaseGuildSettings[]> {
-		if (ids.length > MAX_DATABASE_QUERY) {
-			const tasks: ReturnType<typeof this.fetchGuilds>[] = [];
-			const totalTasks = Math.ceil(ids.length / MAX_DATABASE_QUERY);
-			for (let i = 0; i < totalTasks; i++) {
-				const isEnd = i === totalTasks - 1;
-				const sliceStart = i * MAX_DATABASE_QUERY;
-				const batch = ids.slice(
-					sliceStart,
-					isEnd ? undefined : sliceStart + MAX_DATABASE_QUERY
-				);
-				tasks.push(this.fetchGuilds(batch, uploadMissing));
-			}
-
-			const results = await Promise.allSettled(tasks);
-
-			return results.reduce((total, result) => {
-				if (result.status === 'fulfilled') {
-					total.push.apply(total, result.value);
-				}
-				return total;
-			}, [] as IDatabaseGuildSettings[]);
-		}
-
-		const DatabaseResponse = (
-			await DatabaseApi.get<IUmekoApiResponse<IDatabaseGuildSettings[]>>(
-				`/guilds?ids=${ids.join(',')}`
-			)
-		).data;
-
-		if (DatabaseResponse.error) {
-			throw new Error(DatabaseResponse.data as string);
-		}
-
-		const data = DatabaseResponse.data as IDatabaseGuildSettings[];
-
+		const guildsQueryResult =
+			await this.connection.query<IDatabaseGuildSettings>(
+				`SELECT * FROM guilds WHERE id = ANY($1)`,
+				[ids]
+			);
+		const guildsFetched = [...guildsQueryResult.rows];
 		if (uploadMissing) {
-			const idsGotten = data.map((d) => d.id);
-			const notFound = ids.filter((id) => !idsGotten.includes(id));
-			if (notFound.length > 0) {
-				const toDatabase = notFound.map((id) => ({
-					...FrameworkConstants.DEFAULT_GUILD_SETTINGS,
-					id,
-				}));
-				const uploadResponse = (
-					await DatabaseApi.put<IUmekoApiResponse>('/guilds', toDatabase)
-				).data;
-				if (uploadResponse.error) {
-					throw new Error(uploadResponse.data as string);
-				}
-				data.push.apply(data, toDatabase);
+			const idsGotten = guildsFetched.map((a) => a.id);
+			const idsNeeded = ids.filter((a) => !idsGotten.includes(a));
+
+			if (idsNeeded.length > 0) {
+				await this.transaction(async (con) => {
+					await Promise.allSettled([
+						idsNeeded.map((a) => {
+							const newData: IDatabaseGuildSettings = {
+								...FrameworkConstants.DEFAULT_GUILD_SETTINGS,
+								id: a,
+							};
+
+							guildsFetched.push(newData);
+
+							return con.query(
+								'INSERT INTO guilds VALUES ($1,$2,$3,$4,$5,$6,$7)',
+								[
+									newData.id,
+									newData.bot_opts,
+									newData.join_opts,
+									newData.leave_opts,
+									newData.twitch_opts,
+									newData.level_opts,
+									newData.opts,
+								]
+							);
+						}),
+					]);
+				});
 			}
 		}
 
-		ServerApi.post('/n/guilds', {
-			url: `${process.env.CLUSTER_API}/u/guilds`,
-			ids: data.map((a) => a.id),
-		}).catch(() => console.error('Error requesting guilds notifications'));
-
-		return data;
+		return guildsFetched;
 	}
+
+	// async fetchUsers(
+	// 	ids: string[],
+	// 	uploadMissing: boolean = false
+	// ): Promise<IDatabaseUserSettings[]> {
+	// 	if (ids.length > MAX_DATABASE_QUERY) {
+	// 		const tasks: ReturnType<typeof this.fetchUsers>[] = [];
+	// 		const totalTasks = Math.ceil(ids.length / MAX_DATABASE_QUERY);
+	// 		for (let i = 0; i < totalTasks; i++) {
+	// 			const isEnd = i === totalTasks - 1;
+	// 			const sliceStart = i * MAX_DATABASE_QUERY;
+	// 			const batch = ids.slice(
+	// 				sliceStart,
+	// 				isEnd ? undefined : sliceStart + MAX_DATABASE_QUERY
+	// 			);
+	// 			tasks.push(this.fetchUsers(batch, uploadMissing));
+	// 		}
+
+	// 		const results = await Promise.allSettled(tasks);
+
+	// 		return results.reduce((total, result) => {
+	// 			if (result.status === 'fulfilled') {
+	// 				total.push.apply(total, result.value);
+	// 			}
+	// 			return total;
+	// 		}, [] as IDatabaseUserSettings[]);
+	// 	}
+
+	// 	const DatabaseResponse = (
+	// 		await DatabaseApi.get<IUmekoApiResponse<IDatabaseUserSettings[]>>(
+	// 			`/users?ids=${ids.join(',')}`
+	// 		)
+	// 	).data;
+
+	// 	if (DatabaseResponse.error) {
+	// 		throw new Error(DatabaseResponse.data as string);
+	// 	}
+
+	// 	const data = DatabaseResponse.data as IDatabaseUserSettings[];
+	// 	if (uploadMissing) {
+	// 		const idsGotten = data.map((d) => d.id);
+	// 		const notFound = ids.filter((id) => !idsGotten.includes(id));
+	// 		if (notFound.length > 0) {
+	// 			const toDatabase = notFound.map((id) => ({
+	// 				...FrameworkConstants.DEFAULT_USER_SETTINGS,
+	// 				id,
+	// 			}));
+	// 			const uploadResponse = (
+	// 				await DatabaseApi.put<IUmekoApiResponse<IDatabaseUserSettings[]>>(
+	// 					'/users',
+	// 					toDatabase
+	// 				)
+	// 			).data;
+
+	// 			if (uploadResponse.error) {
+	// 				throw new Error(uploadResponse.data);
+	// 			}
+
+	// 			data.push.apply(data, toDatabase);
+	// 		}
+	// 	}
+
+	// 	ServerApi.post('/n/users', {
+	// 		url: `${process.env.CLUSTER_API}/u/users`,
+	// 		ids: data.map((a) => a.id),
+	// 	}).catch(() => console.error('Error requesting user notifications'));
+
+	// 	return data;
+	// }
+
+	// async fetchGuilds(
+	// 	ids: string[],
+	// 	uploadMissing: boolean = false
+	// ): Promise<IDatabaseGuildSettings[]> {
+	// 	if (ids.length > MAX_DATABASE_QUERY) {
+	// 		const tasks: ReturnType<typeof this.fetchGuilds>[] = [];
+	// 		const totalTasks = Math.ceil(ids.length / MAX_DATABASE_QUERY);
+	// 		for (let i = 0; i < totalTasks; i++) {
+	// 			const isEnd = i === totalTasks - 1;
+	// 			const sliceStart = i * MAX_DATABASE_QUERY;
+	// 			const batch = ids.slice(
+	// 				sliceStart,
+	// 				isEnd ? undefined : sliceStart + MAX_DATABASE_QUERY
+	// 			);
+	// 			tasks.push(this.fetchGuilds(batch, uploadMissing));
+	// 		}
+
+	// 		const results = await Promise.allSettled(tasks);
+
+	// 		return results.reduce((total, result) => {
+	// 			if (result.status === 'fulfilled') {
+	// 				total.push.apply(total, result.value);
+	// 			}
+	// 			return total;
+	// 		}, [] as IDatabaseGuildSettings[]);
+	// 	}
+
+	// 	const DatabaseResponse = (
+	// 		await DatabaseApi.get<IUmekoApiResponse<IDatabaseGuildSettings[]>>(
+	// 			`/guilds?ids=${ids.join(',')}`
+	// 		)
+	// 	).data;
+
+	// 	if (DatabaseResponse.error) {
+	// 		throw new Error(DatabaseResponse.data as string);
+	// 	}
+
+	// 	const data = DatabaseResponse.data as IDatabaseGuildSettings[];
+
+	// 	if (uploadMissing) {
+	// 		const idsGotten = data.map((d) => d.id);
+	// 		const notFound = ids.filter((id) => !idsGotten.includes(id));
+	// 		if (notFound.length > 0) {
+	// 			const toDatabase = notFound.map((id) => ({
+	// 				...FrameworkConstants.DEFAULT_GUILD_SETTINGS,
+	// 				id,
+	// 			}));
+	// 			const uploadResponse = (
+	// 				await DatabaseApi.put<IUmekoApiResponse>('/guilds', toDatabase)
+	// 			).data;
+	// 			if (uploadResponse.error) {
+	// 				throw new Error(uploadResponse.data as string);
+	// 			}
+	// 			data.push.apply(data, toDatabase);
+	// 		}
+	// 	}
+
+	// 	ServerApi.post('/n/guilds', {
+	// 		url: `${process.env.CLUSTER_API}/u/guilds`,
+	// 		ids: data.map((a) => a.id),
+	// 	}).catch(() => console.error('Error requesting guilds notifications'));
+
+	// 	return data;
+	// }
 
 	async getUsers(ids: string[], bFetchIfNotFound: boolean = false) {
 		const notFound: string[] = [];
@@ -442,7 +583,7 @@ export class DatabaseModule extends BotModule {
 		}
 
 		return (
-			(await this.getGuilds([id], bFetchIfNotFound))[0] ||
+			(await this.getGuilds([id], bFetchIfNotFound))[0] ??
 			DatabaseModule.DEFAULT_GUILD_SETTINGS_INSTANCE
 		);
 	}
@@ -459,5 +600,10 @@ export class DatabaseModule extends BotModule {
 			(await this.getUsers([id], bFetchIfNotFound))[0] ||
 			DatabaseModule.DEFAULT_USER_SETTINGS_INSTANCE
 		);
+	}
+
+	override onDestroy() {
+		console.info('Shutting down');
+		this.subscriber.close();
 	}
 }

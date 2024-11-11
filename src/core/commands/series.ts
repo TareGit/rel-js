@@ -1,8 +1,8 @@
-import { ColorResolvable, MessageEmbed } from 'discord.js';
 import { ECommandOptionType } from '@core/types';
 import axios from 'axios';
 import { SlashCommand, CommandContext } from '@modules/commands';
-import { FrameworkConstants } from '@core/framework';
+import { FrameworkConstants } from '@core/common';
+import { buildBasicEmbed } from '@core/utils';
 
 export default class SeriesCommand extends SlashCommand {
 	constructor() {
@@ -30,13 +30,9 @@ export default class SeriesCommand extends SlashCommand {
 
 		let response: any = undefined;
 
-		const Embed = new MessageEmbed();
-		Embed.setColor(
-			(await bus.database.getGuild(ctx.asSlashContext.guild?.id))
-				.color as ColorResolvable
-		);
-
 		try {
+			const Embed = await buildBasicEmbed(ctx);
+
 			const request = {
 				headers: {
 					Authorization: `Bearer ${process.env.TMDB_API_KEY}`,
@@ -59,15 +55,20 @@ export default class SeriesCommand extends SlashCommand {
 				`https://image.tmdb.org/t/p/original${seriesData.poster_path}`
 			);
 
-			Embed.addField('Rating', `${seriesData.vote_average}/10`);
+			Embed.addFields([
+				{ name: 'Rating', value: `${seriesData.vote_average}/10` },
+				{
+					name: 'First Air Date',
+					value: seriesData.first_air_date ?? 'Unknown',
+				},
+			]);
 
-			Embed.addField('First Air Date', seriesData.first_air_date || 'Unknown');
-
-			ctx.editReply({ embeds: [Embed] });
+			await ctx.editReply({ embeds: [Embed] });
 		} catch (error) {
-			Embed.setFooter({ text: 'Series Not Found' });
+			await ctx.editReply({
+				embeds: [await buildBasicEmbed(ctx, 'Series Not Found')],
+			});
 
-			ctx.editReply({ embeds: [Embed] });
 			console.error(`Error Searching for Series\x1b[0m\n`, error);
 		}
 	}

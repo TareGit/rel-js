@@ -1,6 +1,6 @@
 import { ECommandOptionType } from '@core/types';
 import axios from 'axios';
-import { FrameworkConstants } from '@core/framework';
+import { FrameworkConstants } from '@core/common';
 import { SlashCommand, CommandContext } from '@modules/commands';
 import { buildBasicEmbed } from '@core/utils';
 
@@ -63,7 +63,7 @@ export default class MoviesCommand extends SlashCommand {
 			ctx.editReply({ embeds: [Embed] });
 		} catch (error) {
 			ctx.editReply({
-				embeds: [await buildBasicEmbed(ctx, { text: 'Movie Not Found' })],
+				embeds: [await buildBasicEmbed(ctx, 'Movie Not Found')],
 			});
 			console.error(`Error Searching for Movie\x1b[0m\n`, error);
 		}
